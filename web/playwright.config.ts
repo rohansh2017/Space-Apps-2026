@@ -9,6 +9,7 @@ const baseURL = process.env.BASE_URL ?? 'http://localhost:4173'
 export default defineConfig({
   testDir: 'tests/e2e',
   use: { baseURL, viewport: { width: 1200, height: 1000 }, ...gpu },
+  expect: { timeout: process.env.BASE_URL ? 15_000 : 5_000 }, // a deployed site answers over the network
   webServer: process.env.BASE_URL
     ? undefined
     : { command: 'npm run build && npx vite preview --port 4173 --strictPort', url: baseURL, reuseExistingServer: true, timeout: 120_000 },

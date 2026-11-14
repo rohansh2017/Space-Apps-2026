@@ -5,6 +5,9 @@ import { shot } from './hud'
 test.skip(!process.env.ROOM_TEST, 'needs the Worker: run via make e2e-room or make e2e-live')
 
 test('F24: two browsers in one mission room stay in step, and a late joiner gets the latest state', async ({ browser }) => {
+  // every assertion here waits on a round trip through the Worker, and a live Durable Object may start cold
+  test.setTimeout(90_000)
+  test.slow()
   const a = await (await browser.newContext()).newPage()
   await a.goto('/')
   await expect(a.getByTestId('view')).toContainText('Plan: Shackleton rim')
