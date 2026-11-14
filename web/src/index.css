@@ -118,3 +118,7 @@ footer { margin-top: 2rem; font-size: 0.78rem; color: var(--mute); max-width: 70
 .tour svg { width: 100%; max-width: 26rem; height: auto; display: block; }
 .tour-nav { display: flex; gap: 0.4rem; align-items: center; }
 .tour-nav .primary { padding: 0.38rem 0.9rem; border-radius: 7px; }
+.room { display: grid; gap: 0.4rem; font-size: 0.8rem; color: var(--dim); }
+.room input { width: 100%; font-size: 0.76rem; }
+.room-row { display: flex; gap: 0.4rem; align-items: center; }
+.room-row .ok { font-weight: 600; }

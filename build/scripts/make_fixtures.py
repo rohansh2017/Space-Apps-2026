@@ -68,7 +68,7 @@ def main() -> None:
         "glossary": [{"term": "Horizon mask", "definition": "Mock glossary entry."}],
     })  # fmt: skip
     export.write_json(ROOT / "shared" / "fixtures" / "room_message.json", {
-        "type": "state", "site_id": src["sites"][0]["id"], "utc": "2026-11-20T00:00:00Z",
+        "type": "state", "site_id": src["sites"][0]["id"], "point_index": None, "utc": "2026-11-20T00:00:00Z",
         "constraints": {"mission_duration_days": 7, "max_continuous_dark_hours": 80},
         "sender": "client-1234",
     })  # fmt: skip

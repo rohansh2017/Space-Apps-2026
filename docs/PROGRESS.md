@@ -109,3 +109,18 @@ Pulled the teammate's "Phase 3 nearly done" commit onto the Intel Mac that did P
 **Test status**: tsc, oxlint clean; vitest 25 passed; Playwright 8 passed. Deployed with `make deploy`; `make e2e-live` result below.
 
 **Next**: mission room (F24, Durable Object), then Gemini sentence entry (F21), then F15–F17. Still needs a person: outsider tour test (P4 exit), Quickmap comparison, non-Apple frame rate.
+
+## 2026-11-14 18:55 EST — P4: mission room (F24)
+
+**Changed**
+- `web/worker/room.js`: `MissionRoom` Durable Object (SQLite class, WebSocket hibernation API). Stores the latest state, sends it to late joiners, relays changes, broadcasts a presence count. Shape-checks messages only (D29).
+- `web/worker/index.js`: `/room/{id}` → `env.ROOM.getByName(id)`; `wrangler.jsonc` adds the binding, migration `v1` and `/room/*` to `run_worker_first`.
+- `web/src/room.ts` + App wiring: Start/Leave mission room, shareable `?room=` link, "N connected"; incoming state validated against the schema and known sites/points/dates; no echo.
+- Room message contract gains `point_index` (CLAUDE.md, fixture, `make_fixtures.py`).
+- `make e2e-room` (wrangler dev on 8788) runs `room.spec.ts`: three browsers, cross-direction sync of site, date and a constraint, late joiner catch-up, leave. Added to `make check`; `make e2e-live` runs it against the deployed Worker.
+
+**Found while testing**: a browser `close()` arrives as code 1005 and `ws.close(1005)` throws in the DO, which skipped the presence broadcast; presence is now sent first.
+
+**Test status**: `make check` passes: ruff, oxlint, tsc clean; pytest 20; vitest 25; Playwright 8 + room 1. Deploy and `make e2e-live` below.
+
+**Next**: Gemini sentence entry (F21) as a Worker route with the schema as response format, then F15 illumination map, F16 slope check, F17 shareable URL.

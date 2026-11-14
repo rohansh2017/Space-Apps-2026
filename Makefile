@@ -8,7 +8,7 @@ RAW_URLS := $(PGDA)/LDEM_80S_20MPP_ADJ.TIF $(PGDA)/LDEM_80S_80MPP_ADJ.TIF \
   $(NAIF)/fk/satellites/a_old_versions/moon_de440_220930.tf \
   $(ILLUM)/AVGVISIB_85S_060M_201608.TIF $(ILLUM)/AVGVISIB_75S_120M_201608.TIF $(PGDA)/LDSM_80S_20MPP_ADJ.TIF
 
-.PHONY: setup data-download data data-fixtures test parity validate e2e e2e-live perf check dev build deploy
+.PHONY: setup data-download data data-fixtures test parity validate e2e e2e-live e2e-room perf check dev build deploy
 
 setup:
 	cd build && uv sync
@@ -33,11 +33,18 @@ parity:
 e2e:
 	cd web && npx playwright test
 
-# The same browser tests against the deployed site (LIVE=... to point elsewhere).
+# The same browser tests against the deployed site, mission room included (LIVE=... to point elsewhere).
 LIVE := https://tranquility-base.rohansh2017.workers.dev
 e2e-live:
-	cd web && BASE_URL=$(LIVE) npx playwright test
+	cd web && BASE_URL=$(LIVE) ROOM_TEST=1 npx playwright test
 	@curl -sI $(LIVE)/data/sites.json | grep -i x-data-source
+
+# Mission room test on the local Worker (wrangler dev runs the Durable Object; the R2 fallback serves the data).
+e2e-room: build
+	cd web && mkdir -p .wrangler && (npx wrangler dev --port 8788 > .wrangler/dev.log 2>&1 & echo $$! > .wrangler/dev.pid); \
+	  for i in $$(seq 1 60); do curl -sf -o /dev/null http://localhost:8788/ && break; sleep 1; done; \
+	  BASE_URL=http://localhost:8788 ROOM_TEST=1 npx playwright test room; s=$$?; \
+	  kill $$(cat .wrangler/dev.pid) 2>/dev/null; pkill -f 'workerd.*8788' 2>/dev/null; exit $$s
 
 # Finder timing at the spec's size and download sizes. Writes docs/PERF.md.
 perf: build
@@ -57,7 +64,7 @@ validate:
 check:
 	cd build && uv run ruff check . && uv run ruff format --check .
 	cd web && npm run lint && npx tsc -b
-	$(MAKE) test parity e2e
+	$(MAKE) test parity e2e e2e-room
 
 dev:
 	cd web && npm run dev

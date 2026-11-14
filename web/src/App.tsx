@@ -15,6 +15,8 @@ import Matrix from './Matrix'
 import Panorama from './Panorama'
 import { defaults } from './presets'
 import Results from './Results'
+import type { Room, RoomState } from './room'
+import { connectRoom, newRoomId, roomIdFromUrl, roomLink, stateKey, validConstraints } from './room'
 import Scene3D from './Scene3D'
 import SiteMap from './SiteMap'
 import Summary from './Summary'
@@ -47,6 +49,10 @@ export default function App() {
   const [nudgeFrom, setNudgeFrom] = useState<Metrics | null>(null) // F14: metrics before the last nudge
   const [tour, setTour] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [roomId, setRoomId] = useState<string | null>(roomIdFromUrl)
+  const [roomCount, setRoomCount] = useState(0)
+  const room = useRef<Room | null>(null)
+  const lastRoomKey = useRef('') // the state most recently sent or received, so nothing echoes
   const worker = useRef<Worker | null>(null)
 
   useEffect(() => {
@@ -251,6 +257,51 @@ export default function App() {
     }
   }
 
+  // F24 mission room: join when a room id is set; apply what arrives, send what changes here
+  useEffect(() => {
+    if (!data || !roomId) return
+    const apply = (s: RoomState) => {
+      const h = Math.round((Date.parse(s.utc) - data.startMs) / HOUR_MS)
+      if (!data.sites.some((x) => x.id === s.site_id) || !(h >= 0 && h < data.hours)) return
+      const point = s.point_index !== null && data.points.some((p) => p.region === s.site_id && p.index === s.point_index) ? s.point_index : null
+      const constraints = validConstraints(data.constraintDefs, s.constraints)
+      lastRoomKey.current = stateKey({ site_id: s.site_id, point_index: point, utc: s.utc, constraints })
+      setSiteId(s.site_id)
+      setPointIndex(point)
+      setPlanHour(h)
+      setConstraints(constraints)
+      setSnapNote('')
+      setFound(null)
+      setOpened(null)
+    }
+    const r = connectRoom(roomId, apply, setRoomCount)
+    room.current = r
+    return () => {
+      r.close()
+      room.current = null
+      setRoomCount(0)
+    }
+  }, [data, roomId])
+  useEffect(() => {
+    if (!data || !room.current || !siteId) return
+    const state: RoomState = { site_id: siteId, point_index: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints }
+    const key = stateKey(state)
+    if (key === lastRoomKey.current) return
+    lastRoomKey.current = key
+    room.current.send(state)
+  }, [data, roomId, siteId, pointIndex, planHour, constraints])
+  const startRoom = () => {
+    const id = newRoomId()
+    window.history.replaceState(null, '', roomLink(id))
+    setRoomId(id)
+  }
+  const leaveRoom = () => {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('room')
+    window.history.replaceState(null, '', url.toString())
+    setRoomId(null)
+  }
+
   const openCell = useCallback((id: string, hour: number) => {
     selectSite(id)
     setPlanHour(hour)
@@ -337,6 +388,24 @@ export default function App() {
             </button>
             {!site.terrain && <p className="note">This site has no terrain (angle validation only), so the finder is off.</p>}
             <SiteMap data={data} site={site} point={planPoint} onPick={locate} />
+            <section className="panel room" aria-label="Mission room">
+              <h2>Mission room</h2>
+              {roomId ? (
+                <>
+                  <div className="room-row">
+                    <span className={roomCount > 1 ? 'ok' : ''} data-testid="room-count">{roomCount} connected</span>
+                    <button type="button" onClick={leaveRoom}>Leave room</button>
+                  </div>
+                  <input readOnly value={roomLink(roomId)} aria-label="Room link" data-testid="room-link" onFocus={(e) => e.target.select()} />
+                  <span>Share the link: everyone in the room sees the same site, date and constraints. Each browser still runs the engine itself.</span>
+                </>
+              ) : (
+                <>
+                  <button type="button" onClick={startRoom}>Start mission room</button>
+                  <span>Share one plan with teammates in real time.</span>
+                </>
+              )}
+            </section>
           </aside>
           <div className="stage">
             {!view || !day || !observer ? <p>Loading terrain…</p> : (

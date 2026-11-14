@@ -30,7 +30,8 @@ What to try: choose a site, change the date (UTC), drag the lunar-day scrubber o
 inside the 3D view to look around. Slip the date and press Find alternatives. Type a custom
 coordinate or click either map. Open a result: the plan and the alternative appear side by side.
 Nudge the plan 500 m or a day and watch the tiles change. Switch to Explorer mode and press
-Start tour. Open the scenario matrix and click a cell.
+Start tour. Open the scenario matrix and click a cell. Press Start mission room, open the link in
+a second browser, and change the site or date in either: both follow.
 
 ### Test
 
@@ -39,7 +40,8 @@ Start tour. Open the scenario matrix and click a cell.
 | `make test` | Python unit tests + TypeScript unit tests | ~5 s |
 | `make parity` | Python engine and TypeScript engine give the same answers | ~3 s |
 | `make e2e` | Opens the built app in headless Chromium, clicks through it, saves screenshots to `web/tests/screenshots/` | ~15 s |
-| `make check` | Lint + typecheck + all of the above. **Run this before every push.** | ~30 s |
+| `make e2e-room` | Starts the Worker locally (`wrangler dev`) and checks that three browsers in one mission room stay in step | ~25 s |
+| `make check` | Lint + typecheck + all of the above. **Run this before every push.** | ~60 s |
 | `make validate` | Engine angles vs JPL Horizons, and sunlit % vs the PGDA illumination maps; rewrites [docs/VALIDATION.md](docs/VALIDATION.md). Needs `make data-download` for the PGDA part | ~35 s |
 | `make perf` | Finder timing, 3D frame rate on this machine's GPU, download sizes; rewrites [docs/PERF.md](docs/PERF.md) | ~40 s |
 
@@ -63,7 +65,7 @@ make deploy          # builds, uploads the data files to R2, publishes to Cloudf
 ```
 
 Auth: `npx wrangler login` once, or `Cloudflare_Token_Value` in `.env`. After a deploy, run
-`make e2e-live`: it runs the browser tests against the live site and prints the data source header,
+`make e2e-live`: it runs the browser tests (mission room included) against the live site and prints the data source header,
 which should say `x-data-source: r2`.
 
 Secrets (R2 keys, `GEMINI_API_KEY`) live in `.env`, which is gitignored. Never commit it.

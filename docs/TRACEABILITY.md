@@ -27,14 +27,14 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F21 | Gemini sentence → schema-validated constraint JSON | S | 7 |  |  | todo |
 | F22 | Gemini horizon description with template fallback | C | 7 |  |  | todo |
 | F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js, web/scripts/upload-data.sh | make e2e-live (5 browser tests on the live URL; `x-data-source: r2`) | done |
-| F24 | Mission room (Durable Object, WebSockets) | S | Prize |  |  | todo |
+| F24 | Mission room (Durable Object, WebSockets) | S | Prize | web/worker/room.js (MissionRoom), worker/index.js /room/{id}, web/src/room.ts, App.tsx | e2e room.spec.ts (make e2e-room, make e2e-live) | done |
 | SM1 | Every M item works end to end in the deployed build | M | - | live URL | make e2e-live (demo path F1–F9 on the deployed build) | done |
 | SM2 | Engine within 0.1° of Horizons (az and el) at the validation sites | M | - | build/horizonwalk/engine.py, ephem.py | make validate | done (6 sites, 720 h, max error 0.0007°) |
 | SM3 | Finder under 3 s for 5,000 candidates × 60-day slip | M | - | web/src/engine/finder.ts | make perf (finder.perf.test.ts) | done (966 ms) |
 | SM4 | 3D view holds 30 fps on a typical laptop | M | - | web/src/Scene3D.tsx | make perf | partial (60 fps on an M1 Pro; no other laptop measured) |
 | SM5 | Three outsiders can explain why a small move costs days of sunlight | M | - |  |  | todo |
 | SM6 | Demo runs under 3 minutes twice in a row | M | - |  |  | todo |
-| SM7 | If built: two browsers stay in step; a typed sentence fills the panel with schema-valid values | S | - |  |  | todo |
+| SM7 | If built: two browsers stay in step; a typed sentence fills the panel with schema-valid values | S | - | web/worker/room.js | e2e room.spec.ts | partial (two browsers in step: done; Gemini sentence entry: todo) |
 | PT1 | 3D frame rate ≥ 30 fps | M | - | web/src/Scene3D.tsx | make perf | partial (60 fps on an M1 Pro) |
 | PT2 | Finder: 5,000 candidates × 60-day slip under 3 s | M | - | web/src/engine/finder.ts | make perf | done (966 ms) |
 | PT3 | Initial load for the demo regions under 10 MB | M | - | web/tests/perf.sh | make perf | done (5.1 MB at start, 0.65 MB per region) |

@@ -65,7 +65,8 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
 - `basemap.json`: `pole{file, half_width_m}`, `regions{half_width_m, files{region: file}}`.
   `basemaps/*.png`: 8-bit greyscale hillshade, square, stereographic x/y axes (row 0 = +y, col 0 = −x), centred on the pole or the region's site.
 - `constraints.schema.json` (hand-authored): `constraints[]{id, type, unit, min, max, default}`.
-- Room message: `{type: "state", site_id, utc, constraints{id: value}, sender}` (`shared/fixtures/room_message.json`).
+- Room message: `{type: "state", site_id, point_index (grid index or null), utc, constraints{id: value}, sender}` (`shared/fixtures/room_message.json`);
+  the room also sends `{type: "presence", count}`. Route `/room/{id}` (WebSocket) → Durable Object `MissionRoom` (`web/worker/room.js`).
 - Any file made from synthetic data carries `"synthetic": true` in its JSON.
 
 ## Conventions
