@@ -116,3 +116,53 @@ test('F21: a typed sentence fills the panel only after the user confirms, and ba
   await page.getByRole('button', { name: 'Discard' }).click()
   await expect(page.getByLabel('Mission duration')).toHaveValue('7')
 })
+
+test('F17: the URL carries site, point, date, constraints and mode, and reopens to the same state', async ({ page, context }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  await page.getByRole('combobox', { name: 'Site' }).selectOption('connecting-ridge')
+  await page.getByRole('button', { name: '500 m E' }).click()
+  await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  await page.getByLabel('Max continuous darkness').fill('60')
+  await page.getByRole('button', { name: 'Explorer' }).click()
+  await expect(page).toHaveURL(/site=connecting-ridge/)
+  await expect(page).toHaveURL(/point=\d+/)
+  await expect(page).toHaveURL(/t=2026-12-01T00%3A00Z/)
+  await expect(page).toHaveURL(/c=max_continuous_dark_hours%3A60/)
+  await expect(page).toHaveURL(/mode=explorer/)
+  const state = await observer(page)
+  await page.getByRole('button', { name: 'Copy link' }).click()
+  await expect(page.getByText('Link copied')).toBeVisible()
+
+  const again = await context.newPage()
+  await again.goto(page.url())
+  await expect(again.getByTestId('view')).toContainText('Plan: Connecting Ridge (Barker Site 01), custom point')
+  await expect(again.getByTestId('view')).toContainText('2026-12-01 00:00 UTC landing')
+  await expect(again.getByLabel('Max continuous darkness')).toHaveValue('60')
+  await expect(again.getByRole('button', { name: 'Explorer' })).toHaveAttribute('aria-pressed', 'true')
+  expect((await observer(again)).point).toBe(state.point)
+  expect(await hudOf(again)).toEqual(expectedHud(await observer(again)))
+})
+
+test('F15: the region map shows sunlit % per grid point for the mission window', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  await expect(page.getByTestId('illumination-legend')).toContainText('Sunlit')
+  await expect(page.getByTestId('map-region')).toHaveAttribute('aria-label', /sunlit % per grid point/)
+  // the ramp's blues are on the canvas; both dark (low) and light (high) ends appear around the Shackleton rim
+  const ends = await page.getByTestId('map-region').evaluate((c: HTMLCanvasElement) => {
+    const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data
+    let dark = 0
+    let light = 0
+    for (let i = 0; i < d.length; i += 4) {
+      const [r, g, b] = [d[i], d[i + 1], d[i + 2]]
+      if (b > r + 40 && b > g + 10 && b < 150) dark++
+      if (b > r + 40 && b > 200) light++
+    }
+    return [dark, light]
+  })
+  expect(ends[0]).toBeGreaterThan(200)
+  expect(ends[1]).toBeGreaterThan(200)
+  await page.getByTestId('map-region').scrollIntoViewIfNeeded()
+  await page.screenshot({ ...shot('15-illumination-map'), fullPage: true })
+})

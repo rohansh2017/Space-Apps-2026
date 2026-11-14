@@ -18,9 +18,9 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F12 | Lunar-day playback with trails | S | 6 | web/src/App.tsx (playback), Scene3D.tsx, Panorama.tsx | e2e p3.spec.ts (playback) | done |
 | F13 | Guided tour from tour.json | S | 7 | web/src/Tour.tsx, build/tour_src.json | e2e p4.spec.ts (F13) | done (outsider test of the tour still pending) |
 | F14 | Nudge control (100 m / 1 day) | S | 1, 2, 7 | web/src/App.tsx nudge, engine.ts nudgeNeighbour, Summary.tsx deltas | metrics.test.ts, e2e p4.spec.ts (F14) | done (500 m grid step, not 100 m: D26) |
-| F15 | Top-down illumination map | S | 5 |  |  | todo |
-| F16 | Slope screening (numpy.gradient, checked vs LOLA slope map) | S | 1 |  |  | todo |
-| F17 | Shareable URL | S | 7 |  |  | todo |
+| F15 | Top-down illumination map | S | 5 | web/src/SiteMap.tsx (overlay), App.tsx illumination, ramp.ts | e2e p4.spec.ts (F15) | done (sunlit % over the mission window, per 500 m cell) |
+| F16 | Slope screening (numpy.gradient, checked vs LOLA slope map) | S | 1 | build/scripts/build_data.py slopes, finder max_slope_deg, build/scripts/validate_slopes.py | finder.test.ts (steep candidate fails), make validate (slopes section) | done (r ≥ 0.994, mean abs diff ≤ 0.33° at nine sites) |
+| F17 | Shareable URL | S | 7 | web/src/share.ts, App.tsx | share.test.ts, e2e p4.spec.ts (F17) | done |
 | F18 | Solar array presets for the power index | C | 4 |  |  | todo |
 | F19 | Export scenario summary (CSV/PDF) | C | 7 |  |  | todo |
 | F20 | Lunar Night Survivor game mode | C | 7 |  |  | todo |

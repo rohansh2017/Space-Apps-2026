@@ -136,3 +136,15 @@ Pulled the teammate's "Phase 3 nearly done" commit onto the Intel Mac that did P
 **Test status**: `make check` passes (pytest 20, vitest 28, Playwright 9 + room 1; 2 live-only tests skipped locally). Deploy and `make e2e-live` below.
 
 **Next**: F15 illumination map, F16 slope check vs the LOLA slope map, F17 shareable URL; then P5 submission material. F22 (horizon description) stays unbuilt unless time remains (first on the cut list).
+
+## 2026-11-14 20:20 EST — P4: illumination map (F15), slope check (F16), shareable URL (F17)
+
+**Changed**
+- F15: `App.tsx` computes sunlit % at all 441 grid points of the selected region over the mission window; `SiteMap.tsx` draws them as 500 m cells over the hillshade with the matrix's ramp (`src/ramp.ts`) and a legend (D33).
+- F16: `build/scripts/validate_slopes.py` in `make validate`: our slopes vs the LOLA slope map, r 0.994–0.999, mean abs diff 0.26–0.33° at nine sites (D34). Slope screening itself was already in the finder.
+- F17: `src/share.ts` (unit-tested) encodes site, point, time, changed constraints and mode into the URL; links restore the state through the same validation as room messages; Copy link button (D35).
+- `room.spec.ts` regex updated for the extra URL params.
+
+**Test status**: `make check` passes (pytest 20, vitest 30, Playwright 11 + room 1); `make validate` exit 0 (three sections). Screenshot 15 viewed.
+
+**P4 state**: every item built except the exit test (outsider completes the tour) and F22 (could-have). Deploy and `make e2e-live` below, then P5 submission material.

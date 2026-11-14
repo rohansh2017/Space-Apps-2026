@@ -34,7 +34,8 @@ Start tour. Open the scenario matrix and click a cell. Press Start mission room,
 a second browser, and change the site or date in either: both follow. On the deployed site, type a
 requirement under the constraints ("survive 4 days of dark, talk to Earth half the time") and press
 Interpret with Gemini; the proposal appears for you to apply. Locally there is no Worker, so that
-button reports an error and the fields still work by hand.
+button reports an error and the fields still work by hand. The region map colours each 500 m cell by
+its sunlit % for the mission window. Copy link (top left) gives a URL that reopens the same plan.
 
 ### Test
 
@@ -45,7 +46,7 @@ button reports an error and the fields still work by hand.
 | `make e2e` | Opens the built app in headless Chromium, clicks through it, saves screenshots to `web/tests/screenshots/` | ~15 s |
 | `make e2e-room` | Starts the Worker locally (`wrangler dev`) and checks that three browsers in one mission room stay in step | ~25 s |
 | `make check` | Lint + typecheck + all of the above. **Run this before every push.** | ~60 s |
-| `make validate` | Engine angles vs JPL Horizons, and sunlit % vs the PGDA illumination maps; rewrites [docs/VALIDATION.md](docs/VALIDATION.md). Needs `make data-download` for the PGDA part | ~35 s |
+| `make validate` | Engine angles vs JPL Horizons, sunlit % vs the PGDA illumination maps, slopes vs the LOLA slope map; rewrites [docs/VALIDATION.md](docs/VALIDATION.md). Needs `make data-download` for the PGDA part | ~35 s |
 | `make perf` | Finder timing, 3D frame rate on this machine's GPU, download sizes; rewrites [docs/PERF.md](docs/PERF.md) | ~40 s |
 
 After a UI change, open the screenshots in `web/tests/screenshots/` and look at them.

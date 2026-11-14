@@ -13,7 +13,7 @@ test('F24: two browsers in one mission room stay in step, and a late joiner gets
   await expect(a.getByTestId('view')).toContainText('Plan: Shackleton rim')
   await a.getByRole('button', { name: 'Start mission room' }).click()
   const link = await a.getByTestId('room-link').inputValue()
-  expect(link).toMatch(/\?room=tb-[a-z0-9]{6}$/)
+  expect(link).toMatch(/[?&]room=tb-[a-z0-9]{6}(&|$)/) // F17 adds site/t/mode params after it
 
   const b = await (await browser.newContext()).newPage()
   await b.goto(link)

@@ -18,6 +18,7 @@ import Results from './Results'
 import type { Room, RoomState } from './room'
 import { connectRoom, newRoomId, roomIdFromUrl, roomLink, stateKey, validConstraints } from './room'
 import Scene3D from './Scene3D'
+import { decodeShare, encodeShare } from './share'
 import SiteMap from './SiteMap'
 import Summary from './Summary'
 import Tour from './Tour'
@@ -58,8 +59,15 @@ export default function App() {
   useEffect(() => {
     loadDataset().then((d) => {
       setData(d)
-      setSiteId(d.sites[0].id)
-      setConstraints(defaults(d.constraintDefs))
+      // F17: a shared link restores site, point, landing time, changed constraints and mode
+      const s = decodeShare(new URLSearchParams(window.location.search))
+      const site = d.sites.find((x) => x.id === s.site) ?? d.sites[0]
+      setSiteId(site.id)
+      if (s.point !== undefined && s.point !== d.centreIndex && d.points.some((p) => p.region === site.id && p.index === s.point)) setPointIndex(s.point)
+      const h = s.utc ? Math.round((Date.parse(s.utc) - d.startMs) / HOUR_MS) : NaN
+      if (h >= 0 && h < d.hours) setPlanHour(h)
+      setConstraints(validConstraints(d.constraintDefs, { ...defaults(d.constraintDefs), ...s.constraints }))
+      if (s.mode) setMode(s.mode)
     }, (e) => setError(String(e)))
     return () => worker.current?.terminate()
   }, [])
@@ -147,6 +155,21 @@ export default function App() {
   const day = useMemo(() => (observer ? dayOf(observer, viewStart) : null), [dayOf, observer, viewStart])
   /** F11: the plan's own day, kept alongside while an alternative is open. */
   const planDay = useMemo(() => (alt && plan ? dayOf(plan, planHour) : null), [dayOf, alt, plan, planHour])
+
+  /** F15: sunlit % at every grid point of the selected region over the mission window from the landing hour. */
+  const illumination = useMemo(() => {
+    if (!data || !site?.terrain || !regions[site.id] || constraints.mission_duration_days === undefined) return null
+    const r = regions[site.id]
+    const dur = Math.round(Number(constraints.mission_duration_days) * 24)
+    if (planHour + dur > data.hours) return null
+    const out = new Float32Array(2 * data.centreIndex + 1) // n x n grid with the site at the middle index
+    for (const p of data.points) {
+      if (p.region !== site.id) continue
+      const s = buildSeries(data.ephemeris, planHour, dur, siteFrame(p.lat, p.lon, p.elev_m), r.masks.subarray(p.index * 360, (p.index + 1) * 360), Number(constraints.min_earth_elevation_deg))
+      out[p.index] = (s.cumFrac[dur] / dur) * 100
+    }
+    return out
+  }, [data, site, regions, planHour, constraints])
 
   /** F14: the grid neighbours one 500 m step away in each compass direction (null at the grid edge). */
   const neighbours = useMemo(
@@ -257,6 +280,21 @@ export default function App() {
     }
   }
 
+  // F17: keep the address bar shareable (the room id from F24 is kept)
+  useEffect(() => {
+    if (!data || !siteId) return
+    const params = encodeShare(new URLSearchParams(window.location.search), {
+      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode,
+    })
+    window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
+  }, [data, siteId, pointIndex, planHour, constraints, mode])
+  const [copied, setCopied] = useState(false)
+  const copyLink = () => {
+    navigator.clipboard?.writeText(window.location.href).catch(() => undefined)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 2000)
+  }
+
   // F24 mission room: join when a room id is set; apply what arrives, send what changes here
   useEffect(() => {
     if (!data || !roomId) return
@@ -334,6 +372,8 @@ export default function App() {
             <h1>Tranquility Base</h1>
             <p className="note">Lunar south-pole landing site navigator</p>
             {mode === 'explorer' && <button type="button" disabled={tour} onClick={() => setTour(true)}>Start tour</button>}
+            <button type="button" onClick={copyLink}>Copy link</button>
+            {copied && <span className="note" role="status">Link copied</span>}
           </div>
           <div className="modes" role="group" aria-label="Mode">
             {(['planner', 'explorer'] as const).map((m) => (
@@ -387,7 +427,7 @@ export default function App() {
               {busy ? 'Searching…' : 'Find alternatives'}
             </button>
             {!site.terrain && <p className="note">This site has no terrain (angle validation only), so the finder is off.</p>}
-            <SiteMap data={data} site={site} point={planPoint} onPick={locate} />
+            <SiteMap data={data} site={site} point={planPoint} illumination={illumination} onPick={locate} />
             <section className="panel room" aria-label="Mission room">
               <h2>Mission room</h2>
               {roomId ? (

@@ -57,9 +57,9 @@ test:
 	cd build && uv run pytest -q
 	cd web && npx vitest run --passWithNoTests
 
-# Engine vs Horizons (offline after the first run), then sunlit % vs the PGDA illumination maps (needs data/raw).
+# Engine vs Horizons (offline after the first run), sunlit % vs the PGDA illumination maps, slopes vs the LOLA slope map (both need data/raw).
 validate:
-	cd build && { uv run python scripts/validate_horizons.py && uv run python scripts/validate_illumination.py; } > ../docs/VALIDATION.md; s=$$?; cat ../docs/VALIDATION.md; exit $$s
+	cd build && { uv run python scripts/validate_horizons.py && uv run python scripts/validate_illumination.py && uv run python scripts/validate_slopes.py; } > ../docs/VALIDATION.md; s=$$?; cat ../docs/VALIDATION.md; exit $$s
 
 check:
 	cd build && uv run ruff check . && uv run ruff format --check .

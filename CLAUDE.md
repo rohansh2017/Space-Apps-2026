@@ -23,7 +23,7 @@ Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC
 ## Commands
 
 `make setup` · `make data-download` · `make data` (real) · `make data-fixtures` (synthetic) ·
-`make test` · `make parity` · `make validate` (Horizons + PGDA illumination) · `make e2e` · `make perf` ·
+`make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` · `make perf` ·
 `make check` (lint + typecheck + test + parity + e2e) · `make dev` · `make build` ·
 `make deploy` (uploads `web/public/data` to R2, then publishes).
 
