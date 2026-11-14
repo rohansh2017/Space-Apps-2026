@@ -158,3 +158,73 @@ Pulled the teammate's "Phase 3 nearly done" commit onto the Intel Mac that did P
 **Test status**: `make check` passes (pytest 20, vitest 34, Playwright 12 + room 1). Deploy and `make e2e-live` below.
 
 **Remaining, all need people**: outsider tour test (P4 exit), two timed rehearsals and the backup video (P5 exit), Quickmap comparison by hand, frame rate on a non-Apple laptop, prize submission steps on the event page. The stretch game (F20) is not built.
+
+## 2026-11-14 21:45 EST — Final report
+
+Live: https://tranquility-base.rohansh2017.workers.dev · branch `build/tranquility-base`, 15 commits, all pushed. `make check` and `make validate` pass; `make e2e-live` passes 15/15 against the deployment (data from R2, Durable Object room, both Gemini routes).
+
+### 1. Requirement status
+
+| ID | Requirement | Pri | Status |
+| --- | --- | --- | --- |
+| F1 | Curated sites, custom coordinates, map click, grid snap | M | done |
+| F2 | UTC picker + lunar-day scrubber 2026–2035 | M | done |
+| F3 | 3D scene: Sun/Earth at true az/el, shadows, silhouette ring | M | done (sub-20 m detail illustrative) |
+| F4 | HUD with countdowns | M | done (HUD = engine, tested) |
+| F5 | Horizon panorama with tracks | M | done |
+| F6 | Constraint panel with presets | M | done |
+| F7 | Finder: ranked dates and nearby points, pass/fail | M | done (forward-only slip, D19) |
+| F8 | Plain-language difference | M | done |
+| F9 | Planner / Explorer modes | M | done |
+| F23 | Cloudflare: Workers + R2 by region | M | done |
+| F10 | Scenario matrix | S | done |
+| F11 | Side-by-side | S | done (paired panoramas) |
+| F12 | Playback with trails | S | done |
+| F13 | Guided tour | S | done; outsider test pending |
+| F14 | Nudge | S | done (500 m step, D26) |
+| F15 | Illumination map | S | done |
+| F16 | Slope screening + LOLA check | S | done |
+| F17 | Shareable URL | S | done |
+| F21 | Gemini sentence → constraints | S | done |
+| F24 | Mission room | S | done |
+| F22 | Gemini horizon description | C | done |
+| F18 | Array presets | C | not built (engine supports deck mode) |
+| F19 | CSV/PDF export | C | not built |
+| F20 | Night Survivor game | C | not built |
+
+Success metrics: SM1 done, SM2 done (0.0007°), SM3 done (0.86 s), SM4 partial (60 fps on Apple GPUs only), SM5 and SM6 need people, SM7 done.
+
+### 2. Validation and performance
+
+- Engine vs JPL Horizons: six sites, 720 hourly steps, max error 0.00068° (Sun elevation; the ignored solar parallax). Target < 0.1°.
+- Sunlit % vs PGDA average illumination: nine sites × 441 points, Pearson r 0.95–0.99, grid means within 2 points; Connecting Ridge third best-lit.
+- Slopes vs LOLA slope map: r 0.994–0.999, mean abs diff 0.26–0.33°.
+- Python vs TypeScript engine: 144 angle rows within 1e-4°, 15 metric windows identical.
+- Finder: 5,000 candidates × 60 days, 305,378 pairs, 0.85–0.97 s (target < 3 s); the real demo search: ~40 ms.
+- 3D: 60 fps during playback on Apple M1 Pro and M5 (target ≥ 30 fps on a typical laptop; non-Apple unmeasured).
+- Load: 1.23 MB app + 3.91 MB data at start, 0.65 MB per region on demand (target < 10 MB).
+
+### 3. Fallbacks and synthetic data
+
+- No synthetic data anywhere in the deployed app. `make data-fixtures` exists for development only and marks its output.
+- `/data/*` falls back from R2 to the bundled copy if R2 misses (D24); the live header says `r2`.
+- Gemini: both routes fall back to the manual panel / the engine's template sentence on any error or invalid reply.
+- Mission room: without the Worker (local dev) the app works alone; the room button reports an error.
+- Five Artemis III regions are not in the site list for lack of a published coordinate (D17). Points beyond 2.5 km from a site centre get level 3D ground (the ring and all numbers are exact).
+
+### 4. Open issues, by demo impact
+
+1. Two timed rehearsals and the backup video (P5 exit): `docs/DEMO_SCRIPT.md` is ready.
+2. Frame rate on a non-Apple laptop; if low, the playback test prints it and the spec's low-quality toggle would be the next step.
+3. Outsider tour test (P4 exit) and the three-outsider question (SM5).
+4. Quickmap lit/dark comparison by hand for the judges' Q&A (PGDA scripted check is done).
+5. Prize submission steps on the event page (vote snippet question for Cloudflare).
+6. `.env` has a space after one `=`, which breaks `source .env` (scripts are unaffected).
+7. Visual: the 3D regolith still reads as ripples; a real albedo/normal set and a larger patch are the next step.
+
+### 5. Commands
+
+- Run: `make setup && make dev`
+- Test everything: `make check` · validation numbers: `make validate` · performance: `make perf`
+- Rebuild data from raw: `make data-download && make data`
+- Deploy: `make deploy`, then `make e2e-live`

@@ -4,7 +4,7 @@ Measured values only. Regenerate with `make perf`. Machine: Darwin 25.6.0 arm64,
 
 ## Finder (target: 5,000 candidates x 60-day slip range under 3 s)
 
-- finder: 5000 candidates, 305378 (candidate, start) pairs, 852 ms
+- finder: 5000 candidates, 305378 (candidate, start) pairs, 861 ms
 
 The end-to-end test also asserts the real demo search finishes in under 3 s in the browser.
 
@@ -16,7 +16,7 @@ Measured during lunar-day playback (shadows on) in Chromium on this machine's GP
 
 ## Initial load (target: under 10 MB for the demo regions)
 
-- App bundle (HTML + JS + CSS): 1.21 MB
+- App bundle (HTML + JS + CSS): 1.23 MB
 - Data fetched at start (sites, points, schema, tour, polar basemap, ephemeris 2026-2035): 3.91 MB
 - One region, fetched on demand (masks + slopes + heightmap + basemap): 0.65 MB
 - All nine regions' masks and slopes (fetched when the finder or the matrix runs): 2.86 MB

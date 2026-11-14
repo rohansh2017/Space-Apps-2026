@@ -26,15 +26,15 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F20 | Lunar Night Survivor game mode | C | 7 |  |  | todo |
 | F21 | Gemini sentence → schema-validated constraint JSON | S | 7 | web/worker/gemini.js, web/src/gemini.ts, SentenceEntry.tsx | gemini.test.ts, e2e p4.spec.ts (mocked route), gemini.spec.ts (live, make e2e-live) | done |
 | F22 | Gemini horizon description with template fallback | C | 7 | web/worker/describe.js, web/src/describe.ts, HorizonText.tsx | describe.test.ts, e2e p4.spec.ts (mocked: kept / rejected), gemini.spec.ts (live) | done |
-| F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js, web/scripts/upload-data.sh | make e2e-live (5 browser tests on the live URL; `x-data-source: r2`) | done |
+| F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js, web/scripts/upload-data.sh | make e2e-live (15 browser tests on the live URL; `x-data-source: r2`) | done |
 | F24 | Mission room (Durable Object, WebSockets) | S | Prize | web/worker/room.js (MissionRoom), worker/index.js /room/{id}, web/src/room.ts, App.tsx | e2e room.spec.ts (make e2e-room, make e2e-live) | done |
 | SM1 | Every M item works end to end in the deployed build | M | - | live URL | make e2e-live (demo path F1–F9 on the deployed build) | done |
 | SM2 | Engine within 0.1° of Horizons (az and el) at the validation sites | M | - | build/horizonwalk/engine.py, ephem.py | make validate | done (6 sites, 720 h, max error 0.0007°) |
 | SM3 | Finder under 3 s for 5,000 candidates × 60-day slip | M | - | web/src/engine/finder.ts | make perf (finder.perf.test.ts) | done (966 ms) |
-| SM4 | 3D view holds 30 fps on a typical laptop | M | - | web/src/Scene3D.tsx | make perf | partial (60 fps on an M1 Pro; no other laptop measured) |
+| SM4 | 3D view holds 30 fps on a typical laptop | M | - | web/src/Scene3D.tsx | make perf | partial (60 fps on an M1 Pro and an M5; no non-Apple laptop measured) |
 | SM5 | Three outsiders can explain why a small move costs days of sunlight | M | - |  |  | todo |
 | SM6 | Demo runs under 3 minutes twice in a row | M | - |  |  | todo |
 | SM7 | If built: two browsers stay in step; a typed sentence fills the panel with schema-valid values | S | - | web/worker/room.js | e2e room.spec.ts | done (room.spec.ts; gemini.spec.ts live: the demo sentence fills the panel with 96 h / 50 %) |
-| PT1 | 3D frame rate ≥ 30 fps | M | - | web/src/Scene3D.tsx | make perf | partial (60 fps on an M1 Pro) |
-| PT2 | Finder: 5,000 candidates × 60-day slip under 3 s | M | - | web/src/engine/finder.ts | make perf | done (966 ms) |
-| PT3 | Initial load for the demo regions under 10 MB | M | - | web/tests/perf.sh | make perf | done (5.1 MB at start, 0.65 MB per region) |
+| PT1 | 3D frame rate ≥ 30 fps | M | - | web/src/Scene3D.tsx | make perf | partial (60 fps on an M1 Pro and an M5) |
+| PT2 | Finder: 5,000 candidates × 60-day slip under 3 s | M | - | web/src/engine/finder.ts | make perf | done (0.85–0.97 s) |
+| PT3 | Initial load for the demo regions under 10 MB | M | - | web/tests/perf.sh | make perf | done (1.23 MB app + 3.91 MB data at start, 0.65 MB per region) |
