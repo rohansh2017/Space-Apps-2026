@@ -12,13 +12,17 @@ from pathlib import Path
 import numpy as np
 import requests
 
-from horizonwalk import ephem
-from horizonwalk.geo import az_el
+from horizonwalk import engine
 
 CACHE = Path(__file__).resolve().parents[1] / "cache"
-# id: (lat, lon east-positive, elevation m). P0 checks one site; P1 extends to six.
-SITES = {"apollo11": (0.67, 23.47, 0.0)}
-START, HOURS = datetime(2026, 11, 20, tzinfo=UTC), 24
+DATA = Path(__file__).resolve().parents[2] / "web" / "public" / "data"
+# id: (lat, lon east-positive, elevation m). Elevation 0 on both sides; P3 extends to six sites.
+SITES = {
+    "apollo11": (0.67, 23.47, 0.0),
+    "change7-shackleton-rim": (-88.8, 123.4, 0.0),
+    "im2-mons-mouton": (-84.78, 29.13, 0.0),
+}
+START, HOURS = datetime(2026, 11, 20, tzinfo=UTC), 720  # about one lunar month
 TARGET_DEG = 0.1
 
 
@@ -47,21 +51,25 @@ def horizons(body: str, lat: float, lon: float, elev_m: float) -> np.ndarray:
 
 
 def main() -> int:
-    ts = ephem.timescale()
-    t = ts.from_datetimes([START + timedelta(hours=h) for h in range(HOURS)])
-    sun, earth = ephem.directions(t)
+    meta = json.loads((DATA / "ephemeris.json").read_text())
+    assert not meta["synthetic"], "run `make data` first: validation needs the real ephemeris"
+    first = int((START - datetime(2026, 1, 1, tzinfo=UTC)).total_seconds() // 3600)
+    table = np.fromfile(DATA / "ephemeris" / "2026.bin", "<f4").reshape(-1, 7)[
+        first : first + HOURS
+    ]
     print("# Validation\n\nMeasured values only. Regenerate with `make validate`.\n")
-    print(f"## Engine vs JPL Horizons (quantity 4), frame {ephem.FRAME}\n")
-    print(
-        f"Window: {HOURS} hourly steps from {START:%Y-%m-%d %H:%M} UTC. Target: < {TARGET_DEG} deg.\n"
-    )
+    print(f"## Engine vs JPL Horizons (quantity 4), frame {meta['frame']}\n")
+    print("Engine angles are computed from the shipped Float32 ephemeris table "
+          "(`web/public/data/ephemeris/2026.bin`) with `horizonwalk.engine.site_angles`.\n")  # fmt: skip
+    print(f"Window: {HOURS} hourly steps from {START:%Y-%m-%d %H:%M} UTC. Target: < {TARGET_DEG} deg. "
+          "Azimuth error is scaled by cos(elevation).\n")  # fmt: skip
     print(
         "| Site | Body | Max az error (deg) | Max el error (deg) | Pass |\n| --- | --- | --- | --- | --- |"
     )
     ok = True
     for site, (lat, lon, elev) in SITES.items():
-        for name, code, vec in (("Sun", "10", sun), ("Earth", "399", earth)):
-            az, el = az_el(vec.T, lat, lon, elev)
+        angles = engine.site_angles(table, lat, lon, elev)
+        for name, code, az, el in (("Sun", "10", *angles[:2]), ("Earth", "399", *angles[2:])):
             ref = horizons(code, lat, lon, elev)
             d_el = np.abs(el - ref[:, 1]).max()
             # compare azimuth as a great-circle offset so it stays meaningful near the zenith

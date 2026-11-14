@@ -17,3 +17,17 @@
 **D8 Spec PDF stays at the repo root** (the brief references it there), not under `docs/spec/`.
 
 **D9 Raw DEMs in R2.** The team asked for both LOLA DEMs to be stored in Cloudflare; the spec only puts derived files in R2. → Planned under `raw/` in the data bucket. Blocked: R2 is not enabled on the account.
+
+**D10 Exact curvature.** The spec says to subtract the curvature drop d²/(2R). → The mask uses exact spherical geometry (ray along a great circle, angle = atan2(r₁cosθ − r₀, r₁sinθ)), which is what d²/(2R) approximates; the two differ by about 0.01° at 300 km. Tested against a far ridge and a flat sphere.
+
+**D11 Rays stop at the DEM edge.** The 80 m DEM covers ±304 km around the pole, so for sites far from the pole some rays end before 300 km (Nobile Rim 2 is 183 km out). Terrain north of 80°S is not in any spec dataset. Accepted as a screening-grade limit.
+
+**D12 Heightmap axes.** Heightmaps are sampled in the site's local east/north axes (row 0 = north, col 0 = west), not stereographic x/y, so the 3D scene needs no rotation and azimuths line up with the engine.
+
+**D13 Partial solar disk.** The horizon is taken as level across the 0.53° disk at the Sun's azimuth (circular-segment area). The spec does not define the shape; 1° bins make anything finer meaningless.
+
+**D14 Frontend simplifications.** Panorama is plain Canvas 2D (no D3 needed yet). All ten ephemeris years (2.5 MB) load at start rather than per year; masks load per region on demand.
+
+**D15 Ahead of plan.** `make data` already builds masks, slopes and heightmaps for all nine site grids (12 s), which the spec schedules for P2/P3, because it is the same code as one site.
+
+**D16 Cloudflare/Gemini setup.** Cloudflare's agent setup installed the `cloudflare` Claude Code plugin (user scope). The optional `cf` CLI was not installed because the project uses Wrangler. Gemini is called over REST (Interactions API, model `gemini-4-hydrogen`), so the `@google/genai` SDK is not installed: the Worker needs one `fetch`.

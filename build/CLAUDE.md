@@ -1,8 +1,9 @@
 # build/ conventions
 
 - Python >= 3.11 managed by `uv` (`uv sync`, `uv run ...`). Type hints; `ruff` for lint and format.
-- Package `horizonwalk`: `ephem.py` (Skyfield directions), `geo.py` (site frame, stereographic).
-  Later phases add dem, masks, engine, heightmaps, slopes, export.
+- Package `horizonwalk`: `ephem.py` (Skyfield directions, yearly tables), `geo.py` (site frame,
+  stereographic), `masks.py` (numba ray-march), `engine.py` (reference engine), `export.py` (contract writers).
+- Scripts: `build_data.py` (make data), `make_fixtures.py`, `make_parity.py`, `validate_horizons.py`.
 - Everything is in MOON_ME_DE440_ME421. Longitudes are east-positive.
 - Raw inputs live in `data/raw/` (gitignored). Horizons responses are cached in `build/cache/` and committed.
 - `sites_src.json` is the hand-authored site list (one source per site). Generated `sites.json` adds heightmap fields.

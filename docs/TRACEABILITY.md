@@ -4,11 +4,11 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 
 | ID | Requirement (short) | Priority | Objective(s) | Implemented in | Tested by | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| F1 | Curated site list + custom lat/lon + map click, snapped to grid | M | 1 |  |  | todo |
-| F2 | UTC date/time picker + lunar-day scrubber, 2026–2035 | M | 2, 6 |  |  | todo |
-| F3 | First-person 3D scene: Sun/Earth at true az/el, shadows, silhouette ring | M | 3, 5 |  |  | todo |
+| F1 | Curated site list + custom lat/lon + map click, snapped to grid | M | 1 | web/src/App.tsx (site list only) | e2e p1.spec.ts | partial (no custom coords or map) |
+| F2 | UTC date/time picker + lunar-day scrubber, 2026–2035 | M | 2, 6 | web/src/App.tsx | e2e p1.spec.ts | partial (picker + scrubber; needs review against 2035 range) |
+| F3 | First-person 3D scene: Sun/Earth at true az/el, shadows, silhouette ring | M | 3, 5 | web/src/Scene3D.tsx | screenshots p1-*.png | partial (mesh, camera, Sun light; no shadows, Earth, ring) |
 | F4 | HUD: elevations, lit/link status, power index, countdowns | M | 3, 4 |  |  | todo |
-| F5 | Horizon panorama with Sun and Earth tracks | M | 3, 5, 6 |  |  | todo |
+| F5 | Horizon panorama with Sun and Earth tracks | M | 3, 5, 6 | web/src/Panorama.tsx | e2e p1.spec.ts | partial (no selectable window) |
 | F6 | Constraint panel with presets | M | 4 |  |  | todo |
 | F7 | Constraint finder: ranked dates and nearby sites, pass/fail per constraint | M | 1, 2, 4 |  |  | todo |
 | F8 | Plain-language difference from the original plan | M | 4, 7 |  |  | todo |
@@ -26,10 +26,10 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F20 | Lunar Night Survivor game mode | C | 7 |  |  | todo |
 | F21 | Gemini sentence → schema-validated constraint JSON | S | 7 |  |  | todo |
 | F22 | Gemini horizon description with template fallback | C | 7 |  |  | todo |
-| F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc | manual: URL returns 200 | partial (empty app live; R2 blocked) |
+| F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js | manual: URL returns 200 | partial (app live; data not yet served from R2) |
 | F24 | Mission room (Durable Object, WebSockets) | S | Prize |  |  | todo |
 | SM1 | Every M item works end to end in the deployed build | M | - |  |  | todo |
-| SM2 | Engine within 0.1° of Horizons (az and el) at the validation sites | M | - | build/horizonwalk/ephem.py, geo.py | make validate | partial (1 of 6 sites, 24 h) |
+| SM2 | Engine within 0.1° of Horizons (az and el) at the validation sites | M | - | build/horizonwalk/engine.py, ephem.py | make validate | partial (3 of 6 sites, 720 h, max error 0.0007°) |
 | SM3 | Finder under 3 s for 5,000 candidates × 60-day slip | M | - |  |  | todo |
 | SM4 | 3D view holds 30 fps on a typical laptop | M | - |  |  | todo |
 | SM5 | Three outsiders can explain why a small move costs days of sunlight | M | - |  |  | todo |

@@ -1,5 +1,5 @@
 {
- "synthetic": true,
+ "synthetic": false,
  "sites": [
   {
    "id": "change7-shackleton-rim",
@@ -15,8 +15,8 @@
    "links": [],
    "heightmap": {
     "file": "heightmaps/change7-shackleton-rim.png",
-    "offset_m": -19.99957663948674,
-    "scale_m": 0.01,
+    "offset_m": 651.4811442910839,
+    "scale_m": 0.015214752171523462,
     "size_px": 256,
     "span_m": 5000.0
    }
@@ -35,8 +35,8 @@
    "links": [],
    "heightmap": {
     "file": "heightmaps/im2-mons-mouton.png",
-    "offset_m": -19.99957663948674,
-    "scale_m": 0.01,
+    "offset_m": 5027.593735095625,
+    "scale_m": 0.005045698451746127,
     "size_px": 256,
     "span_m": 5000.0
    }
@@ -57,8 +57,8 @@
    ],
    "heightmap": {
     "file": "heightmaps/haworth.png",
-    "offset_m": -19.99957663948674,
-    "scale_m": 0.01,
+    "offset_m": 1316.2609384421314,
+    "scale_m": 0.007754841853221262,
     "size_px": 256,
     "span_m": 5000.0
    }
@@ -79,8 +79,8 @@
    ],
    "heightmap": {
     "file": "heightmaps/malapert-massif.png",
-    "offset_m": -19.99957663948674,
-    "scale_m": 0.01,
+    "offset_m": 4072.1271209436736,
+    "scale_m": 0.013034684458371045,
     "size_px": 256,
     "span_m": 5000.0
    }
@@ -101,8 +101,8 @@
    ],
    "heightmap": {
     "file": "heightmaps/nobile-rim-1.png",
-    "offset_m": -19.99957663948674,
-    "scale_m": 0.01,
+    "offset_m": 5200.104488530527,
+    "scale_m": 0.018309371578122145,
     "size_px": 256,
     "span_m": 5000.0
    }
@@ -123,8 +123,8 @@
    ],
    "heightmap": {
     "file": "heightmaps/nobile-rim-2.png",
-    "offset_m": -19.99957663948674,
-    "scale_m": 0.01,
+    "offset_m": 823.9529207013467,
+    "scale_m": 0.008786586639172493,
     "size_px": 256,
     "span_m": 5000.0
    }
@@ -145,8 +145,8 @@
    ],
    "heightmap": {
     "file": "heightmaps/connecting-ridge.png",
-    "offset_m": -19.99957663948674,
-    "scale_m": 0.01,
+    "offset_m": 1084.5949484599075,
+    "scale_m": 0.013342118643641277,
     "size_px": 256,
     "span_m": 5000.0
    }
@@ -167,8 +167,8 @@
    ],
    "heightmap": {
     "file": "heightmaps/peak-near-shackleton.png",
-    "offset_m": -19.99957663948674,
-    "scale_m": 0.01,
+    "offset_m": 699.3068812995424,
+    "scale_m": 0.014484969100790576,
     "size_px": 256,
     "span_m": 5000.0
    }
@@ -189,8 +189,8 @@
    ],
    "heightmap": {
     "file": "heightmaps/faustini-rim-a.png",
-    "offset_m": -19.99957663948674,
-    "scale_m": 0.01,
+    "offset_m": -534.7541201784103,
+    "scale_m": 0.011992219189943839,
     "size_px": 256,
     "span_m": 5000.0
    }

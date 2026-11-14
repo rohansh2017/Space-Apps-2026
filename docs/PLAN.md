@@ -8,24 +8,23 @@ Exit: Skyfield returns Sun and Earth directions for one hour in MOON_ME_DE440_ME
 
 - [x] Freeze data contracts (including constraints.schema.json and the room message) and metric definitions; commit mock files of those shapes
 - [x] Repo with /build, /web, /api; Vite app and Python env run (no /api: see DECISIONS D2)
-- [ ] Cloudflare account, Worker project and R2 bucket created; an empty app deploys to a public URL; Gemini key stored as a Worker secret and one test call returns JSON
-  - [x] Worker project created, empty app live at https://tranquility-base.rohansh2017.workers.dev
-  - [ ] R2 bucket: BLOCKED, R2 is not enabled on the Cloudflare account
-  - [ ] Upload both LOLA DEMs to R2 (team request): BLOCKED on the bucket
-  - [ ] Gemini key as Worker secret + test call: BLOCKED, no key provided
-- [x] Start downloads: LDEM_80S_20MPP_ADJ first (2.6 GB), then LDEM_80S_80MPP_ADJ, the slope map, de440s.bsp and the lunar kernels (slope map still downloading at check-in; see DATA.md)
+- [x] Cloudflare account, Worker project and R2 bucket created; an empty app deploys to a public URL; Gemini key stored as a Worker secret and one test call returns JSON
+  - [x] Worker live at https://tranquility-base.rohansh2017.workers.dev with R2 bucket `tranquility-base-data` bound as `DATA`
+  - [x] Both LOLA DEMs uploaded to R2 under `raw/` (team request)
+  - [x] `GEMINI_API_KEY` stored as a Worker secret; one Interactions API call with the constraint schema returned JSON (made from the dev machine with the same key; the Worker route itself is P4)
+- [x] Start downloads: LDEM_80S_20MPP_ADJ first (2.6 GB), then LDEM_80S_80MPP_ADJ, the slope map, de440s.bsp and the lunar kernels (all complete, hashes in DATA.md)
 - [ ] Finalize the curated site list with a source per site (Artemis region centers, 2022 benchmarks, CLPS, Apollo 11, 15 and 17)
   - [x] 12 sites with a source each in `build/sites_src.json`
-  - [ ] 5 Artemis III regions have no sourced coordinate yet (listed under `pending`)
+  - [ ] 5 Artemis III regions have no sourced coordinate yet (listed under `pending`); needs a team decision
 
 ## P1 Engine + skeletons
 
-Exit (M1): Skyfield angles match Horizons within 0.1° at 3 sites; a real mask and track show in the panorama for one site.
+Exit (M1): Skyfield angles match Horizons within 0.1° at 3 sites; a real mask and track show in the panorama for one site. **Met 2026-11-14** (VALIDATION.md; `web/tests/screenshots/p1-*.png`).
 
-- [ ] A: Skyfield ephemeris files for 2026–2035; local-frame rotation; Python engine; topocentric check at 3 sites
-- [ ] B: stereographic conversion with tests; mask for one site on the 80 m DEM, then 20 m + 80 m
-- [ ] C: scene from a mock heightmap: mesh, 2 m camera, directional light, look controls
-- [ ] D: app shell with site list, time scrubber and panorama on mocks
+- [x] A: Skyfield ephemeris files for 2026–2035; local-frame rotation; Python engine; topocentric check at 3 sites
+- [x] B: stereographic conversion with tests; mask for one site on the 80 m DEM, then 20 m + 80 m (done for all 9 site grids)
+- [x] C: scene from a mock heightmap: mesh, 2 m camera, directional light, look controls (built directly on the real heightmaps)
+- [x] D: app shell with site list, time scrubber and panorama on mocks (runs on real data; `make data-fixtures` still gives mocks)
 
 ## P2 Core on real data
 

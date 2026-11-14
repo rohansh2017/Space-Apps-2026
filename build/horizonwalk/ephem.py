@@ -32,3 +32,14 @@ def directions(t):
 
 def timescale():
     return _kernels()[2]
+
+
+def year_table(year: int):
+    """Hourly rows for one calendar year: Sun unit vector, Earth unit vector, Earth distance km."""
+    import numpy as np
+
+    ts = timescale()
+    hours = round((ts.utc(year + 1, 1, 1) - ts.utc(year, 1, 1)) * 24)
+    sun, earth = directions(ts.utc(year, 1, 1, np.arange(hours)))
+    dist = np.linalg.norm(earth, axis=0)
+    return np.vstack([sun / np.linalg.norm(sun, axis=0), earth / dist, dist]).T

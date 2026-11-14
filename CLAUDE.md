@@ -15,16 +15,20 @@ Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC
 
 - `build/` Python pipeline and reference engine (`horizonwalk`), see `build/CLAUDE.md`
 - `web/` React + TS + Vite app, Cloudflare config, see `web/CLAUDE.md`
-- `web/public/data/` generated contract files (currently SYNTHETIC fixtures, flagged `"synthetic": true`)
+- `web/public/data/` generated contract files (real output of `make data`; only `tour.json` is still synthetic)
 - `shared/fixtures/` small JSON fixtures used by both engines
 - `data/raw/` downloaded DEMs and kernels (gitignored)
 - `docs/` PLAN, PROGRESS, DECISIONS, DATA, VALIDATION, TRACEABILITY, spec/SPEC.md
 
 ## Commands
 
-`make setup` · `make data-download` · `make data-fixtures` · `make test` · `make validate` ·
-`make check` (lint + typecheck + test) · `make dev` · `make build` · `make deploy`.
-Not built yet: `data`, `parity`, `e2e`, `perf`.
+`make setup` · `make data-download` · `make data` (real) · `make data-fixtures` (synthetic) ·
+`make test` · `make parity` · `make validate` · `make e2e` ·
+`make check` (lint + typecheck + test + parity + e2e) · `make dev` · `make build` · `make deploy`.
+Not built yet: `perf`.
+
+Secrets live in `.env` (gitignored): Cloudflare R2 S3 keys and `GEMINI_API_KEY`. The Worker has
+`GEMINI_API_KEY` as a secret and the R2 bucket `tranquility-base-data` bound as `DATA`.
 
 Live URL: https://tranquility-base.rohansh2017.workers.dev (Workers static assets).
 
@@ -54,7 +58,7 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
 - `slopes/{region}.bin`: Uint8 degrees per point, same order.
 - `sites.json`: `sites[]{id, name, lat, lon, coord_source, approximate, terrain, mission, agency, blurb, links, heightmap}`;
   `heightmap` is null for no-terrain sites, else `{file, offset_m, scale_m, size_px, span_m}`.
-- `heightmaps/{site}.png`: 16-bit greyscale, 256 × 256 over 5 × 5 km, row 0 = north (+y); height m = offset_m + value × scale_m.
+- `heightmaps/{site}.png`: 16-bit greyscale, 256 × 256 over 5 × 5 km in local east/north axes, row 0 = north, col 0 = west; height m = offset_m + value × scale_m.
 - `tour.json`: `steps[]{id, title, body}`, `glossary[]{term, definition}`.
 - `constraints.schema.json` (hand-authored): `constraints[]{id, type, unit, min, max, default}`.
 - Room message: `{type: "state", site_id, utc, constraints{id: value}, sender}` (`shared/fixtures/room_message.json`).
