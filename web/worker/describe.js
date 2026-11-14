@@ -5,7 +5,8 @@ const MODEL = 'gemini-4-hydrogen'
 const PER_MINUTE = 10
 const recent = new Map()
 const KEYS = ['ridge_direction', 'ridge_elevation_deg', 'lowest_direction', 'lowest_elevation_deg', 'window_hours', 'sunlit_pct',
-  'sun_max_elevation_deg', 'sun_now', 'hours_to_sun_change', 'earth_now', 'hours_to_earth_change']
+  'sun_max_elevation_deg', 'sun_now', 'sun_direction', 'hours_to_sun_change', 'sun_change_direction',
+  'earth_now', 'earth_direction', 'hours_to_earth_change', 'earth_change_direction']
 
 export async function describeHorizon(request, env) {
   if (request.method !== 'POST') return Response.json({ error: 'POST a JSON body {facts}' }, { status: 405 })
@@ -30,9 +31,11 @@ export async function describeHorizon(request, env) {
     headers: { 'x-goog-api-key': env.GEMINI_API_KEY, 'content-type': 'application/json', 'api-revision': '2026-05-20' },
     body: JSON.stringify({
       model: MODEL,
-      input: 'Describe this lunar south-pole horizon for a mission planner in two plain sentences. Use only the facts below, '
-        + 'quote every number exactly as given (no other numbers, no unit conversions), and say where the Sun and Earth tracks meet the '
-        + 'ridgeline. Compass directions are as seen from the landing site.\nFacts: ' + JSON.stringify(clean),
+      input: 'Write two plain sentences describing this lunar south-pole horizon for a mission planner: where the skyline is high and low, '
+        + 'where the Sun and Earth are against it now, and where and when each next meets the ridgeline (sunset/sunrise, Earthset/Earthrise). '
+        + 'Use only the facts below and quote every number exactly as given (no other numbers, no unit conversions). hours_to_* are hours; '
+        + 'null means no change within 30 days. Compass directions are as seen from the site. Never comment on the task or the facts; '
+        + 'if something is unknown, leave it out.\nFacts: ' + JSON.stringify(clean),
     }),
   })
   if (!upstream.ok) return Response.json({ error: `Gemini answered ${upstream.status}` }, { status: 502 })

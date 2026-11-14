@@ -508,7 +508,7 @@ export default function App() {
                     <>
                       {day.metrics && <Summary metrics={day.metrics} previous={nudgeFrom} />}
                       <Panorama mask={day.mask} track={day.track} t={view.t} />
-                      <HorizonText facts={horizonFacts(day.mask, day.series, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
+                      <HorizonText facts={horizonFacts(day.mask, day.series, day.track, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
                     </>
                   )}
                 {found && <Results finder={found.finder} candidates={found.candidates} opened={opened} date={date}
