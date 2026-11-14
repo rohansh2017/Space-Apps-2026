@@ -60,8 +60,9 @@ banner. Run `make data` to go back to real data. Do not commit synthetic files.
 make deploy          # builds, uploads the data files to R2, publishes to Cloudflare
 ```
 
-Auth: `npx wrangler login` once, or `Cloudflare_Token_Value` in `.env`. After a deploy,
-`curl -sI <live>/data/sites.json | grep x-data-source` should say `r2`.
+Auth: `npx wrangler login` once, or `Cloudflare_Token_Value` in `.env`. After a deploy, run
+`make e2e-live`: it runs the browser tests against the live site and prints the data source header,
+which should say `x-data-source: r2`.
 
 Secrets (R2 keys, `GEMINI_API_KEY`) live in `.env`, which is gitignored. Never commit it.
 

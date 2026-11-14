@@ -28,6 +28,6 @@ Bucket `tranquility-base-data` (bound to the Worker as `DATA`). Uploaded 2026-11
 - `raw/LDEM_80S_20MPP_ADJ.TIF` (2,696,082,051 bytes)
 - `raw/LDEM_80S_80MPP_ADJ.TIF` (189,158,392 bytes)
 
-The app's derived data files are not in R2 yet. `make deploy` uploads them under the contract paths (`sites.json`, `masks/…`), and the Worker then serves `/data/*` from R2 with the bundled copy as fallback. Until that runs, the fallback is what users get.
+The app's derived data files (everything in `web/public/data/`, 58 objects) were uploaded under the contract paths by `make deploy` on 2026-11-14 17:20 (`web/scripts/upload-data.sh`, which skips unchanged files). The live Worker serves `/data/*` from R2 (`x-data-source: r2`) with the bundled copy as fallback; `make e2e-live` checks this.
 
 The illumination maps store int16 values with scale 4e-5 (value × 4e-5 = fraction of time lit), in the same south polar stereographic projection as the DEMs.

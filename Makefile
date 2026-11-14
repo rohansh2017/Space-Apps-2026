@@ -8,7 +8,7 @@ RAW_URLS := $(PGDA)/LDEM_80S_20MPP_ADJ.TIF $(PGDA)/LDEM_80S_80MPP_ADJ.TIF \
   $(NAIF)/fk/satellites/a_old_versions/moon_de440_220930.tf \
   $(ILLUM)/AVGVISIB_85S_060M_201608.TIF $(ILLUM)/AVGVISIB_75S_120M_201608.TIF $(PGDA)/LDSM_80S_20MPP_ADJ.TIF
 
-.PHONY: setup data-download data data-fixtures test parity validate e2e perf check dev build deploy
+.PHONY: setup data-download data data-fixtures test parity validate e2e e2e-live perf check dev build deploy
 
 setup:
 	cd build && uv sync
@@ -32,6 +32,12 @@ parity:
 
 e2e:
 	cd web && npx playwright test
+
+# The same browser tests against the deployed site (LIVE=... to point elsewhere).
+LIVE := https://tranquility-base.rohansh2017.workers.dev
+e2e-live:
+	cd web && BASE_URL=$(LIVE) npx playwright test
+	@curl -sI $(LIVE)/data/sites.json | grep -i x-data-source
 
 # Finder timing at the spec's size and download sizes. Writes docs/PERF.md.
 perf: build

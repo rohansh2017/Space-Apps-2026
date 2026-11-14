@@ -77,3 +77,23 @@ Work moved to a second machine (Apple Silicon). Python env rebuilt with `uv sync
 3. Frame rate on a typical non-Apple laptop is unmeasured.
 
 **Known gaps / next**: P4 in the spec's order: side-by-side compare, nudge, guided tour (the tour text is written; the UI is not), mission room, Gemini sentence entry, illumination map, slope check, shareable URL. The regolith texture still reads a little like ripples; a real albedo/normal set and a larger terrain patch would be the next visual step.
+
+## 2026-11-14 17:35 EST — end-to-end check on the first machine, P3 closed
+
+Pulled the teammate's "Phase 3 nearly done" commit onto the Intel Mac that did P0–P2. `uv sync`, `npm install`; the two PGDA illumination maps were missing here and were downloaded (hashes match DATA.md).
+
+**End-to-end check, all green on this machine**
+- `make check`: ruff, oxlint, tsc clean; pytest 20 passed; vitest 24 passed; Playwright 5 passed. Only diff afterwards: last-digit float noise in the two parity fixtures (same as the teammate saw on Apple Silicon) and regenerated screenshots.
+- `make validate`: exit 0; Horizons max error 0.00068° at six sites; PGDA Pearson r 0.95–0.99 at nine sites; Connecting Ridge 3rd best-lit.
+- `make perf`: finder 852 ms (5,000 candidates × 60 days); 60 fps during playback (Apple M5, Metal); first load 3.91 MB + 0.65 MB per region.
+- Screenshots 1–9 viewed: HUD, chips, summary tiles, maps, matrix and Explorer labels are readable; nothing overlaps; the 3D view is no longer dark at grazing Sun.
+
+**Deployed (teammate's blocker #1)**
+- `make deploy`: 58 data objects uploaded to R2, Worker published. Live: `/data/sites.json`, `/data/masks/*.bin`, `/data/ephemeris/*.bin` answer with `x-data-source: r2`; `/data/raw/...` is not served (falls through to the SPA page).
+- New `make e2e-live` runs the five browser tests against the live URL: 5 passed, header `r2`. Documented in README.
+
+**Exit gate M3: met.** All seven objectives are in the deployed app (F1–F10, F12 live; F1–F9 exercised by the browser tests on the live build).
+
+**Still open from P3**: Quickmap lit/dark comparison by hand (judges' Q&A); frame rate on a non-Apple laptop (only Apple GPUs measured: M1 Pro and M5, both 60 fps).
+
+**Next**: P4 in the spec's order: side-by-side compare (F11), nudge (F14), guided tour (F13, text exists), mission room (F24), Gemini sentence entry (F21), then F15–F17.

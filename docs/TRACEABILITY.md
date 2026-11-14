@@ -26,9 +26,9 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F20 | Lunar Night Survivor game mode | C | 7 |  |  | todo |
 | F21 | Gemini sentence → schema-validated constraint JSON | S | 7 |  |  | todo |
 | F22 | Gemini horizon description with template fallback | C | 7 |  |  | todo |
-| F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js, web/scripts/upload-data.sh | wrangler dev --local: R2 hit, fallback, raw blocked | partial (built; `make deploy` not run, live URL is the P1 build) |
+| F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js, web/scripts/upload-data.sh | make e2e-live (5 browser tests on the live URL; `x-data-source: r2`) | done |
 | F24 | Mission room (Durable Object, WebSockets) | S | Prize |  |  | todo |
-| SM1 | Every M item works end to end in the deployed build | M | - |  |  | todo (works in the local build; not deployed) |
+| SM1 | Every M item works end to end in the deployed build | M | - | live URL | make e2e-live (demo path F1–F9 on the deployed build) | done |
 | SM2 | Engine within 0.1° of Horizons (az and el) at the validation sites | M | - | build/horizonwalk/engine.py, ephem.py | make validate | done (6 sites, 720 h, max error 0.0007°) |
 | SM3 | Finder under 3 s for 5,000 candidates × 60-day slip | M | - | web/src/engine/finder.ts | make perf (finder.perf.test.ts) | done (966 ms) |
 | SM4 | 3D view holds 30 fps on a typical laptop | M | - | web/src/Scene3D.tsx | make perf | partial (60 fps on an M1 Pro; no other laptop measured) |
