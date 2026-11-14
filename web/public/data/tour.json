@@ -1,0 +1,16 @@
+{
+ "synthetic": true,
+ "steps": [
+  {
+   "id": "placeholder",
+   "title": "Placeholder step",
+   "body": "Mock tour text."
+  }
+ ],
+ "glossary": [
+  {
+   "term": "Horizon mask",
+   "definition": "Mock glossary entry."
+  }
+ ]
+}

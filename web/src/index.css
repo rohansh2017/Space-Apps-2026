@@ -1,0 +1,14 @@
+body { margin: 0; font-family: system-ui, sans-serif; background: #0b0d12; color: #e8eaf0; }
+main { max-width: 1080px; margin: 0 auto; padding: 1rem; }
+h1 { font-size: 1.3rem; margin: 0 0 0.75rem; }
+.controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; }
+label { display: grid; gap: 0.25rem; font-size: 0.8rem; color: #9aa3b5; }
+.scrub { flex: 1 1 16rem; }
+select, input { font: inherit; color: #e8eaf0; background: #171b26; border: 1px solid #333b4f; border-radius: 4px; padding: 0.3rem; }
+input[type='range'] { padding: 0; }
+.readout { font-variant-numeric: tabular-nums; margin: 0.75rem 0 0.25rem; }
+.note { font-size: 0.8rem; color: #9aa3b5; margin: 0 0 0.75rem; }
+.banner { background: #7a4b00; color: #fff; padding: 0.5rem 0.75rem; border-radius: 4px; }
+.scene { height: 420px !important; border-radius: 4px; margin-bottom: 0.75rem; }
+.panorama { width: 100%; height: auto; display: block; border-radius: 4px; }
+footer { margin-top: 2rem; font-size: 0.8rem; color: #9aa3b5; }

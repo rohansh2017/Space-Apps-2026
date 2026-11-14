@@ -1,0 +1,10 @@
+{
+ "type": "state",
+ "site_id": "change7-shackleton-rim",
+ "utc": "2026-11-20T00:00:00Z",
+ "constraints": {
+  "mission_duration_days": 7,
+  "max_continuous_dark_hours": 80
+ },
+ "sender": "client-1234"
+}

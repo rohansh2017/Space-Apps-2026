@@ -1,0 +1,196 @@
+{
+ "sites": [
+  {
+   "id": "change7-shackleton-rim",
+   "name": "Shackleton rim (Chang'e-7 target)",
+   "lat": -88.8,
+   "lon": 123.4,
+   "coord_source": "Project spec (Space Apps Doc.pdf, Curated sites)",
+   "approximate": true,
+   "terrain": true,
+   "mission": "Chang'e-7",
+   "agency": "CNSA",
+   "blurb": "Demo story: the August 2026 launch was called off.",
+   "links": []
+  },
+  {
+   "id": "im2-mons-mouton",
+   "name": "Mons Mouton (IM-2 landing)",
+   "lat": -84.78,
+   "lon": 29.13,
+   "coord_source": "Project spec, citing LROC",
+   "approximate": false,
+   "terrain": true,
+   "mission": "IM-2 (CLPS)",
+   "agency": "NASA / Intuitive Machines",
+   "blurb": "CLPS landing site.",
+   "links": []
+  },
+  {
+   "id": "haworth",
+   "name": "Haworth",
+   "lat": -86.764,
+   "lon": -22.777,
+   "coord_source": "Centre of the PGDA product 78 site DEM footprint (Haworth); approximate, not NASA's region centre",
+   "approximate": true,
+   "terrain": true,
+   "mission": "Artemis III candidate region (October 2024)",
+   "agency": "NASA",
+   "blurb": "",
+   "links": [
+    "https://pgda.gsfc.nasa.gov/products/78"
+   ]
+  },
+  {
+   "id": "malapert-massif",
+   "name": "Malapert Massif",
+   "lat": -85.995,
+   "lon": -0.236,
+   "coord_source": "Centre of the PGDA product 78 site DEM footprint (Site23); approximate, not NASA's region centre",
+   "approximate": true,
+   "terrain": true,
+   "mission": "Artemis III candidate region (October 2024)",
+   "agency": "NASA",
+   "blurb": "",
+   "links": [
+    "https://pgda.gsfc.nasa.gov/products/78"
+   ]
+  },
+  {
+   "id": "nobile-rim-1",
+   "name": "Nobile Rim 1",
+   "lat": -85.438,
+   "lon": 37.367,
+   "coord_source": "Centre of the PGDA product 78 site DEM footprint (Site06); approximate, not NASA's region centre",
+   "approximate": true,
+   "terrain": true,
+   "mission": "Artemis III candidate region (October 2024)",
+   "agency": "NASA",
+   "blurb": "",
+   "links": [
+    "https://pgda.gsfc.nasa.gov/products/78"
+   ]
+  },
+  {
+   "id": "nobile-rim-2",
+   "name": "Nobile Rim 2",
+   "lat": -83.954,
+   "lon": 58.822,
+   "coord_source": "Centre of the PGDA product 78 site DEM footprint (DM2); approximate, not NASA's region centre",
+   "approximate": true,
+   "terrain": true,
+   "mission": "Artemis III candidate region (October 2024)",
+   "agency": "NASA",
+   "blurb": "",
+   "links": [
+    "https://pgda.gsfc.nasa.gov/products/78"
+   ]
+  },
+  {
+   "id": "connecting-ridge",
+   "name": "Connecting Ridge (Barker Site 01)",
+   "lat": -89.463,
+   "lon": -137.49,
+   "coord_source": "Centre of the PGDA product 78 site DEM footprint (Site01); approximate, not NASA's region centre",
+   "approximate": true,
+   "terrain": true,
+   "mission": "2022 Artemis III region, dropped in 2024; illumination benchmark",
+   "agency": "NASA",
+   "blurb": "Expected to be among the best-lit sites.",
+   "links": [
+    "https://pgda.gsfc.nasa.gov/products/78"
+   ]
+  },
+  {
+   "id": "peak-near-shackleton",
+   "name": "Peak near Shackleton",
+   "lat": -88.811,
+   "lon": 123.69,
+   "coord_source": "Centre of the PGDA product 78 site DEM footprint (Site07); approximate, not NASA's region centre",
+   "approximate": true,
+   "terrain": true,
+   "mission": "2022 Artemis III region, dropped in 2024; illumination benchmark",
+   "agency": "NASA",
+   "blurb": "",
+   "links": [
+    "https://pgda.gsfc.nasa.gov/products/78"
+   ]
+  },
+  {
+   "id": "faustini-rim-a",
+   "name": "Faustini Rim A",
+   "lat": -87.89,
+   "lon": 90.0,
+   "coord_source": "Centre of the PGDA product 78 site DEM footprint (LM7); approximate, not NASA's region centre",
+   "approximate": true,
+   "terrain": true,
+   "mission": "2022 Artemis III region, dropped in 2024; illumination benchmark",
+   "agency": "NASA",
+   "blurb": "",
+   "links": [
+    "https://pgda.gsfc.nasa.gov/products/78"
+   ]
+  },
+  {
+   "id": "apollo11",
+   "name": "Apollo 11",
+   "lat": 0.67,
+   "lon": 23.47,
+   "coord_source": "Project spec (approximate)",
+   "approximate": true,
+   "terrain": false,
+   "mission": "Apollo 11",
+   "agency": "NASA",
+   "blurb": "Sun and Earth angle validation only; no terrain.",
+   "links": []
+  },
+  {
+   "id": "apollo15",
+   "name": "Apollo 15",
+   "lat": 26.13,
+   "lon": 3.63,
+   "coord_source": "Project spec (approximate)",
+   "approximate": true,
+   "terrain": false,
+   "mission": "Apollo 15",
+   "agency": "NASA",
+   "blurb": "Sun and Earth angle validation only; no terrain.",
+   "links": []
+  },
+  {
+   "id": "apollo17",
+   "name": "Apollo 17",
+   "lat": 20.19,
+   "lon": 30.77,
+   "coord_source": "Project spec (approximate)",
+   "approximate": true,
+   "terrain": false,
+   "mission": "Apollo 17",
+   "agency": "NASA",
+   "blurb": "Sun and Earth angle validation only; no terrain.",
+   "links": []
+  }
+ ],
+ "pending": [
+  {
+   "name": "Peak near Cabeus B",
+   "reason": "No sourced centre coordinate yet; NASA published a map only (spec open question)"
+  },
+  {
+   "name": "Mons Mouton Plateau",
+   "reason": "No sourced centre coordinate yet; NASA published a map only (spec open question)"
+  },
+  {
+   "name": "Mons Mouton (Artemis III region)",
+   "reason": "No sourced centre coordinate yet; NASA published a map only (spec open question)"
+  },
+  {
+   "name": "de Gerlache Rim 2",
+   "reason": "No sourced centre coordinate yet; NASA published a map only (spec open question)"
+  },
+  {
+   "name": "Slater Plain",
+   "reason": "No sourced centre coordinate yet; NASA published a map only (spec open question)"
+  }
+ ]
+}

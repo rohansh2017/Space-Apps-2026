@@ -1,0 +1,58 @@
+{
+ "synthetic": false,
+ "frame": "MOON_ME_DE440_ME421",
+ "start_utc": "2026-01-01T00:00:00Z",
+ "step_seconds": 3600,
+ "dtype": "float32-le",
+ "fields": [
+  "sun_x",
+  "sun_y",
+  "sun_z",
+  "earth_x",
+  "earth_y",
+  "earth_z",
+  "earth_dist_km"
+ ],
+ "years": {
+  "2026": {
+   "file": "ephemeris/2026.bin",
+   "hours": 8760
+  },
+  "2027": {
+   "file": "ephemeris/2027.bin",
+   "hours": 8760
+  },
+  "2028": {
+   "file": "ephemeris/2028.bin",
+   "hours": 8784
+  },
+  "2029": {
+   "file": "ephemeris/2029.bin",
+   "hours": 8760
+  },
+  "2030": {
+   "file": "ephemeris/2030.bin",
+   "hours": 8760
+  },
+  "2031": {
+   "file": "ephemeris/2031.bin",
+   "hours": 8760
+  },
+  "2032": {
+   "file": "ephemeris/2032.bin",
+   "hours": 8784
+  },
+  "2033": {
+   "file": "ephemeris/2033.bin",
+   "hours": 8760
+  },
+  "2034": {
+   "file": "ephemeris/2034.bin",
+   "hours": 8760
+  },
+  "2035": {
+   "file": "ephemeris/2035.bin",
+   "hours": 8760
+  }
+ }
+}

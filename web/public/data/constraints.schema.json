@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "constraints": [
+    { "id": "mission_duration_days", "type": "number", "unit": "days", "min": 1, "max": 30, "default": 7 },
+    { "id": "min_continuous_sun_days", "type": "number", "unit": "days", "min": 0, "max": 30, "default": 6 },
+    { "id": "max_continuous_dark_hours", "type": "number", "unit": "hours", "min": 0, "max": 720, "default": 80 },
+    { "id": "min_earth_visible_pct", "type": "number", "unit": "%", "min": 0, "max": 100, "default": 40 },
+    { "id": "min_earth_elevation_deg", "type": "number", "unit": "deg", "min": 0, "max": 10, "default": 1 },
+    { "id": "landing_sun_and_earth_visible", "type": "boolean", "unit": null, "min": null, "max": null, "default": true },
+    { "id": "max_slope_deg", "type": "number", "unit": "deg", "min": 0, "max": 30, "default": 10 },
+    { "id": "slip_range_days", "type": "number", "unit": "days", "min": 0, "max": 30, "default": 30 },
+    { "id": "search_radius_km", "type": "number", "unit": "km", "min": 0, "max": 5, "default": 5 }
+  ]
+}

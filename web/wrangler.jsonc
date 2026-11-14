@@ -1,0 +1,8 @@
+{
+  "name": "tranquility-base",
+  "compatibility_date": "2026-11-01",
+  "main": "worker/index.js",
+  "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "single-page-application" },
+  "r2_buckets": [{ "binding": "DATA", "bucket_name": "tranquility-base-data" }]
+  // Secret: GEMINI_API_KEY (set with `wrangler secret put`, never in the repo).
+}
