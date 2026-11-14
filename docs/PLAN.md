@@ -68,8 +68,12 @@ P4 items done except the exit test itself (an outsider completing the tour unaid
 
 Exit: two full demo runs under 3 minutes, backup video recorded.
 
-- [ ] One-page summary with a 3D screenshot; README with data credits and the non-goals
+- [x] One-page summary with a 3D screenshot (`docs/ONE_PAGER.md`); README rewritten with data credits, architecture, validation and the non-goals (2026-11-14 20:40)
 - [ ] Prize slides (Cloudflare products used; how Gemini is used); confirm each prize's submission steps
+  - [x] Slide content in `docs/PRIZE_SLIDES.md`
+  - [ ] Submission steps confirmed on the Space Apps NYC page (needs a person)
 - [ ] Rehearse the script twice; record the backup video; bug bash on the deployed URL
+  - [x] Script mapped to the UI in `docs/DEMO_SCRIPT.md`; `make e2e-live` is the automated bug bash (13 tests pass on the deployed URL)
+  - [ ] Two rehearsals under 3 minutes and the recording (needs people)
 
 Cut list: see SPEC.md, "Cut list".
