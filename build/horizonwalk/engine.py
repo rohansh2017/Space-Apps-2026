@@ -47,3 +47,66 @@ def earth_visible(earth_el_deg, mask_el_deg, min_el_deg: float = EARTH_MIN_EL_DE
 
 def decode_mask(raw_u16):
     return np.asarray(raw_u16, dtype=np.float64) * 0.01 - 10.0
+
+
+# --- Metrics over a mission window (definitions: SPEC.md, "Metric definitions") ---
+
+
+def _longest_run(flags) -> int:
+    """Length of the longest run of True."""
+    edges = np.flatnonzero(np.diff(np.concatenate(([0], np.asarray(flags, dtype=np.int8), [0]))))
+    return int((edges[1::2] - edges[::2]).max()) if edges.size else 0
+
+
+def window_metrics(frac, earth, sun_el, start: int, hours: int, deck: bool = False) -> dict:
+    """Metrics for the window [start, start + hours) of hourly series.
+
+    frac: Sun visible fraction; earth: Earth-visible flags; sun_el: solar elevation in degrees.
+    The power index uses cos(elevation) for a vertical mast, sin(elevation) for a horizontal deck.
+    """
+    f = np.asarray(frac, dtype=np.float64)[start : start + hours]
+    e = np.asarray(earth, dtype=bool)[start : start + hours]
+    el = np.asarray(sun_el, dtype=np.float64)[start : start + hours]
+    assert f.size == hours, "window runs past the end of the series"
+    lit = f > 0
+    geometry = np.sin(np.radians(el)) if deck else np.cos(np.radians(el))
+    return {
+        "sunlit_pct": float(f.mean() * 100),
+        "longest_lit_h": _longest_run(lit),
+        "longest_dark_h": _longest_run(~lit),
+        "earth_pct": float(e.mean() * 100),
+        "power_index": float((f * geometry).mean()),
+        "mean_el_lit": float(el[lit].mean()) if lit.any() else None,
+        "landing_ok": bool(lit[0] and e[0]),
+    }
+
+
+def next_change(flags, t: int) -> int | None:
+    """Hours from t until flags first differs from flags[t] (sunset, sunrise, Earthset, Earthrise)."""
+    flags = np.asarray(flags, dtype=bool)
+    later = np.flatnonzero(flags[t:] != flags[t])
+    return int(later[0]) if later.size else None
+
+
+def evaluate(m: dict, slope_deg: float, c: dict, weights: dict | None = None) -> dict:
+    """Pass/fail and normalized margin per constraint, plus the weighted margin score.
+
+    Margins are positive when a constraint passes and are clamped to [-1, 1] before weighting.
+    """
+    dur_h = c["mission_duration_days"] * 24
+    margins = {
+        "min_continuous_sun_days": (m["longest_lit_h"] - c["min_continuous_sun_days"] * 24) / dur_h,
+        "max_continuous_dark_hours": (c["max_continuous_dark_hours"] - m["longest_dark_h"]) / dur_h,
+        "min_earth_visible_pct": (m["earth_pct"] - c["min_earth_visible_pct"]) / 100,
+        "max_slope_deg": (c["max_slope_deg"] - slope_deg) / 30,
+    }
+    if c["landing_sun_and_earth_visible"]:
+        margins["landing_sun_and_earth_visible"] = 0.0 if m["landing_ok"] else -1.0
+    weights = weights or {}
+    return {
+        "passes": {k: v >= 0 for k, v in margins.items()},
+        "fails": sum(v < 0 for v in margins.values()),
+        "score": float(
+            sum(weights.get(k, 1.0) * min(1.0, max(-1.0, v)) for k, v in margins.items())
+        ),
+    }

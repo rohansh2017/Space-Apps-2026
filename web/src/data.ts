@@ -27,8 +27,18 @@ export interface Point {
   elev_m: number
 }
 
+export interface ConstraintDef {
+  id: string
+  type: 'number' | 'boolean'
+  unit: string | null
+  min: number | null
+  max: number | null
+  default: number | boolean
+}
+
 export interface Dataset {
   synthetic: boolean
+  constraintDefs: ConstraintDef[]
   sites: Site[]
   points: Point[]
   centreIndex: number
@@ -46,8 +56,8 @@ async function get(path: string): Promise<Response> {
 }
 
 export async function loadDataset(): Promise<Dataset> {
-  const [sites, points, eph] = await Promise.all(
-    ['sites.json', 'points.json', 'ephemeris.json'].map(async (f) => (await get(f)).json()),
+  const [sites, points, eph, schema] = await Promise.all(
+    ['sites.json', 'points.json', 'ephemeris.json', 'constraints.schema.json'].map(async (f) => (await get(f)).json()),
   )
   if (eph.step_seconds !== 3600 || eph.fields.length !== 7) throw new Error('unexpected ephemeris layout')
   // Years are contiguous from start_utc, so the yearly files concatenate into one hourly table.
@@ -65,6 +75,7 @@ export async function loadDataset(): Promise<Dataset> {
   if (offset !== ephemeris.length) throw new Error('ephemeris size does not match ephemeris.json')
   return {
     synthetic: Boolean(sites.synthetic || points.synthetic || eph.synthetic),
+    constraintDefs: schema.constraints,
     sites: sites.sites,
     points: points.points,
     centreIndex: points.grid.centre_index,
@@ -74,16 +85,24 @@ export async function loadDataset(): Promise<Dataset> {
   }
 }
 
-const masks = new Map<string, Promise<Uint16Array>>()
+export interface Region {
+  masks: Uint16Array // 360 per point, row = point index
+  slopes: Uint8Array // degrees per point
+}
 
-/** All masks of one region: 360 Uint16 per point, row = point index. Loaded on demand, cached. */
-export function loadMasks(region: string): Promise<Uint16Array> {
-  let m = masks.get(region)
-  if (!m) {
-    m = get(`masks/${region}.bin`).then(async (r) => new Uint16Array(await r.arrayBuffer()))
-    masks.set(region, m)
+const regions = new Map<string, Promise<Region>>()
+
+/** Masks and slopes of one region. Loaded on demand, cached. */
+export function loadRegion(region: string): Promise<Region> {
+  let r = regions.get(region)
+  if (!r) {
+    r = Promise.all([get(`masks/${region}.bin`), get(`slopes/${region}.bin`)]).then(async ([m, s]) => ({
+      masks: new Uint16Array(await m.arrayBuffer()),
+      slopes: new Uint8Array(await s.arrayBuffer()),
+    }))
+    regions.set(region, r)
   }
-  return m
+  return r
 }
 
 /** Decode a 16-bit greyscale PNG written by horizonwalk.export.write_png16. */

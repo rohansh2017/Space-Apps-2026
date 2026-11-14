@@ -1,0 +1,108 @@
+// Constraint finder: candidates x start times, ranked by pass count then weighted margin. Pure; runs in a worker.
+import type { Constraints, Evaluation, Metrics, SiteFrame } from './engine'
+import { buildSeries, evaluate, siteFrame, windowMetrics } from './engine'
+
+export interface Candidate {
+  id: string
+  label: string // curated site name the point belongs to
+  lat: number
+  lon: number
+  elevM: number
+  slopeDeg: number
+  mask: Uint16Array // 360 raw bins
+}
+
+export interface Scored {
+  candidate: number // index into the candidates array
+  start: number // ephemeris row of the landing hour
+  metrics: Metrics
+  evaluation: Evaluation
+}
+
+export interface FinderResult {
+  baseline: Scored
+  results: Scored[] // best start per candidate, best first; the baseline pair itself is excluded
+  evaluated: number // (candidate, start) pairs scored
+  ms: number
+}
+
+const better = (a: Evaluation, b: Evaluation) => a.fails < b.fails || (a.fails === b.fails && a.score > b.score)
+const REFINE_TOP = 10
+
+/**
+ * Score every candidate at daily start steps across the slip range around `start`, keep the best
+ * start per candidate, then refine the top results hourly. candidates[0] is the original plan.
+ */
+export function runFinder(
+  table: ArrayLike<number>, tableHours: number, candidates: Candidate[], start: number, c: Constraints,
+  weights: Record<string, number> = {}, keep = 10,
+): FinderResult {
+  const t0 = performance.now()
+  const dur = Math.round(Number(c.mission_duration_days) * 24)
+  const slip = Math.round(Number(c.slip_range_days) * 24)
+  const first = Math.max(0, start - slip)
+  const lastStart = Math.min(start + slip, tableHours - dur)
+  if (lastStart < first || start > lastStart) throw new RangeError('mission window runs past the ephemeris')
+  const n = lastStart + dur - first
+  const minEarthEl = Number(c.min_earth_elevation_deg)
+  let evaluated = 0
+
+  const score = (ci: number, p: ReturnType<typeof buildSeries>, s: number): Scored => {
+    evaluated++
+    const metrics = windowMetrics(p, s - first, dur)
+    return { candidate: ci, start: s, metrics, evaluation: evaluate(metrics, candidates[ci].slopeDeg, c, weights) }
+  }
+  const frames: SiteFrame[] = candidates.map((k) => siteFrame(k.lat, k.lon, k.elevM))
+  const series = (ci: number) => buildSeries(table, first, n, frames[ci], candidates[ci].mask, minEarthEl)
+
+  let baseline: Scored | null = null
+  const best: Scored[] = []
+  const firstDaily = start - Math.floor((start - first) / 24) * 24 // daily steps that include `start`
+  candidates.forEach((_, ci) => {
+    const p = series(ci)
+    if (ci === 0) baseline = score(0, p, start)
+    let top: Scored | null = null
+    for (let s = firstDaily; s <= lastStart; s += 24) {
+      if (ci === 0 && s === start) continue // the plan itself is not an alternative
+      const r = score(ci, p, s)
+      if (!top || better(r.evaluation, top.evaluation)) top = r
+    }
+    if (top) best.push(top)
+  })
+  best.sort((a, b) => (better(a.evaluation, b.evaluation) ? -1 : better(b.evaluation, a.evaluation) ? 1 : 0))
+
+  const results = best.slice(0, keep)
+  for (const r of results.slice(0, REFINE_TOP)) {
+    const p = series(r.candidate)
+    for (let s = Math.max(first, r.start - 23); s <= Math.min(lastStart, r.start + 23); s++) {
+      if (r.candidate === 0 && s === start) continue
+      const h = score(r.candidate, p, s)
+      if (better(h.evaluation, r.evaluation)) Object.assign(r, h)
+    }
+  }
+  results.sort((a, b) => (better(a.evaluation, b.evaluation) ? -1 : better(b.evaluation, a.evaluation) ? 1 : 0))
+  return { baseline: baseline!, results, evaluated, ms: performance.now() - t0 }
+}
+
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+const signed = (v: number, digits = 0) => `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(digits)}`
+
+/** One-line plain-language difference from the original plan, e.g. "1.4 km NE, 2 days later: +9% sun, −31 h dark, −5% comms". */
+export function diffText(base: Candidate, baseScored: Scored, cand: Candidate, scored: Scored): string {
+  const f = siteFrame(base.lat, base.lon, base.elevM)
+  const p = siteFrame(cand.lat, cand.lon, cand.elevM).pos
+  const d = [p[0] - f.pos[0], p[1] - f.pos[1], p[2] - f.pos[2]]
+  const east = d[0] * f.east[0] + d[1] * f.east[1] + d[2] * f.east[2]
+  const north = d[0] * f.north[0] + d[1] * f.north[1] + d[2] * f.north[2]
+  const km = Math.hypot(east, north)
+  const bearing = ((Math.atan2(east, north) * 180) / Math.PI + 360) % 360
+  const where = km < 0.001 ? 'Same site' : `${km < 10 ? km.toFixed(1) : km.toFixed(0)} km ${COMPASS[Math.round(bearing / 45) % 8]}`
+
+  const dh = scored.start - baseScored.start
+  const days = Math.abs(dh) / 24
+  const amount = Math.abs(dh) < 24 ? `${Math.abs(dh)} h` : `${Number.isInteger(days) ? days : days.toFixed(1)} day${days === 1 ? '' : 's'}`
+  const when = dh === 0 ? 'same date' : `${amount} ${dh > 0 ? 'later' : 'earlier'}`
+
+  const [m, b] = [scored.metrics, baseScored.metrics]
+  return `${where}, ${when}: ${signed(m.sunlitPct - b.sunlitPct)}% sun, ${signed(m.longestDarkH - b.longestDarkH)} h dark, ${signed(m.earthPct - b.earthPct)}% comms`
+}

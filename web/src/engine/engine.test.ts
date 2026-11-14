@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fixture from '../../../shared/fixtures/engine_cases.json'
-import { earthVisible, maskAt, siteAngles, siteFrame, sunFraction } from './engine'
+import { buildSeries, earthVisible, maskAt, siteAngles, siteFrame, sunFraction } from './engine'
 
 // Parity with the Python reference engine: angles within 1e-4 deg, visibility identical.
 describe('engine parity with horizonwalk.engine', () => {
@@ -19,6 +19,17 @@ describe('engine parity with horizonwalk.engine', () => {
       expect(Math.abs(earthMask - c.expect.earth_mask[r])).toBeLessThan(1e-4)
       expect(sunFraction(a.sunEl, sunMask)).toBeCloseTo(c.expect.sun_fraction[r], 9)
       expect(earthVisible(a.earthEl, earthMask)).toBe(c.expect.earth_visible[r])
+    })
+  })
+})
+
+describe('buildSeries (inlined hot loop)', () => {
+  it.each(fixture.cases.map((c, i) => [i, c] as const))('matches the reference functions, case %i', (_, c) => {
+    const p = buildSeries(c.rows.flat(), 0, c.rows.length, siteFrame(c.site.lat, c.site.lon, c.site.elev_m), c.mask_raw)
+    c.rows.forEach((_row, r) => {
+      expect(p.sunEl[r]).toBeCloseTo(c.expect.sun_el[r], 9)
+      expect(p.frac[r]).toBeCloseTo(c.expect.sun_fraction[r], 9)
+      expect(p.earth[r] === 1).toBe(c.expect.earth_visible[r])
     })
   })
 })
