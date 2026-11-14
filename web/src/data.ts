@@ -12,7 +12,7 @@ export interface Site {
   agency: string
   blurb: string
   links: string[]
-  heightmap: { file: string; offset_m: number; scale_m: number; size_px: number; span_m: number } | null
+  heightmap: { file: string; offset_m: number; scale_m: number; size_px: number; span_m: number; res_m: number; source: string } | null
 }
 
 export interface Point {
@@ -60,6 +60,9 @@ export interface Dataset {
   startMs: number // UTC time of ephemeris row 0
   hours: number
   ephemeris: Float32Array // hours x 7
+  orientation: Float32Array // hours x 4: ICRF -> MOON_ME quaternion (w, x, y, z)
+  stars: Float32Array // count x 5: ICRF unit vector, V magnitude, B-V (NaN when unknown)
+  starSource: string
 }
 
 const BASE = `${import.meta.env.BASE_URL}data/`
@@ -71,25 +74,32 @@ async function get(path: string): Promise<Response> {
 }
 
 export async function loadDataset(): Promise<Dataset> {
-  const [sites, points, eph, schema, tour, basemap] = await Promise.all(
-    ['sites.json', 'points.json', 'ephemeris.json', 'constraints.schema.json', 'tour.json', 'basemap.json'].map(async (f) => (await get(f)).json()),
+  const [sites, points, eph, schema, tour, basemap, starMeta] = await Promise.all(
+    ['sites.json', 'points.json', 'ephemeris.json', 'constraints.schema.json', 'tour.json', 'basemap.json', 'stars.json'].map(async (f) => (await get(f)).json()),
   )
   if (eph.step_seconds !== 3600 || eph.fields.length !== 7) throw new Error('unexpected ephemeris layout')
   // Years are contiguous from start_utc, so the yearly files concatenate into one hourly table.
   const years = Object.keys(eph.years).sort()
-  const parts = await Promise.all(
-    years.map(async (y) => new Float32Array(await (await get(eph.years[y].file)).arrayBuffer())),
-  )
   const hours = years.reduce((n, y) => n + eph.years[y].hours, 0)
-  const ephemeris = new Float32Array(hours * 7)
-  let offset = 0
-  for (const p of parts) {
-    ephemeris.set(p, offset)
-    offset += p.length
+  const concat = async (files: string[], stride: number) => {
+    const parts = await Promise.all(files.map(async (f) => new Float32Array(await (await get(f)).arrayBuffer())))
+    const out = new Float32Array(hours * stride)
+    let offset = 0
+    for (const p of parts) {
+      out.set(p, offset)
+      offset += p.length
+    }
+    if (offset !== out.length) throw new Error('hourly table size does not match ephemeris.json')
+    return out
   }
-  if (offset !== ephemeris.length) throw new Error('ephemeris size does not match ephemeris.json')
+  const [ephemeris, orientation, stars] = await Promise.all([
+    concat(years.map((y) => eph.years[y].file), 7),
+    concat(years.map((y) => eph.orientation.years[y].file), 4),
+    get(starMeta.file).then(async (r) => new Float32Array(await r.arrayBuffer())),
+  ])
+  if (stars.length !== starMeta.count * 5) throw new Error('stars.bin size does not match stars.json')
   return {
-    synthetic: Boolean(sites.synthetic || points.synthetic || eph.synthetic || basemap.synthetic),
+    synthetic: Boolean(sites.synthetic || points.synthetic || eph.synthetic || basemap.synthetic || starMeta.synthetic),
     tour,
     basemap,
     constraintDefs: schema.constraints,
@@ -99,6 +109,9 @@ export async function loadDataset(): Promise<Dataset> {
     startMs: Date.parse(eph.start_utc),
     hours,
     ephemeris,
+    orientation,
+    stars,
+    starSource: starMeta.source,
   }
 }
 

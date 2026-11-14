@@ -7,7 +7,7 @@ import { loadDataset, loadRegion } from './data'
 import { horizonFacts } from './describe'
 import HorizonText from './HorizonText'
 import type { Constraints, Metrics } from './engine/engine'
-import { buildSeries, evaluate, nextChange, nudgeNeighbour, siteAngles, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
+import { buildSeries, evaluate, nextChange, nudgeNeighbour, siteAngles, siteFrame, skyMatrix, snapToGrid, windowMetrics } from './engine/engine'
 import type { Candidate, FinderResult } from './engine/finder'
 import type { FinderRequest } from './engine/finder.worker'
 import type { Mode } from './guide'
@@ -191,8 +191,10 @@ export default function App() {
       sunChangeH: nextChange(series.litLeft, t),
       earthChangeH: nextChange(series.earthLeft, t),
       earthDistKm: data.ephemeris[(viewStart + t) * 7 + 6],
+      // real star field for this observer and hour (stars are fixed in ICRF; the Moon turns under them)
+      sky: observer ? skyMatrix(data.orientation, viewStart + t, siteFrame(observer.lat, observer.lon, observer.elevM)) : null,
     }
-  }, [data, day, viewStart, offset])
+  }, [data, day, viewStart, offset, observer])
 
   // F12 playback: one lunar day in about 20 s, driven by the clock so the speed does not depend on frame rate
   const last = (day?.track.length ?? 1) - 1
@@ -471,7 +473,7 @@ export default function App() {
                 <div className="viewport">
                   {site.terrain
                     ? <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
-                        sunFraction={view.lit} earthDistKm={view.earthDistKm} />
+                        sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky!} stars={data.stars} />
                     : <p className="note empty">No terrain for this site: it is used to validate Sun and Earth angles only, so the horizon below is flat.</p>}
                   <Hud sunEl={view.now.sunEl} earthEl={view.now.earthEl} lit={view.lit} link={view.link} power={view.power}
                     sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} />
@@ -526,9 +528,11 @@ export default function App() {
         </div>
         <footer>
           Screening-grade results: 500 m search grid, 20 m terrain within 10 km and 80 m beyond. Not a
-          mission design, hazard, power, thermal or link-budget tool. In the 3D view, ground detail finer
-          than the 20 m terrain, the stars, the Sun's glare and Earth's surface are illustrative; every
-          number comes from the engine. Data: NASA/JPL DE440, LRO LOLA (NASA GSFC PGDA).
+          mission design, hazard, power, thermal or link-budget tool. 3D view: terrain relief is LOLA data
+          (5 m where PGDA has a site DEM, otherwise 20 m with illustrative fine detail); the ground colour,
+          the Sun's glare and Earth's surface are illustrative; stars are from the Yale Bright Star
+          Catalogue at their real positions for this site and hour, with colours approximated from B−V.
+          Every number comes from the engine. Data: NASA/JPL DE440, LRO LOLA (NASA GSFC PGDA), BSC5.
         </footer>
       </main>
     </Guide.Provider>

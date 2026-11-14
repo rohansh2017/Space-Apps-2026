@@ -2,6 +2,11 @@
 PGDA := https://pgda.gsfc.nasa.gov/data/LOLA_20mpp
 NAIF := https://naif.jpl.nasa.gov/pub/naif/generic_kernels
 ILLUM := https://pgda.gsfc.nasa.gov/data/MoonIllumination
+PGDA5 := https://pgda.gsfc.nasa.gov/data/LOLA_5mpp
+# PGDA 78 5 m site DEMs used for 3D heightmaps (Site04 is downloaded but no curated site falls inside it)
+SITES_5M := Site01 Site04 Site06 Site07 Site23 Haworth DM2 LM7
+# Yale Bright Star Catalogue (BSC5); the Harvard TDC copy, as CDS (VizieR V/50) was unreachable
+BSC5 := http://tdc-www.harvard.edu/catalogs/bsc5.dat.gz
 # Order matters: the 2.6 GB 20 m DEM first, slope map (3.8 GB, should-have) last. The AVGVISIB maps are for validation.
 RAW_URLS := $(PGDA)/LDEM_80S_20MPP_ADJ.TIF $(PGDA)/LDEM_80S_80MPP_ADJ.TIF \
   $(NAIF)/spk/planets/de440s.bsp $(NAIF)/pck/moon_pa_de440_200625.bpc \
@@ -16,12 +21,15 @@ setup:
 
 # Resumable and idempotent. PGDA sometimes closes long transfers, so each file gets 8 resume attempts.
 data-download:
-	@mkdir -p data/raw && cd data/raw && for u in $(RAW_URLS); do \
+	@mkdir -p data/raw/5m && cd data/raw && for u in $(RAW_URLS) $(BSC5); do \
 	  for i in 1 2 3 4 5 6 7 8; do curl -fSL -C - --retry 5 -O $$u && break; \
-	    [ $$? -eq 22 ] && break; sleep 10; done; done; ls -l
+	    [ $$? -eq 22 ] && break; sleep 10; done; done; \
+	cd 5m && for s in $(SITES_5M); do \
+	  for i in 1 2 3 4 5 6; do curl -fSL -C - --retry 5 -O $(PGDA5)/$$s/$${s}_final_adj_5mpp_surf.tif && break; \
+	    [ $$? -eq 22 ] && break; sleep 20; done; sleep 5; done; ls -l .. .
 # curl exit 22 with -C - means HTTP 416: the file is already complete.
 
-# Real ephemeris, masks, slopes and heightmaps into web/public/data/ (about 15 s).
+# Real ephemeris, orientation, stars, masks, slopes and heightmaps into web/public/data/ (about 15 s).
 data:
 	cd build && uv run python scripts/build_data.py
 

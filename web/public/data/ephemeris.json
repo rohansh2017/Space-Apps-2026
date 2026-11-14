@@ -54,5 +54,57 @@
    "file": "ephemeris/2035.bin",
    "hours": 8760
   }
+ },
+ "orientation": {
+  "from": "ICRF",
+  "to": "MOON_ME_DE440_ME421",
+  "fields": [
+   "qw",
+   "qx",
+   "qy",
+   "qz"
+  ],
+  "years": {
+   "2026": {
+    "file": "orientation/2026.bin",
+    "hours": 8760
+   },
+   "2027": {
+    "file": "orientation/2027.bin",
+    "hours": 8760
+   },
+   "2028": {
+    "file": "orientation/2028.bin",
+    "hours": 8784
+   },
+   "2029": {
+    "file": "orientation/2029.bin",
+    "hours": 8760
+   },
+   "2030": {
+    "file": "orientation/2030.bin",
+    "hours": 8760
+   },
+   "2031": {
+    "file": "orientation/2031.bin",
+    "hours": 8760
+   },
+   "2032": {
+    "file": "orientation/2032.bin",
+    "hours": 8784
+   },
+   "2033": {
+    "file": "orientation/2033.bin",
+    "hours": 8760
+   },
+   "2034": {
+    "file": "orientation/2034.bin",
+    "hours": 8760
+   },
+   "2035": {
+    "file": "orientation/2035.bin",
+    "hours": 8760
+   }
+  }
  }
 }

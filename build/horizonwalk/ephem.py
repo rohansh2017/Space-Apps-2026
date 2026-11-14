@@ -43,3 +43,29 @@ def year_table(year: int):
     sun, earth = directions(ts.utc(year, 1, 1, np.arange(hours)))
     dist = np.linalg.norm(earth, axis=0)
     return np.vstack([sun / np.linalg.norm(sun, axis=0), earth / dist, dist]).T
+
+
+def year_orientation(year: int):
+    """Hourly ICRF -> FRAME rotation for one calendar year as unit quaternions (hours, 4), (w, x, y, z).
+
+    Stars are fixed in ICRF; this turns them with the Moon. Same hours as `year_table`.
+    """
+    import numpy as np
+
+    from horizonwalk.geo import matrix_to_quaternion
+
+    _, frame, ts = _kernels()
+    hours = round((ts.utc(year + 1, 1, 1) - ts.utc(year, 1, 1)) * 24)
+    rot = frame.rotation_at(
+        ts.utc(year, 1, 1, np.arange(hours))
+    )  # (3, 3, hours): frame_xyz = R @ icrf
+    return matrix_to_quaternion(np.moveaxis(rot, -1, 0))
+
+
+def sun_icrf(t):
+    """Apparent Sun direction from the Moon's centre in ICRF axes (unit vectors, (3,) or (3, N))."""
+    import numpy as np
+
+    eph, _, _ = _kernels()
+    v = eph["moon"].at(t).observe(eph["sun"]).apparent().position.au
+    return v / np.linalg.norm(v, axis=0)

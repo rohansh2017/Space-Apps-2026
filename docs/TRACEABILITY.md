@@ -6,7 +6,7 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | --- | --- | --- | --- | --- | --- | --- |
 | F1 | Curated site list + custom lat/lon + map click, snapped to grid | M | 1 | web/src/App.tsx (locate), SiteMap.tsx, engine.ts snapToGrid | e2e p3.spec.ts (custom coordinates), metrics.test.ts | done |
 | F2 | UTC date/time picker + lunar-day scrubber, 2026–2035 | M | 2, 6 | web/src/App.tsx | e2e demo.spec.ts | done (windows past 2035 are reported, not computed) |
-| F3 | First-person 3D scene: Sun/Earth at true az/el, shadows, silhouette ring | M | 3, 5 | web/src/Scene3D.tsx, regolith.ts | e2e demo.spec.ts, screenshots 1–5 | done (surface detail below 20 m is illustrative, D22) |
+| F3 | First-person 3D scene: Sun/Earth at true az/el, shadows, silhouette ring | M | 3, 5 | web/src/Scene3D.tsx, starfield.ts, regolith.ts | e2e demo.spec.ts, orientation.test.ts, screenshots 1–5 | done (5 m LOLA relief at 8 of 9 sites, real BSC5 stars; illustrative parts listed in the footer, D37–D40) |
 | F4 | HUD: elevations, lit/link status, power index, countdowns | M | 3, 4 | web/src/Hud.tsx | e2e demo.spec.ts (HUD = engine at four steps) | done |
 | F5 | Horizon panorama with Sun and Earth tracks | M | 3, 5, 6 | web/src/Panorama.tsx | e2e demo.spec.ts | done (window = one lunar day from landing) |
 | F6 | Constraint panel with presets | M | 4 | web/src/ConstraintPanel.tsx, presets.ts | e2e demo.spec.ts | done |
@@ -37,4 +37,4 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | SM7 | If built: two browsers stay in step; a typed sentence fills the panel with schema-valid values | S | - | web/worker/room.js | e2e room.spec.ts | done (room.spec.ts; gemini.spec.ts live: the demo sentence fills the panel with 96 h / 50 %) |
 | PT1 | 3D frame rate ≥ 30 fps | M | - | web/src/Scene3D.tsx | make perf | partial (60 fps on an M1 Pro and an M5) |
 | PT2 | Finder: 5,000 candidates × 60-day slip under 3 s | M | - | web/src/engine/finder.ts | make perf | done (0.85–0.97 s) |
-| PT3 | Initial load for the demo regions under 10 MB | M | - | web/tests/perf.sh | make perf | done (1.23 MB app + 3.91 MB data at start, 0.65 MB per region) |
+| PT3 | Initial load for the demo regions under 10 MB | M | - | web/tests/perf.sh | make perf | done (9.2 MB for the demo region: 1.23 MB app + 5.49 MB data at start + 2.47 MB 5 m region; was 5.1 MB before P6) |

@@ -24,6 +24,6 @@ echo
 echo "## Initial load (target: under 10 MB for the demo regions)"
 echo
 echo "- App bundle (HTML + JS + CSS): $(mb dist/index.html dist/assets/*)"
-echo "- Data fetched at start (sites, points, schema, tour, polar basemap, ephemeris 2026-2035): $(mb $d/sites.json $d/points.json $d/constraints.schema.json $d/tour.json $d/basemap.json $d/basemaps/pole.png $d/ephemeris.json $d/ephemeris/*)"
+echo "- Data fetched at start (sites, points, schema, tour, polar basemap, ephemeris and orientation 2026-2035, stars): $(mb $d/sites.json $d/points.json $d/constraints.schema.json $d/tour.json $d/basemap.json $d/basemaps/pole.png $d/ephemeris.json $d/ephemeris/* $d/orientation/* $d/stars.json $d/stars.bin)"
 echo "- One region, fetched on demand (masks + slopes + heightmap + basemap): $(mb $d/masks/change7-shackleton-rim.bin $d/slopes/change7-shackleton-rim.bin $d/heightmaps/change7-shackleton-rim.png $d/basemaps/change7-shackleton-rim.png)"
 echo "- All nine regions' masks and slopes (fetched when the finder or the matrix runs): $(mb $d/masks/* $d/slopes/*)"

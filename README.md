@@ -21,7 +21,7 @@ launch means checking many. Tranquility Base puts the check in one place and ans
 ## Quick start
 
 You need [uv](https://docs.astral.sh/uv/) and Node 22+. The app's data files are committed, so you do
-**not** need the 6.8 GB of raw downloads to run or test it.
+**not** need the 7.3 GB of raw downloads to run or test it.
 
 ```sh
 make setup && make dev        # http://localhost:5173
@@ -66,7 +66,7 @@ Measured by `make validate` and `make perf`; the full tables are in [docs/VALIDA
 | Python vs TypeScript engine on shared fixtures | angles within 1e-4°, metrics identical | parity |
 | Finder, 5,000 candidates × 60-day range | 0.85–0.97 s | < 3 s |
 | 3D frame rate during playback | 60 fps (Apple M1 Pro, M5) | ≥ 30 fps; not yet measured on a non-Apple laptop |
-| First load | 3.9 MB, then 0.65 MB per region | < 10 MB |
+| Load for the demo region | 9.2 MB: 1.2 MB app + 5.5 MB data at start (ephemeris, orientation, stars) + 2.5 MB for the opened 5 m region | < 10 MB |
 
 ## Data sources and credits
 
@@ -74,6 +74,8 @@ Measured by `make validate` and `make perf`; the full tables are in [docs/VALIDA
 - **Terrain:** LRO LOLA south-polar DEMs at 20 m and 80 m and the LOLA slope map, NASA GSFC Planetary Geodynamics Data Archive (PGDA). The same data behind Quickmap and Moon Trek.
 - **Validation:** JPL Horizons (topocentric angles); PGDA average solar illumination maps (Mazarico et al. 2011); LOLA slope map.
 - **Site coordinates:** NASA Artemis III (October 2024) and CLPS releases; PGDA product 78 site footprints for six polar sites; each site records its source and whether it is approximate.
+- **Stars:** Yale Bright Star Catalogue, 5th revised edition (Hoffleit & Warren 1991), via Harvard's Telescope Data Center copy of VizieR V/50.
+- **Close-range terrain:** LOLA 5 m site DEMs, PGDA product 78 (Barker et al. 2021).
 - **Explorer text:** written by the team in our own words from NASA mission pages and Canadian Space Agency (CSA) Moon Exploration material.
 
 File names, sizes and SHA-256 hashes: [docs/DATA.md](docs/DATA.md).
@@ -90,9 +92,12 @@ Not a mission design tool (no trajectories, fuel or launch windows), not a landi
 not a communications link budget (geometric Earth visibility only), and not global: terrain covers
 80–90°S. Apollo 11, 15 and 17 are in the site list only to validate Sun and Earth angles.
 
-In the 3D view, ground detail finer than the 20 m terrain, the stars, the Sun's glare and Earth's
-surface are illustrative and do not feed any number. Being replaced (P6 in [docs/PLAN.md](docs/PLAN.md)):
-real stars from the Yale Bright Star Catalogue, and 5 m LOLA terrain where PGDA has a site DEM.
+What the 3D view takes from data and what it invents: terrain relief is LOLA data, at 5 m for eight of
+the nine sites (PGDA site DEMs) and 20 m for IM-2 Mons Mouton; stars are the 9,096 stars of the Yale
+Bright Star Catalogue at their true positions for the site and hour; the Sun and Earth sit at their
+ephemeris positions. Invented, and labelled in the app: the ground colour, the fine soil texture on
+the 20 m site and on the level ground used off the terrain patch, the Sun's glare, Earth's surface, and
+star colours (approximated from each star's B−V index). None of it feeds any number.
 
 **Synthetic data:** none in the deployed app. `make data-fixtures` can generate synthetic
 contract-shaped files for development; the app then shows a banner, and such files are never committed.
@@ -115,8 +120,8 @@ After a UI change, open the screenshots in `web/tests/screenshots/` and look at 
 ### Rebuild the data (only if the pipeline or site list changes)
 
 ```sh
-make data-download   # ~6.8 GB into data/raw/ (resumable, idempotent)
-make data            # ephemeris, masks, slopes, heightmaps, basemaps -> web/public/data/ (~15 s)
+make data-download   # ~7.3 GB into data/raw/ (resumable, idempotent)
+make data            # ephemeris, orientation, stars, masks, slopes, heightmaps, basemaps -> web/public/data/ (~15 s)
 make validate && make check
 ```
 

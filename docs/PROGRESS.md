@@ -228,3 +228,17 @@ Success metrics: SM1 done, SM2 done (0.0007°), SM3 done (0.86 s), SM4 partial (
 - Test everything: `make check` · validation numbers: `make validate` · performance: `make perf`
 - Rebuild data from raw: `make data-download && make data`
 - Deploy: `make deploy`, then `make e2e-live`
+
+## 2026-11-14 23:40 EST — P6: real stars and 5 m terrain
+
+**Changed**
+- Raw data: eight PGDA 78 5 m site DEMs (527.7 MB) and BSC5 (Harvard TDC copy; CDS was unreachable) downloaded, hashed in DATA.md, uploaded to R2 under `raw/` (sizes verified); `make data-download` fetches them.
+- Pipeline: `ephem.year_orientation` (hourly ICRF → MOON_ME quaternions, new `orientation/{year}.bin`), `stars.py` (BSC5 reader, 9,096 stars → `stars.bin`), 5 m heightmaps (1024 px) for eight sites, 20 m kept for IM-2 Mons Mouton; masks, slopes and points unchanged byte for byte.
+- App: real star field rotated per site and hour (`skyMatrix`, `starfield.ts`); bare ground on 5 m patches, procedural soil only on the 20 m site and level ground; observer-centred warped terrain mesh (384² quads); new display exposure (D40); footer lists exactly what is illustrative.
+- Tests: quaternion round trip, BSC5 parser (Sirius), contract checks for orientation and stars, `orientation.test.ts` (TS rotation vs Skyfield's ICRF Sun, < 1e-4°), star colour test.
+
+**Found and fixed**: a missing factor of 2 in the matrix→quaternion conversion (caught by the round-trip test); a false 0.005° error in the first orientation test from `acos` near 1 (D41); the million-vertex mesh timing out software-rendered tests (D40).
+
+**Test status**: `make check` passes (pytest 24, vitest 49, Playwright 12 + room 1); `make validate` exit 0 with VALIDATION.md unchanged; `make perf`: 60 fps (M5), finder 0.9 s, demo-region load 9.2 MB of 10 (D42).
+
+**Visual finding**: LOLA's 5 m surface is interpolated between tracks, so most landing points look like smooth slopes from 2 m; small craters appear where they exist. Shadows are physical, so some sites are mostly dark at some hours.
