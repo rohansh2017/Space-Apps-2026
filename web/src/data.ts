@@ -36,8 +36,23 @@ export interface ConstraintDef {
   default: number | boolean
 }
 
+export interface Tour {
+  steps: { id: string; title: string; body: string }[]
+  glossary: { term: string; definition: string }[]
+}
+
+/** 8-bit hillshade images in stereographic x/y axes (row 0 = +y, col 0 = -x), centred on the pole or a region centre. */
+export interface Basemap {
+  pole: { file: string; half_width_m: number }
+  regions: { half_width_m: number; files: Record<string, string> }
+}
+
+export const dataUrl = (file: string) => BASE + file
+
 export interface Dataset {
   synthetic: boolean
+  tour: Tour
+  basemap: Basemap
   constraintDefs: ConstraintDef[]
   sites: Site[]
   points: Point[]
@@ -56,8 +71,8 @@ async function get(path: string): Promise<Response> {
 }
 
 export async function loadDataset(): Promise<Dataset> {
-  const [sites, points, eph, schema] = await Promise.all(
-    ['sites.json', 'points.json', 'ephemeris.json', 'constraints.schema.json'].map(async (f) => (await get(f)).json()),
+  const [sites, points, eph, schema, tour, basemap] = await Promise.all(
+    ['sites.json', 'points.json', 'ephemeris.json', 'constraints.schema.json', 'tour.json', 'basemap.json'].map(async (f) => (await get(f)).json()),
   )
   if (eph.step_seconds !== 3600 || eph.fields.length !== 7) throw new Error('unexpected ephemeris layout')
   // Years are contiguous from start_utc, so the yearly files concatenate into one hourly table.
@@ -74,7 +89,9 @@ export async function loadDataset(): Promise<Dataset> {
   }
   if (offset !== ephemeris.length) throw new Error('ephemeris size does not match ephemeris.json')
   return {
-    synthetic: Boolean(sites.synthetic || points.synthetic || eph.synthetic),
+    synthetic: Boolean(sites.synthetic || points.synthetic || eph.synthetic || basemap.synthetic),
+    tour,
+    basemap,
     constraintDefs: schema.constraints,
     sites: sites.sites,
     points: points.points,

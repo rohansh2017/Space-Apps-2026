@@ -1,0 +1,32 @@
+{
+ "credit": "Written by the team in our own words from public NASA and Canadian Space Agency (CSA Moon Exploration) material.",
+ "steps": [
+  {
+   "id": "earth-sunrise",
+   "title": "On Earth, the Sun climbs",
+   "body": "At most places on Earth the Sun rises steeply, clears the horizon in a couple of minutes and ends up tens of degrees high. A hill on the horizon only delays sunrise by a moment, so nobody plans a day around it."
+  },
+  {
+   "id": "pole-sun",
+   "title": "At the Moon's south pole, the Sun skims",
+   "body": "The Moon's axis is tilted only about 1.5 degrees, so at the pole the Sun never climbs. It circles the horizon once every lunar day (about 29.5 Earth days), staying within a degree or two of it. Drag the scrubber or press Play: the Sun slides sideways behind ridges instead of rising over them. With no air there is no twilight, so a ridge in the way means black shadow."
+  },
+  {
+   "id": "small-moves",
+   "title": "So a small move, or a short delay, changes everything",
+   "body": "Because the Sun is that low, mountains more than 100 km away decide whether a spot is lit. A point on a crater rim can be sunny most of the month while one a few hundred metres away sits in the dark for days. Earth hangs low too and drifts up and down, so the radio link comes and goes. When a launch slips, the whole pattern shifts, which is why planners need to re-check sites and dates quickly."
+  }
+ ],
+ "glossary": [
+  {"term": "Solar elevation", "definition": "How high the centre of the Sun is above a flat horizon, in degrees. At the south pole it stays within about 1.5 degrees of zero, so terrain decides whether you are lit."},
+  {"term": "Earth link", "definition": "Whether Earth is in view for direct radio contact. We count Earth as visible when its centre is at least 1 degree above the terrain."},
+  {"term": "Power index", "definition": "A relative number from 0 to 1: the share of the Sun's disk in view times how squarely it faces a vertical solar panel. It is not a power simulation."},
+  {"term": "Sunlit %", "definition": "The average share of the Sun's disk in view over the mission, hour by hour."},
+  {"term": "Longest dark run", "definition": "The longest unbroken stretch of hours in the mission with none of the Sun in view. A lander must survive this on stored energy."},
+  {"term": "Horizon mask", "definition": "The height of the terrain skyline in every compass direction as seen from 2 m above one spot, computed from LOLA elevation data out to about 300 km."},
+  {"term": "Lunar day", "definition": "One full cycle of sunlight on the Moon, about 29.5 Earth days (708 hours)."},
+  {"term": "Libration", "definition": "The slow wobble in how the Moon faces Earth. Seen from the pole it makes Earth bob up and down near the horizon over about 27 days."},
+  {"term": "Slip range", "definition": "How many days later than planned the finder may move the landing."},
+  {"term": "Screening grade", "definition": "Good for comparing sites and dates, not for certifying one. The grid is 500 m and the terrain is 20 m per cell, so small boulders and craters are missed."}
+ ]
+}

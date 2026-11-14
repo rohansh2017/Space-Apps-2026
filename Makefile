@@ -1,10 +1,12 @@
 # Tranquility Base: the only entry points humans need.
 PGDA := https://pgda.gsfc.nasa.gov/data/LOLA_20mpp
 NAIF := https://naif.jpl.nasa.gov/pub/naif/generic_kernels
-# Order matters: the 2.6 GB 20 m DEM first, slope map (3.8 GB, should-have) last.
+ILLUM := https://pgda.gsfc.nasa.gov/data/MoonIllumination
+# Order matters: the 2.6 GB 20 m DEM first, slope map (3.8 GB, should-have) last. The AVGVISIB maps are for validation.
 RAW_URLS := $(PGDA)/LDEM_80S_20MPP_ADJ.TIF $(PGDA)/LDEM_80S_80MPP_ADJ.TIF \
   $(NAIF)/spk/planets/de440s.bsp $(NAIF)/pck/moon_pa_de440_200625.bpc \
-  $(NAIF)/fk/satellites/a_old_versions/moon_de440_220930.tf $(PGDA)/LDSM_80S_20MPP_ADJ.TIF
+  $(NAIF)/fk/satellites/a_old_versions/moon_de440_220930.tf \
+  $(ILLUM)/AVGVISIB_85S_060M_201608.TIF $(ILLUM)/AVGVISIB_75S_120M_201608.TIF $(PGDA)/LDSM_80S_20MPP_ADJ.TIF
 
 .PHONY: setup data-download data data-fixtures test parity validate e2e perf check dev build deploy
 
@@ -42,8 +44,9 @@ test:
 	cd build && uv run pytest -q
 	cd web && npx vitest run --passWithNoTests
 
+# Engine vs Horizons (offline after the first run), then sunlit % vs the PGDA illumination maps (needs data/raw).
 validate:
-	cd build && uv run python scripts/validate_horizons.py > ../docs/VALIDATION.md; s=$$?; cat ../docs/VALIDATION.md; exit $$s
+	cd build && { uv run python scripts/validate_horizons.py && uv run python scripts/validate_illumination.py; } > ../docs/VALIDATION.md; s=$$?; cat ../docs/VALIDATION.md; exit $$s
 
 check:
 	cd build && uv run ruff check . && uv run ruff format --check .
@@ -56,5 +59,6 @@ dev:
 build:
 	cd web && npm run build
 
+# Uploads the data files to R2, then publishes the app. Auth: `npx wrangler login`, or Cloudflare_Token_Value in .env.
 deploy: build
-	cd web && npx wrangler deploy
+	cd web && sh scripts/upload-data.sh && sh scripts/wrangler.sh deploy

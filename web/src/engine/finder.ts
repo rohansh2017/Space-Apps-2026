@@ -30,8 +30,9 @@ const better = (a: Evaluation, b: Evaluation) => a.fails < b.fails || (a.fails =
 const REFINE_TOP = 10
 
 /**
- * Score every candidate at daily start steps across the slip range around `start`, keep the best
- * start per candidate, then refine the top results hourly. candidates[0] is the original plan.
+ * Score every candidate at daily start steps from `start` to the end of the slip range (a slipped
+ * launch cannot land earlier), keep the best start per candidate, then refine the top results
+ * hourly. candidates[0] is the original plan.
  */
 export function runFinder(
   table: ArrayLike<number>, tableHours: number, candidates: Candidate[], start: number, c: Constraints,
@@ -40,9 +41,9 @@ export function runFinder(
   const t0 = performance.now()
   const dur = Math.round(Number(c.mission_duration_days) * 24)
   const slip = Math.round(Number(c.slip_range_days) * 24)
-  const first = Math.max(0, start - slip)
+  const first = start // forward only: see DECISIONS D19
   const lastStart = Math.min(start + slip, tableHours - dur)
-  if (lastStart < first || start > lastStart) throw new RangeError('mission window runs past the ephemeris')
+  if (start < 0 || lastStart < first) throw new RangeError('mission window runs past the ephemeris')
   const n = lastStart + dur - first
   const minEarthEl = Number(c.min_earth_elevation_deg)
   let evaluated = 0
@@ -57,12 +58,11 @@ export function runFinder(
 
   let baseline: Scored | null = null
   const best: Scored[] = []
-  const firstDaily = start - Math.floor((start - first) / 24) * 24 // daily steps that include `start`
   candidates.forEach((_, ci) => {
     const p = series(ci)
     if (ci === 0) baseline = score(0, p, start)
     let top: Scored | null = null
-    for (let s = firstDaily; s <= lastStart; s += 24) {
+    for (let s = first; s <= lastStart; s += 24) {
       if (ci === 0 && s === start) continue // the plan itself is not an alternative
       const r = score(ci, p, s)
       if (!top || better(r.evaluation, top.evaluation)) top = r

@@ -12,11 +12,11 @@ const y = (el: number) => H - ((el - EL_MIN) / (EL_MAX - EL_MIN)) * H
 interface Props {
   mask: Uint16Array | null // 360 raw bins, or null for a site without terrain
   track: Angles[] // one entry per hour of the selected window
-  now: Angles
+  t: number // current hour: the track up to here is the trail
 }
 
 /** Unrolled 360 degree horizon with the Sun and Earth tracks over the selected window. */
-export default function Panorama({ mask, track, now }: Props) {
+export default function Panorama({ mask, track, t }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const g = ref.current!.getContext('2d')!
@@ -35,9 +35,11 @@ export default function Panorama({ mask, track, now }: Props) {
     }
     ;['N', 'E', 'S', 'W'].forEach((label, i) => g.fillText(label, x(i * 90) + 4, 12))
 
+    const now = track[t]
     const dots = (color: string, az: (a: Angles) => number, el: (a: Angles) => number) => {
       g.fillStyle = color
-      for (const a of track) g.fillRect(x(az(a)) - 1, y(el(a)) - 1, 2, 2)
+      // the trail (landing to now) is drawn heavier than the rest of the window
+      track.forEach((a, i) => (i <= t ? g.fillRect(x(az(a)) - 2, y(el(a)) - 2, 4, 4) : g.fillRect(x(az(a)) - 1, y(el(a)) - 1, 2, 2)))
     }
     dots('#e8c34a', (a) => a.sunAz, (a) => a.sunEl)
     dots('#5fa8ff', (a) => a.earthAz, (a) => a.earthEl)
@@ -60,7 +62,7 @@ export default function Panorama({ mask, track, now }: Props) {
     g.lineTo(W, H)
     g.fillStyle = '#4a4f5c'
     g.fill()
-  }, [mask, track, now])
+  }, [mask, track, t])
   return (
     <canvas
       ref={ref}

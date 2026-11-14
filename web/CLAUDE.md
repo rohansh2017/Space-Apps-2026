@@ -5,4 +5,6 @@
   `constraints.schema.json`, which is authored there and is the single schema source.
 - `src/engine/engine.ts` (P1+) is pure: no DOM, no React, no globals. HUD numbers come from it.
 - No runtime network calls except the optional Gemini routes and the mission room.
-- Deploy: `npm run build && npx wrangler deploy` (config in `wrangler.jsonc`).
+- Deploy: `make deploy` from the repo root (uploads data to R2 with `scripts/upload-data.sh`, then `wrangler deploy`).
+- `Scene3D.tsx` and `SiteMap.tsx` are memoised; pass them stable props so playback does not redraw them needlessly.
+- `GPU=1 npx playwright test` runs Chromium on the real GPU (used by `make perf`); the default is software rendering.

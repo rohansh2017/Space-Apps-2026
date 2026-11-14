@@ -54,6 +54,14 @@ def main() -> None:
         sites.append(entry)
         points += pts
     export.write_index(OUT, sites, points, synthetic=True)
+    regions = {
+        s["id"]: export.hillshade(rng.normal(0, 30, (128, 128)), 20.0)
+        for s in sites
+        if s["terrain"]
+    }
+    export.write_basemap(
+        OUT, export.hillshade(rng.normal(0, 30, (256, 256)), 20.0), regions, synthetic=True
+    )
     export.write_json(OUT / "tour.json", {
         "synthetic": True,
         "steps": [{"id": "placeholder", "title": "Placeholder step", "body": "Mock tour text."}],

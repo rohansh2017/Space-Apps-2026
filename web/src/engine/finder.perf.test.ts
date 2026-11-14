@@ -17,7 +17,7 @@ it('finder: 5,000 candidates x 60-day slip range in under 3 s', () => {
   })
   const r = runFinder(table, hours, candidates, 24 * 40, {
     mission_duration_days: 7, min_continuous_sun_days: 6, max_continuous_dark_hours: 80, min_earth_visible_pct: 40,
-    min_earth_elevation_deg: 1, landing_sun_and_earth_visible: true, max_slope_deg: 10, slip_range_days: 30, search_radius_km: 5,
+    min_earth_elevation_deg: 1, landing_sun_and_earth_visible: true, max_slope_deg: 10, slip_range_days: 60, // the spec's 60-day range, searched forward search_radius_km: 5,
   })
   console.log(`PERF finder: ${candidates.length} candidates, ${r.evaluated} (candidate, start) pairs, ${r.ms.toFixed(0)} ms`)
   expect(r.evaluated).toBeGreaterThanOrEqual(5000 * 61)

@@ -246,6 +246,11 @@ export function latLonToXY(latDeg: number, lonDeg: number): [number, number] {
   return [r * Math.sin(lonDeg * RAD), r * Math.cos(lonDeg * RAD)]
 }
 
+/** Inverse of latLonToXY: [lat, lon] in degrees, lon in (-180, 180]. */
+export function xyToLatLon(x: number, y: number): [number, number] {
+  return [(2 * Math.atan(Math.hypot(x, y) / (2 * R_MOON_KM * 1000))) / RAD - 90, Math.atan2(x, y) / RAD]
+}
+
 /** Nearest precomputed grid point to a custom coordinate, with the ground distance in metres. */
 export function snapToGrid<P extends { lat: number; lon: number; x: number; y: number }>(
   points: readonly P[], latDeg: number, lonDeg: number,

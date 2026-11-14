@@ -18,6 +18,6 @@ export const LABELS: Record<string, { name: string; chip: string }> = {
   min_earth_elevation_deg: { name: 'Min Earth elevation above terrain', chip: '' },
   landing_sun_and_earth_visible: { name: 'Sun and Earth visible at touchdown', chip: 'Landing' },
   max_slope_deg: { name: 'Max terrain slope', chip: 'Slope' },
-  slip_range_days: { name: 'Slip range (±)', chip: '' },
+  slip_range_days: { name: 'Slip range (later by up to)', chip: '' },
   search_radius_km: { name: 'Search radius', chip: '' },
 }

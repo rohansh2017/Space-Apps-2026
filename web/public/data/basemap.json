@@ -1,0 +1,21 @@
+{
+ "synthetic": false,
+ "pole": {
+  "file": "basemaps/pole.png",
+  "half_width_m": 304000.0
+ },
+ "regions": {
+  "half_width_m": 5250.0,
+  "files": {
+   "change7-shackleton-rim": "basemaps/change7-shackleton-rim.png",
+   "im2-mons-mouton": "basemaps/im2-mons-mouton.png",
+   "haworth": "basemaps/haworth.png",
+   "malapert-massif": "basemaps/malapert-massif.png",
+   "nobile-rim-1": "basemaps/nobile-rim-1.png",
+   "nobile-rim-2": "basemaps/nobile-rim-2.png",
+   "connecting-ridge": "basemaps/connecting-ridge.png",
+   "peak-near-shackleton": "basemaps/peak-near-shackleton.png",
+   "faustini-rim-a": "basemaps/faustini-rim-a.png"
+  }
+ }
+}

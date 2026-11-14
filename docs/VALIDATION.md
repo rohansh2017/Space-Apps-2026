@@ -12,7 +12,33 @@ Window: 720 hourly steps from 2026-11-20 00:00 UTC. Target: < 0.1 deg. Azimuth e
 | --- | --- | --- | --- | --- |
 | apollo11 | Sun | 0.00000 | 0.00068 | yes |
 | apollo11 | Earth | 0.00000 | 0.00002 | yes |
+| apollo15 | Sun | 0.00000 | 0.00068 | yes |
+| apollo15 | Earth | 0.00000 | 0.00002 | yes |
+| apollo17 | Sun | 0.00000 | 0.00068 | yes |
+| apollo17 | Earth | 0.00000 | 0.00002 | yes |
+| connecting-ridge | Sun | 0.00000 | 0.00068 | yes |
+| connecting-ridge | Earth | 0.00000 | 0.00003 | yes |
 | change7-shackleton-rim | Sun | 0.00000 | 0.00068 | yes |
 | change7-shackleton-rim | Earth | 0.00000 | 0.00003 | yes |
 | im2-mons-mouton | Sun | 0.00000 | 0.00068 | yes |
 | im2-mons-mouton | Earth | 0.00000 | 0.00003 | yes |
+
+## Sunlit % vs PGDA average solar illumination (Mazarico et al. 2011)
+
+Ours: mean Sun visible fraction over all 87,648 hours of 2026-2035, 2 m above the 20 m terrain, at each of a site's 441 grid points (500 m spacing). PGDA: the 18.6-year average at the surface, sampled at the same points from the finest map that covers the site. Different height, resolution and time span, so the check is the spatial pattern: Pearson r >= 0.5 per site.
+
+| Site | PGDA map | Ours, site point (%) | PGDA, site point (%) | Ours, grid mean (%) | PGDA, grid mean (%) | Mean difference (pts) | Pearson r | Pass |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Shackleton rim (Chang'e-7 target) | 060M | 53.8 | 49.0 | 35.8 | 35.1 | +0.7 | 0.96 | yes |
+| Mons Mouton (IM-2 landing) | 060M | 44.8 | 46.3 | 31.3 | 31.6 | -0.4 | 0.99 | yes |
+| Haworth | 060M | 10.6 | 8.2 | 26.5 | 27.2 | -0.8 | 0.98 | yes |
+| Malapert Massif | 060M | 22.0 | 20.0 | 36.8 | 37.9 | -1.0 | 0.97 | yes |
+| Nobile Rim 1 | 060M | 30.5 | 29.6 | 30.3 | 30.9 | -0.6 | 0.98 | yes |
+| Nobile Rim 2 | 120M | 40.9 | 41.1 | 33.9 | 35.1 | -1.2 | 0.99 | yes |
+| Connecting Ridge (Barker Site 01) | 060M | 45.4 | 40.7 | 28.8 | 28.1 | +0.7 | 0.95 | yes |
+| Peak near Shackleton | 060M | 68.3 | 44.3 | 34.8 | 34.4 | +0.4 | 0.96 | yes |
+| Faustini Rim A | 060M | 26.8 | 26.1 | 21.7 | 23.7 | -2.0 | 0.98 | yes |
+
+Site points ranked by our sunlit %: Peak near Shackleton, Shackleton rim (Chang'e-7 target), Connecting Ridge (Barker Site 01), Mons Mouton (IM-2 landing), Nobile Rim 2, Nobile Rim 1, Faustini Rim A, Malapert Massif, Haworth.
+
+Connecting Ridge is number 3 of 9 (among the best-lit, as the spec expects).

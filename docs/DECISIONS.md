@@ -35,3 +35,17 @@
 **D17 Five Artemis III regions deferred.** Peak near Cabeus B, Mons Mouton Plateau, Mons Mouton, de Gerlache Rim 2 and Slater Plain have no published centre coordinate (NASA released a map image only; PGDA 78 and two literature searches gave nothing usable). → The list is final at 12 sites; these five stay under `pending` in `build/sites_src.json` rather than being guessed. To add one: put its lat/lon and source in `sites` there and run `make data`. Mons Mouton is still covered by the IM-2 landing site.
 
 **D18 Gemini tooling.** The optional `gemini-api-dev` skill and Docs MCP server are not installed: the project's only Gemini use is two Worker routes over REST.
+
+**D19 Finder searches forward only.** The spec says slip range ±30 days. A slipped launch cannot land earlier, and the demo showed every top result before the slipped date. → Team decision (2026-11-14): start dates run from the planned hour to planned + slip range. The schema default stays 30 days; the panel label reads "later by up to". The 60-day performance target is tested as a 60-day forward range.
+
+**D20 Site map without MapLibre.** The spec lists MapLibre over a static hillshade. → Two plain canvases (polar cap, and the selected site's 10 km grid) drawn from static hillshade PNGs. Same function (see sites, click to pick), no extra dependency, no tiles.
+
+**D21 New contract file: basemaps.** `basemap.json` plus 8-bit `basemaps/pole.png` (80 m DEM block-averaged to 800 m, relief x4) and `basemaps/{region}.png` (20 m DEM, ±5.25 km), in stereographic x/y axes. Hillshade lighting is fixed (upper left, 35 deg), not the real Sun, and the map caption says so. `tour.json` is now written from the hand-authored `build/tour_src.json` and is no longer synthetic.
+
+**D22 Illustrative 3D detail.** The terrain is 20 m per cell, which renders as a smooth slab from 2 m eye height. → A procedural soil normal map and albedo, a random star field, a glare sprite on the Sun and a stylised Earth (correct phase and angular size, invented surface). None of it feeds any number, and the app footer says which parts are illustrative. Soil relief strength scales with solar elevation so contrast stays readable at grazing angles (display choice, like the exposure scaling).
+
+**D23 Overlapping regions.** Shackleton rim and Peak near Shackleton grids overlap. → A custom coordinate that is within 500 m of a grid point of the selected site stays with that site; otherwise the nearest point of any region wins.
+
+**D24 R2 with a bundled fallback.** The Worker answers `/data/*` from R2 and falls back to the copy bundled in the static assets, so a failed or stale upload cannot break the demo (the spec's "local build as the backup"). `raw/` keys are never served. Responses carry `x-data-source: r2|assets`.
+
+**D25 PGDA comparison is a pattern check.** PGDA's map is an 18.6-year average at the surface of 60 or 120 m terrain; ours is 2026–2035 at 2 m above 20 m terrain. → Pass criterion is Pearson r ≥ 0.5 across each site's 441 points, with the means reported, not an equality test.

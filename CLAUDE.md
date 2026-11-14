@@ -15,7 +15,7 @@ Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC
 
 - `build/` Python pipeline and reference engine (`horizonwalk`), see `build/CLAUDE.md`
 - `web/` React + TS + Vite app, Cloudflare config, see `web/CLAUDE.md`
-- `web/public/data/` generated contract files (real output of `make data`; only `tour.json` is still synthetic)
+- `web/public/data/` generated contract files (real output of `make data`)
 - `shared/fixtures/` small JSON fixtures used by both engines
 - `data/raw/` downloaded DEMs and kernels (gitignored)
 - `docs/` PLAN, PROGRESS, DECISIONS, DATA, VALIDATION, TRACEABILITY, spec/SPEC.md
@@ -23,16 +23,16 @@ Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC
 ## Commands
 
 `make setup` · `make data-download` · `make data` (real) · `make data-fixtures` (synthetic) ·
-`make test` · `make parity` · `make validate` · `make e2e` ·
-`make check` (lint + typecheck + test + parity + e2e) · `make dev` · `make build` · `make deploy`.
-Not built yet: `perf`.
+`make test` · `make parity` · `make validate` (Horizons + PGDA illumination) · `make e2e` · `make perf` ·
+`make check` (lint + typecheck + test + parity + e2e) · `make dev` · `make build` ·
+`make deploy` (uploads `web/public/data` to R2, then publishes).
 
 Secrets live in `.env` (gitignored): Cloudflare R2 S3 keys and `GEMINI_API_KEY`. The Worker has
 `GEMINI_API_KEY` as a secret and the R2 bucket `tranquility-base-data` bound as `DATA`.
 
 How to launch and test: `README.md`, "Launch and test". Run `make check` before every push.
 
-Live URL: https://tranquility-base.rohansh2017.workers.dev (Workers static assets).
+Live URL: https://tranquility-base.rohansh2017.workers.dev (Workers static assets; `/data/*` from R2 with the bundled copy as fallback).
 
 ## Scientific invariants (each gets a unit test)
 
@@ -44,7 +44,7 @@ Live URL: https://tranquility-base.rohansh2017.workers.dev (Workers static asset
    step ≈ 0.5% of d), minus curvature d²/(2R), no refraction, linear interpolation between bins.
 6. Sun is a 0.53° disk (visible fraction 0–1); Earth visible when its centre is ≥ 1° above the mask.
 7. Metrics exactly as in the spec's metric table; Python and TS must agree on `shared/fixtures`.
-8. Finder: per-constraint pass/fail, ranked by normalized weighted margin, O(1) per start time.
+8. Finder: per-constraint pass/fail, ranked by normalized weighted margin, O(1) per start time; start dates run forward only from the planned hour.
 9. Custom coordinates snap to the nearest grid point and show the snap distance.
 
 ## Data contracts (frozen in P0; writer: `build/scripts/make_fixtures.py`, checks: `build/tests/test_fixtures.py`)
@@ -61,7 +61,9 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
 - `sites.json`: `sites[]{id, name, lat, lon, coord_source, approximate, terrain, mission, agency, blurb, links, heightmap}`;
   `heightmap` is null for no-terrain sites, else `{file, offset_m, scale_m, size_px, span_m}`.
 - `heightmaps/{site}.png`: 16-bit greyscale, 256 × 256 over 5 × 5 km in local east/north axes, row 0 = north, col 0 = west; height m = offset_m + value × scale_m.
-- `tour.json`: `steps[]{id, title, body}`, `glossary[]{term, definition}`.
+- `tour.json`: `credit`, `steps[]{id, title, body}`, `glossary[]{term, definition}` (source: `build/tour_src.json`).
+- `basemap.json`: `pole{file, half_width_m}`, `regions{half_width_m, files{region: file}}`.
+  `basemaps/*.png`: 8-bit greyscale hillshade, square, stereographic x/y axes (row 0 = +y, col 0 = −x), centred on the pole or the region's site.
 - `constraints.schema.json` (hand-authored): `constraints[]{id, type, unit, min, max, default}`.
 - Room message: `{type: "state", site_id, utc, constraints{id: value}, sender}` (`shared/fixtures/room_message.json`).
 - Any file made from synthetic data carries `"synthetic": true` in its JSON.
@@ -70,4 +72,5 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
 
 - Smallest change that meets the spec. No speculative features or abstraction layers.
 - Never present synthetic data as real; `docs/VALIDATION.md` holds only command output.
+- 3D decoration (soil detail, stars, Sun glare, Earth's surface) is illustrative and must stay labelled so; no number may come from the renderer.
 - Branch `build/tranquility-base`; conventional commits; never commit `data/raw/` or files > 50 MB.
