@@ -31,3 +31,7 @@
 **D15 Ahead of plan.** `make data` already builds masks, slopes and heightmaps for all nine site grids (12 s), which the spec schedules for P2/P3, because it is the same code as one site.
 
 **D16 Cloudflare/Gemini setup.** Cloudflare's agent setup installed the `cloudflare` Claude Code plugin (user scope). The optional `cf` CLI was not installed because the project uses Wrangler. Gemini is called over REST (Interactions API, model `gemini-4-hydrogen`), so the `@google/genai` SDK is not installed: the Worker needs one `fetch`.
+
+**D17 Five Artemis III regions deferred.** Peak near Cabeus B, Mons Mouton Plateau, Mons Mouton, de Gerlache Rim 2 and Slater Plain have no published centre coordinate (NASA released a map image only; PGDA 78 and two literature searches gave nothing usable). → The list is final at 12 sites; these five stay under `pending` in `build/sites_src.json` rather than being guessed. To add one: put its lat/lon and source in `sites` there and run `make data`. Mons Mouton is still covered by the IM-2 landing site.
+
+**D18 Gemini tooling.** The optional `gemini-api-dev` skill and Docs MCP server are not installed: the project's only Gemini use is two Worker routes over REST.

@@ -30,6 +30,8 @@ Not built yet: `perf`.
 Secrets live in `.env` (gitignored): Cloudflare R2 S3 keys and `GEMINI_API_KEY`. The Worker has
 `GEMINI_API_KEY` as a secret and the R2 bucket `tranquility-base-data` bound as `DATA`.
 
+How to launch and test: `README.md`, "Launch and test". Run `make check` before every push.
+
 Live URL: https://tranquility-base.rohansh2017.workers.dev (Workers static assets).
 
 ## Scientific invariants (each gets a unit test)

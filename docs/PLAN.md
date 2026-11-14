@@ -13,9 +13,8 @@ Exit: Skyfield returns Sun and Earth directions for one hour in MOON_ME_DE440_ME
   - [x] Both LOLA DEMs uploaded to R2 under `raw/` (team request)
   - [x] `GEMINI_API_KEY` stored as a Worker secret; one Interactions API call with the constraint schema returned JSON (made from the dev machine with the same key; the Worker route itself is P4)
 - [x] Start downloads: LDEM_80S_20MPP_ADJ first (2.6 GB), then LDEM_80S_80MPP_ADJ, the slope map, de440s.bsp and the lunar kernels (all complete, hashes in DATA.md)
-- [ ] Finalize the curated site list with a source per site (Artemis region centers, 2022 benchmarks, CLPS, Apollo 11, 15 and 17)
-  - [x] 12 sites with a source each in `build/sites_src.json`
-  - [ ] 5 Artemis III regions have no sourced coordinate yet (listed under `pending`); needs a team decision
+- [x] Finalize the curated site list with a source per site (Artemis region centers, 2022 benchmarks, CLPS, Apollo 11, 15 and 17)
+  - 12 sites with a source each in `build/sites_src.json`; 5 Artemis III regions deferred because no coordinate has been published (DECISIONS D17)
 
 ## P1 Engine + skeletons
 

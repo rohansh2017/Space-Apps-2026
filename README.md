@@ -1,2 +1,71 @@
-# Space-Apps-2026
-Space Apps Repo for our project
+# Tranquility Base
+
+NASA Space Apps 2026 entry for the Lunar Landing Site Navigator challenge. Pick a lunar south-pole
+landing site and date, stand on real LOLA terrain in 3D, and see the Sun and Earth against the true
+horizon. Work in progress: see [docs/PLAN.md](docs/PLAN.md) for what is built.
+
+Live: https://tranquility-base.rohansh2017.workers.dev
+
+## Launch and test
+
+Everything runs through `make` from the repo root. You need [uv](https://docs.astral.sh/uv/) and Node 22+.
+
+### First time on a machine
+
+```sh
+make setup                              # Python env + npm packages
+cd web && npx playwright install chromium && cd ..   # browser for the end-to-end test
+```
+
+The app's data files are committed in `web/public/data/`, so you do **not** need the multi-GB
+downloads just to run or test the app.
+
+### Run the app
+
+```sh
+make dev        # http://localhost:5173, reloads on save
+```
+
+What to try: choose a site, change the date (UTC), drag the lunar-day scrubber, drag inside the 3D
+view to look around. The readout line and the panorama should change together.
+
+### Test
+
+| Command | What it checks | Time |
+| --- | --- | --- |
+| `make test` | Python unit tests + TypeScript unit tests | ~5 s |
+| `make parity` | Python engine and TypeScript engine give the same answers | ~3 s |
+| `make e2e` | Opens the built app in headless Chromium, clicks through it, saves screenshots to `web/tests/screenshots/` | ~15 s |
+| `make check` | Lint + typecheck + all of the above. **Run this before every push.** | ~30 s |
+| `make validate` | Engine angles vs JPL Horizons; rewrites [docs/VALIDATION.md](docs/VALIDATION.md). Offline after the first run (responses are cached) | ~5 s |
+
+After a UI change, open the screenshots in `web/tests/screenshots/` and look at them.
+
+### Rebuild the data (only if the pipeline or site list changes)
+
+```sh
+make data-download   # ~6.7 GB into data/raw/ (resumable)
+make data            # real ephemeris, masks, slopes, heightmaps -> web/public/data/ (~15 s)
+make validate && make check
+```
+
+`make data-fixtures` writes synthetic mock data instead; the app then shows a "Synthetic data"
+banner. Run `make data` to go back to real data. Do not commit synthetic files.
+
+### Deploy
+
+```sh
+make deploy          # builds and publishes to Cloudflare (needs `npx wrangler login` once)
+```
+
+Secrets (R2 keys, `GEMINI_API_KEY`) live in `.env`, which is gitignored. Never commit it.
+
+## Data credits
+
+NASA/JPL DE440 ephemeris and NAIF lunar kernels; LRO LOLA polar DEMs from NASA GSFC PGDA.
+Details and hashes: [docs/DATA.md](docs/DATA.md).
+
+## Limits
+
+Screening-grade only: 500 m search grid, 20 m terrain within 10 km and 80 m beyond. Not a mission
+design, landing hazard, power, thermal or link-budget tool.

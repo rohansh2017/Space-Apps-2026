@@ -44,3 +44,9 @@
 **Test status**: `make check` passes: ruff, oxlint, tsc clean; pytest 15 passed; vitest 6 passed (3 parity cases, 144 rows); Playwright 1 passed.
 
 **Known gaps / next (P2)**: run lengths, events, metrics and finder in both engines; constraint panel; HUD; Earth sprite, silhouette ring, shadows; grid snapping. The 3D view is very dark at grazing Sun angles (no fill light or shadows yet). The JS bundle is 1.2 MB before splitting.
+
+## 2026-11-14 14:20 EST — wrap-up and push
+
+- Site list closed at 12 sites; five Artemis III regions deferred (D17). Gemini skill/MCP not installed (D18).
+- README now holds the launch-and-test instructions used for the rest of the project.
+- Branch `build/tranquility-base` pushed to `origin`. P0 and P1 are complete; next is P2.
