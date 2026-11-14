@@ -1,5 +1,4 @@
 # Tranquility Base: the only entry points humans need.
-# Not built yet (later phases): perf. See docs/PLAN.md.
 PGDA := https://pgda.gsfc.nasa.gov/data/LOLA_20mpp
 NAIF := https://naif.jpl.nasa.gov/pub/naif/generic_kernels
 # Order matters: the 2.6 GB 20 m DEM first, slope map (3.8 GB, should-have) last.
@@ -7,11 +6,11 @@ RAW_URLS := $(PGDA)/LDEM_80S_20MPP_ADJ.TIF $(PGDA)/LDEM_80S_80MPP_ADJ.TIF \
   $(NAIF)/spk/planets/de440s.bsp $(NAIF)/pck/moon_pa_de440_200625.bpc \
   $(NAIF)/fk/satellites/a_old_versions/moon_de440_220930.tf $(PGDA)/LDSM_80S_20MPP_ADJ.TIF
 
-.PHONY: setup data-download data data-fixtures test parity validate e2e check dev build deploy
+.PHONY: setup data-download data data-fixtures test parity validate e2e perf check dev build deploy
 
 setup:
 	cd build && uv sync
-	cd web && npm install
+	cd web && npm install && npx playwright install chromium
 
 # Resumable and idempotent. PGDA sometimes closes long transfers, so each file gets 8 resume attempts.
 data-download:
@@ -31,6 +30,10 @@ parity:
 
 e2e:
 	cd web && npx playwright test
+
+# Finder timing at the spec's size and download sizes. Writes docs/PERF.md.
+perf: build
+	cd web && sh tests/perf.sh > ../docs/PERF.md; s=$$?; cat ../docs/PERF.md; exit $$s
 
 data-fixtures:
 	cd build && uv run python scripts/make_fixtures.py
