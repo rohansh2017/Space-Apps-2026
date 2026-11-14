@@ -59,7 +59,7 @@ Exit: someone outside the team completes the tour unaided.
 - [x] Mission room (F24): Durable Object with WebSocket sync of site, date and constraints; two browsers stay in step — 2026-11-14 18:50, `web/tests/e2e/room.spec.ts` (three browsers, late joiner, leave) via `make e2e-room` and `make e2e-live`
 - [ ] Gemini sentence entry (F21), then the horizon description (F22) if time remains
   - [x] F21: Worker route `/api/constraints` with the schema as Gemini's response format; browser validates, user applies, finder never auto-runs (2026-11-14 19:30; `p4.spec.ts` mocked, `gemini.spec.ts` live)
-  - [ ] F22 horizon description (could-have; first on the cut list)
+  - [x] F22 horizon description: `/api/describe` from engine facts, number check, template fallback (2026-11-14 21:10; `p4.spec.ts` mocked, `gemini.spec.ts` live)
 - [x] Illumination map (F15), slope screening (F16), shareable URL (F17) — 2026-11-14 20:10: sunlit % per grid cell on the region map (`p4.spec.ts` F15); slopes checked against the LOLA slope map in `make validate` (r ≥ 0.994, mean abs diff ≤ 0.33°); `?site&point&t&c&mode` links with Copy link (`p4.spec.ts` F17)
 
 P4 items done except the exit test itself (an outsider completing the tour unaided) and F22 (could-have, cut-list item 1).

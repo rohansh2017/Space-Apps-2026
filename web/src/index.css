@@ -129,3 +129,6 @@ footer { margin-top: 2rem; font-size: 0.78rem; color: var(--mute); max-width: 70
 .suggestion ul { margin: 0; padding-left: 1.1rem; }
 .suggestion .primary { padding: 0.35rem 0.8rem; border-radius: 7px; font-size: 0.8rem; }
 .legend-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-top: 0.3rem; }
+.horizon-text { display: grid; gap: 0.3rem; font-size: 0.9rem; }
+.horizon-text p { margin: 0; }
+.horizon-text button { font-size: 0.76rem; padding: 0.2rem 0.55rem; margin-left: 0.3rem; }

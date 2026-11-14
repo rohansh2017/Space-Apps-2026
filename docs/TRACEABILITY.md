@@ -25,7 +25,7 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F19 | Export scenario summary (CSV/PDF) | C | 7 |  |  | todo |
 | F20 | Lunar Night Survivor game mode | C | 7 |  |  | todo |
 | F21 | Gemini sentence → schema-validated constraint JSON | S | 7 | web/worker/gemini.js, web/src/gemini.ts, SentenceEntry.tsx | gemini.test.ts, e2e p4.spec.ts (mocked route), gemini.spec.ts (live, make e2e-live) | done |
-| F22 | Gemini horizon description with template fallback | C | 7 |  |  | todo |
+| F22 | Gemini horizon description with template fallback | C | 7 | web/worker/describe.js, web/src/describe.ts, HorizonText.tsx | describe.test.ts, e2e p4.spec.ts (mocked: kept / rejected), gemini.spec.ts (live) | done |
 | F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js, web/scripts/upload-data.sh | make e2e-live (5 browser tests on the live URL; `x-data-source: r2`) | done |
 | F24 | Mission room (Durable Object, WebSockets) | S | Prize | web/worker/room.js (MissionRoom), worker/index.js /room/{id}, web/src/room.ts, App.tsx | e2e room.spec.ts (make e2e-room, make e2e-live) | done |
 | SM1 | Every M item works end to end in the deployed build | M | - | live URL | make e2e-live (demo path F1–F9 on the deployed build) | done |

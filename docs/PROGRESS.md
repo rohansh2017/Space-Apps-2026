@@ -148,3 +148,13 @@ Pulled the teammate's "Phase 3 nearly done" commit onto the Intel Mac that did P
 **Test status**: `make check` passes (pytest 20, vitest 30, Playwright 11 + room 1); `make validate` exit 0 (three sections). Screenshot 15 viewed.
 
 **P4 state**: every item built except the exit test (outsider completes the tour) and F22 (could-have). Deploy and `make e2e-live` below, then P5 submission material.
+
+## 2026-11-14 21:15 EST — P5 documents and F22
+
+**Changed**
+- P5: README rewritten to the brief's definition of done (what, quick start, architecture in five lines, validation table, credits, limits, synthetic-data statement, deploy); `docs/ONE_PAGER.md` with the 3D screenshot; `docs/DEMO_SCRIPT.md` mapped to the UI with Gemini example sentences; `docs/PRIZE_SLIDES.md` with the two slides' content and the submission checklist.
+- F22 (could-have, built last as the brief requires): `describe.ts` facts/template/number check (unit-tested), `worker/describe.js` route, `HorizonText.tsx` under the panorama (D36). Browser tests cover the kept and the rejected case with a mocked route; `gemini.spec.ts` calls the real route.
+
+**Test status**: `make check` passes (pytest 20, vitest 34, Playwright 12 + room 1). Deploy and `make e2e-live` below.
+
+**Remaining, all need people**: outsider tour test (P4 exit), two timed rehearsals and the backup video (P5 exit), Quickmap comparison by hand, frame rate on a non-Apple laptop, prize submission steps on the event page. The stretch game (F20) is not built.

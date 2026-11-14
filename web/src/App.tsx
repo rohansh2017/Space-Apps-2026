@@ -4,6 +4,8 @@ import Compare from './Compare'
 import ConstraintPanel from './ConstraintPanel'
 import type { Dataset, Region } from './data'
 import { loadDataset, loadRegion } from './data'
+import { horizonFacts } from './describe'
+import HorizonText from './HorizonText'
 import type { Constraints, Metrics } from './engine/engine'
 import { buildSeries, evaluate, nextChange, nudgeNeighbour, siteAngles, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
 import type { Candidate, FinderResult } from './engine/finder'
@@ -506,6 +508,7 @@ export default function App() {
                     <>
                       {day.metrics && <Summary metrics={day.metrics} previous={nudgeFrom} />}
                       <Panorama mask={day.mask} track={day.track} t={view.t} />
+                      <HorizonText facts={horizonFacts(day.mask, day.series, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
                     </>
                   )}
                 {found && <Results finder={found.finder} candidates={found.candidates} opened={opened} date={date}

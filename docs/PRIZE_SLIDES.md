@@ -19,6 +19,8 @@ Two slides, one per prize, plus the evidence judges can check live. Copy into th
 
 **What we do with it**: the browser re-validates the reply against the same schema (unknown fields and out-of-range values are listed and rejected, never coerced), shows the proposal labelled as generated, and changes nothing until the user presses *Apply*. The finder runs only when the user presses it. Gemini never receives or returns engine results.
 
+**Second use, the horizon in words**: under the panorama, *Describe with Gemini* sends eleven engine-derived facts (highest ridge sector and elevation, sunlit %, hours to sunset and Earthset) and shows Gemini's two sentences, labelled as generated. The browser keeps the text only if every number in it is one of the facts; otherwise the engine's template sentence stands in and says why.
+
 **Safety**: 300-character cap, 10 requests per minute per client, key held as a Worker secret, prompt-injection sentences come back as `{}` (tested).
 
 **Live proof**: the demo moment at 1:20; `tests/e2e/gemini.spec.ts` calls the real route in `make e2e-live`.

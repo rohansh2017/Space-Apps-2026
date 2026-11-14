@@ -39,9 +39,10 @@ mission window. Open the scenario matrix and click a cell. Switch to Explorer mo
 *Start tour*. *Copy link* gives a URL that reopens the same plan.
 
 On the deployed site two more things work that need the Cloudflare Worker: *Start mission room*
-(open the link in a second browser; both follow each other) and *Interpret with Gemini* under the
-constraints ("survive 4 days of dark, talk to Earth half the time"). Locally those two report an
-error and everything else still works.
+(open the link in a second browser; both follow each other), *Interpret with Gemini* under the
+constraints ("survive 4 days of dark, talk to Earth half the time") and *Describe with Gemini* under
+the panorama. Locally those report an error and everything else still works; the horizon sentence
+then stays the engine's own template.
 
 ## Architecture in five lines
 
