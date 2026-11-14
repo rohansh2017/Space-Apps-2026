@@ -122,3 +122,9 @@ footer { margin-top: 2rem; font-size: 0.78rem; color: var(--mute); max-width: 70
 .room input { width: 100%; font-size: 0.76rem; }
 .room-row { display: flex; gap: 0.4rem; align-items: center; }
 .room-row .ok { font-weight: 600; }
+.sentence { display: grid; gap: 0.4rem; margin-top: 0.8rem; padding-top: 0.7rem; border-top: 1px solid var(--line); }
+.sentence label { display: grid; gap: 0.25rem; font-size: 0.8rem; color: var(--dim); }
+.sentence textarea { font: inherit; font-size: 0.85rem; color: var(--text); background: var(--raised); border: 1px solid var(--line-strong); border-radius: 7px; padding: 0.4rem 0.5rem; resize: vertical; width: 100%; }
+.suggestion { display: grid; gap: 0.4rem; background: var(--raised); border-left: 3px solid var(--accent); border-radius: 4px; padding: 0.5rem 0.6rem; font-size: 0.85rem; }
+.suggestion ul { margin: 0; padding-left: 1.1rem; }
+.suggestion .primary { padding: 0.35rem 0.8rem; border-radius: 7px; font-size: 0.8rem; }

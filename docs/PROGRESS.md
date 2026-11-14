@@ -124,3 +124,15 @@ Pulled the teammate's "Phase 3 nearly done" commit onto the Intel Mac that did P
 **Test status**: `make check` passes: ruff, oxlint, tsc clean; pytest 20; vitest 25; Playwright 8 + room 1. Deploy and `make e2e-live` below.
 
 **Next**: Gemini sentence entry (F21) as a Worker route with the schema as response format, then F15 illumination map, F16 slope check, F17 shareable URL.
+
+## 2026-11-14 19:35 EST — P4: Gemini sentence entry (F21)
+
+**Changed**
+- `web/worker/gemini.js`: `POST /api/constraints` → Gemini Interactions API with `constraints.schema.json` (read from the Worker's own assets) as the response schema; 300-char and 10/min caps; key from the `GEMINI_API_KEY` secret (D31).
+- `web/src/gemini.ts` `parseSuggestion`: strict validation, unknown fields and out-of-range values listed as rejected (unit-tested). `SentenceEntry.tsx` under the constraint panel: proposal shown as generated, applied only on "Apply to the panel"; the finder still runs only on its own button.
+- Tests: `gemini.test.ts` (3), `p4.spec.ts` F21 with a mocked route (confirm flow, rejection list), `gemini.spec.ts` against the real route in `make e2e-live`.
+- `scripts/wrangler.sh` reads the renamed `.env` token (D32).
+
+**Test status**: `make check` passes (pytest 20, vitest 28, Playwright 9 + room 1; 2 live-only tests skipped locally). Deploy and `make e2e-live` below.
+
+**Next**: F15 illumination map, F16 slope check vs the LOLA slope map, F17 shareable URL; then P5 submission material. F22 (horizon description) stays unbuilt unless time remains (first on the cut list).

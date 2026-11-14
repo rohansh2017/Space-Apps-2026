@@ -31,7 +31,10 @@ inside the 3D view to look around. Slip the date and press Find alternatives. Ty
 coordinate or click either map. Open a result: the plan and the alternative appear side by side.
 Nudge the plan 500 m or a day and watch the tiles change. Switch to Explorer mode and press
 Start tour. Open the scenario matrix and click a cell. Press Start mission room, open the link in
-a second browser, and change the site or date in either: both follow.
+a second browser, and change the site or date in either: both follow. On the deployed site, type a
+requirement under the constraints ("survive 4 days of dark, talk to Earth half the time") and press
+Interpret with Gemini; the proposal appears for you to apply. Locally there is no Worker, so that
+button reports an error and the fields still work by hand.
 
 ### Test
 

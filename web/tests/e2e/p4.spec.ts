@@ -82,3 +82,37 @@ test('F13: the Explorer tour walks three steps and starts playback on step 2', a
   await page.getByRole('button', { name: 'Planner' }).click()
   await expect(page.getByTestId('tour')).toHaveCount(0)
 })
+
+test('F21: a typed sentence fills the panel only after the user confirms, and bad values are rejected', async ({ page }) => {
+  // the Worker route is mocked here; gemini.spec.ts calls the real one against a deployment
+  await page.route('**/api/constraints', async (route) => {
+    const { sentence } = route.request().postDataJSON()
+    const values = sentence.includes('999')
+      ? { mission_duration_days: 999, fuel_kg: 10, max_slope_deg: 8 }
+      : { max_continuous_dark_hours: 96, min_earth_visible_pct: 50 }
+    await route.fulfill({ json: { values, model: 'mock', generated: true } })
+  })
+  await page.goto('/')
+  await expect(page.getByTestId('view')).toContainText('Plan:')
+  const box = page.getByPlaceholder(/survive 4 days of dark/)
+  await box.fill('survive 4 days of dark, talk to Earth half the time')
+  await page.getByRole('button', { name: 'Interpret with Gemini' }).click()
+  const suggestion = page.getByTestId('suggestion')
+  await expect(suggestion).toContainText('Max continuous darkness: 96 hours')
+  await expect(suggestion).toContainText('Min Earth visibility: 50 %')
+  await expect(page.getByLabel('Max continuous darkness')).toHaveValue('80') // nothing applied yet
+  await page.screenshot(shot('14-gemini-suggestion'))
+  await page.getByRole('button', { name: 'Apply to the panel' }).click()
+  await expect(page.getByLabel('Max continuous darkness')).toHaveValue('96')
+  await expect(page.getByLabel('Min Earth visibility')).toHaveValue('50')
+  await expect(page.getByLabel('Mission duration')).toHaveValue('7') // untouched fields keep their values
+  await expect(suggestion).toHaveCount(0)
+
+  await box.fill('mission of 999 days with slopes under 8')
+  await page.getByRole('button', { name: 'Interpret with Gemini' }).click()
+  await expect(page.getByTestId('suggestion-rejected')).toContainText('mission_duration_days = 999 (outside 1–30 days)')
+  await expect(page.getByTestId('suggestion-rejected')).toContainText('fuel_kg (unknown field)')
+  await expect(suggestion).toContainText('Max terrain slope: 8 deg')
+  await page.getByRole('button', { name: 'Discard' }).click()
+  await expect(page.getByLabel('Mission duration')).toHaveValue('7')
+})

@@ -36,7 +36,7 @@ e2e:
 # The same browser tests against the deployed site, mission room included (LIVE=... to point elsewhere).
 LIVE := https://tranquility-base.rohansh2017.workers.dev
 e2e-live:
-	cd web && BASE_URL=$(LIVE) ROOM_TEST=1 npx playwright test
+	cd web && BASE_URL=$(LIVE) ROOM_TEST=1 GEMINI_TEST=1 npx playwright test
 	@curl -sI $(LIVE)/data/sites.json | grep -i x-data-source
 
 # Mission room test on the local Worker (wrangler dev runs the Durable Object; the R2 fallback serves the data).

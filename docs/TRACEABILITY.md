@@ -24,7 +24,7 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F18 | Solar array presets for the power index | C | 4 |  |  | todo |
 | F19 | Export scenario summary (CSV/PDF) | C | 7 |  |  | todo |
 | F20 | Lunar Night Survivor game mode | C | 7 |  |  | todo |
-| F21 | Gemini sentence → schema-validated constraint JSON | S | 7 |  |  | todo |
+| F21 | Gemini sentence → schema-validated constraint JSON | S | 7 | web/worker/gemini.js, web/src/gemini.ts, SentenceEntry.tsx | gemini.test.ts, e2e p4.spec.ts (mocked route), gemini.spec.ts (live, make e2e-live) | done |
 | F22 | Gemini horizon description with template fallback | C | 7 |  |  | todo |
 | F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js, web/scripts/upload-data.sh | make e2e-live (5 browser tests on the live URL; `x-data-source: r2`) | done |
 | F24 | Mission room (Durable Object, WebSockets) | S | Prize | web/worker/room.js (MissionRoom), worker/index.js /room/{id}, web/src/room.ts, App.tsx | e2e room.spec.ts (make e2e-room, make e2e-live) | done |
@@ -34,7 +34,7 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | SM4 | 3D view holds 30 fps on a typical laptop | M | - | web/src/Scene3D.tsx | make perf | partial (60 fps on an M1 Pro; no other laptop measured) |
 | SM5 | Three outsiders can explain why a small move costs days of sunlight | M | - |  |  | todo |
 | SM6 | Demo runs under 3 minutes twice in a row | M | - |  |  | todo |
-| SM7 | If built: two browsers stay in step; a typed sentence fills the panel with schema-valid values | S | - | web/worker/room.js | e2e room.spec.ts | partial (two browsers in step: done; Gemini sentence entry: todo) |
+| SM7 | If built: two browsers stay in step; a typed sentence fills the panel with schema-valid values | S | - | web/worker/room.js | e2e room.spec.ts | done (room.spec.ts; gemini.spec.ts live: the demo sentence fills the panel with 96 h / 50 %) |
 | PT1 | 3D frame rate ≥ 30 fps | M | - | web/src/Scene3D.tsx | make perf | partial (60 fps on an M1 Pro) |
 | PT2 | Finder: 5,000 candidates × 60-day slip under 3 s | M | - | web/src/engine/finder.ts | make perf | done (966 ms) |
 | PT3 | Initial load for the demo regions under 10 MB | M | - | web/tests/perf.sh | make perf | done (5.1 MB at start, 0.65 MB per region) |

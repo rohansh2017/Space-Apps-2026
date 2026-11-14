@@ -58,6 +58,8 @@ Exit: someone outside the team completes the tour unaided.
 - [x] Side-by-side compare (F11), nudge control (F14), guided tour (F13) — built and tested 2026-11-14 18:10 (`web/tests/e2e/p4.spec.ts`, screenshots 10–12). The phase exit (an outsider completes the tour unaided) still needs a person.
 - [x] Mission room (F24): Durable Object with WebSocket sync of site, date and constraints; two browsers stay in step — 2026-11-14 18:50, `web/tests/e2e/room.spec.ts` (three browsers, late joiner, leave) via `make e2e-room` and `make e2e-live`
 - [ ] Gemini sentence entry (F21), then the horizon description (F22) if time remains
+  - [x] F21: Worker route `/api/constraints` with the schema as Gemini's response format; browser validates, user applies, finder never auto-runs (2026-11-14 19:30; `p4.spec.ts` mocked, `gemini.spec.ts` live)
+  - [ ] F22 horizon description (could-have; first on the cut list)
 - [ ] Illumination map (F15), slope screening (F16), shareable URL (F17)
 
 ## P5 Submission
