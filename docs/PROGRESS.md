@@ -50,3 +50,30 @@
 - Site list closed at 12 sites; five Artemis III regions deferred (D17). Gemini skill/MCP not installed (D18).
 - README now holds the launch-and-test instructions used for the rest of the project.
 - Branch `build/tranquility-base` pushed to `origin`. P0 and P1 are complete; next is P2.
+
+## 2026-11-14 15:30 EST — P2 closed, P3 built (not deployed)
+
+Work moved to a second machine (Apple Silicon). Python env rebuilt with `uv sync`; raw data re-downloaded; `make data` reproduces the committed masks byte for byte (only last-digit float changes in `sites.json`).
+
+**P2 closed**
+- The finder searches forward only from the planned date (team decision, D19); before, a slipped date returned alternatives up to 30 days earlier.
+- Removed a leftover debug test that wrote to another machine's temp path.
+- Gate M2 is asserted by `demo.spec.ts` (finder 45 to 70 ms in the browser for 325 points; HUD equals engine at every step).
+
+**P3 changed**
+- A: `validate_horizons.py` now covers six sites (Apollo 11, 15, 17, Connecting Ridge, Shackleton rim, IM-2): max error 0.00068 deg. New `validate_illumination.py`: our ten-year sunlit % at all 3,969 grid points vs the PGDA average illumination maps: Pearson r 0.95 to 0.99 per site, grid means within 2 points; Connecting Ridge is third best-lit of nine.
+- B: custom latitude/longitude entry and map clicks (polar map and per-site grid map on LOLA hillshades from `make data`), snapped to the nearest grid point with the distance shown, and a clear message outside the regions. Worker route serves `/data/*` from R2, bundled copy as fallback; `make deploy` uploads the files first.
+- C: lunar-day playback (708 h in 20 s) with Sun and Earth trails in 3D and the panorama. First visual pass on the 3D view: procedural regolith detail, stars, Sun glare, Earth with the correct phase, shaded horizon ring (all labelled illustrative in the footer, D22). `make perf` now measures frame rate on the real GPU.
+- D: Planner/Explorer toggle (plain-English summary, HUD sentence, battery icon, glossary tooltips from a real `tour.json`), mission-window summary, scenario matrix (9 sites x 60 daily or 53 weekly landing dates, four metrics, click to open).
+- UI restyled (layout, HUD, controls).
+
+**Exit gate M3: not met.** Everything above passes locally, but `make deploy` was not run from this session (the permission system blocked it), so the live URL still serves the P1 build and R2 holds only the raw DEMs.
+
+**Test status**: `make check` passes: ruff, oxlint, tsc clean; pytest 20 passed; vitest 24 passed; Playwright 5 passed. `make validate` exits 0. `make perf`: finder 966 ms for 5,000 candidates x 60 days; 60 fps on an M1 Pro (headless software rendering gives 13 fps, which is not a laptop GPU number); first load 5.1 MB.
+
+**Blockers (need a human)**
+1. Run `make deploy`, then confirm `curl -sI <live>/data/sites.json | grep x-data-source` says `r2`.
+2. Quickmap lit/dark comparison by hand (P3 A).
+3. Frame rate on a typical non-Apple laptop is unmeasured.
+
+**Known gaps / next**: P4 in the spec's order: side-by-side compare, nudge, guided tour (the tour text is written; the UI is not), mission room, Gemini sentence entry, illumination map, slope check, shareable URL. The regolith texture still reads a little like ripples; a real albedo/normal set and a larger terrain patch would be the next visual step.

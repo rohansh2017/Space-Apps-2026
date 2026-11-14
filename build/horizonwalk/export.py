@@ -12,6 +12,8 @@ GRID_N, GRID_STEP_M = (
     500.0,
 )  # 21 x 21 search grid, row-major from (-5 km, -5 km); site = index 220
 HM_N, HM_SPAN_M = 256, 5000.0
+POLE_HALF_M = 304_000.0  # the 80 m DEM covers +-304 km around the pole
+REGION_HALF_M = 5_250.0  # the 21 x 21 grid reaches +-5 km; a quarter-kilometre margin
 EPHEM_FIELDS = ["sun_x", "sun_y", "sun_z", "earth_x", "earth_y", "earth_z", "earth_dist_km"]
 
 
@@ -25,19 +27,20 @@ def write_bin(path: Path, array: np.ndarray, dtype: str) -> None:
     array.astype(dtype).tofile(path)
 
 
-def write_png16(path: Path, img: np.ndarray) -> None:
-    """16-bit greyscale PNG. Every scanline uses filter 0, which the web decoder relies on."""
+def write_png16(path: Path, img: np.ndarray, depth: int = 16) -> None:
+    """Greyscale PNG, 16-bit (heightmaps) or 8-bit (basemaps). Every scanline uses filter 0, which
+    the web heightmap decoder relies on."""
 
     def chunk(tag: bytes, data: bytes) -> bytes:
         body = tag + data
         return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
 
     h, w = img.shape
-    raw = b"".join(b"\x00" + row.astype(">u2").tobytes() for row in img)
+    raw = b"".join(b"\x00" + row.astype(">u2" if depth == 16 else "u1").tobytes() for row in img)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(
         b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 16, 0, 0, 0, 0))
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, depth, 0, 0, 0, 0))
         + chunk(b"IDAT", zlib.compress(raw))
         + chunk(b"IEND", b"")
     )
@@ -81,6 +84,32 @@ def write_region(
         for i in range(len(lat))
     ]  # fmt: skip
     return entry, points
+
+
+def hillshade(dem: np.ndarray, res_m: float, exaggeration: float = 1.0) -> np.ndarray:
+    """8-bit hillshade lit from the upper left at 35 deg. Lighting is illustrative, not the real Sun."""
+    gy, gx = np.gradient(dem.astype(np.float64) * exaggeration, res_m)
+    az, alt = np.radians(315.0), np.radians(35.0)
+    # image rows run down, so "up" in the image is -row; the surface normal is (-gx, gy, 1) in (right, up, out)
+    shade = (np.cos(alt) * (np.sin(az) * -gx + np.cos(az) * gy) + np.sin(alt)) / np.sqrt(
+        gx * gx + gy * gy + 1.0
+    )
+    return np.round(np.clip(shade, 0.0, 1.0) * 255)
+
+
+def write_basemap(
+    out: Path, pole: np.ndarray, regions: dict[str, np.ndarray], synthetic: bool
+) -> None:
+    """Hillshade images in stereographic x/y axes (row 0 = +y, col 0 = -x): the polar cap and one
+    per region, centred on the region's site."""
+    write_png16(out / "basemaps" / "pole.png", pole, depth=8)
+    for sid, img in regions.items():
+        write_png16(out / "basemaps" / f"{sid}.png", img, depth=8)
+    write_json(out / "basemap.json", {
+        "synthetic": synthetic,
+        "pole": {"file": "basemaps/pole.png", "half_width_m": POLE_HALF_M},
+        "regions": {"half_width_m": REGION_HALF_M, "files": {s: f"basemaps/{s}.png" for s in regions}},
+    })  # fmt: skip
 
 
 def write_index(out: Path, sites: list, points: list, synthetic: bool) -> None:

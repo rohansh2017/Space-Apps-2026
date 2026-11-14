@@ -15,9 +15,15 @@ npx vitest run src/engine/finder.perf --reporter=verbose --disableConsoleInterce
 echo
 echo "The end-to-end test also asserts the real demo search finishes in under 3 s in the browser."
 echo
+echo "## 3D frame rate (target: 30 fps or more on a typical laptop)"
+echo
+GPU=1 npx playwright test p3 -g playback 2>&1 | grep PERF | sed 's/^PERF /- /'
+echo
+echo "Measured during lunar-day playback (shadows on) in Chromium on this machine's GPU."
+echo
 echo "## Initial load (target: under 10 MB for the demo regions)"
 echo
 echo "- App bundle (HTML + JS + CSS): $(mb dist/index.html dist/assets/*)"
-echo "- Data fetched at start (sites, points, schema, ephemeris 2026-2035): $(mb $d/sites.json $d/points.json $d/constraints.schema.json $d/ephemeris.json $d/ephemeris/*)"
-echo "- One region, fetched on demand (masks + slopes + heightmap): $(mb $d/masks/change7-shackleton-rim.bin $d/slopes/change7-shackleton-rim.bin $d/heightmaps/change7-shackleton-rim.png)"
-echo "- All nine regions' masks and slopes (fetched when the finder runs): $(mb $d/masks/* $d/slopes/*)"
+echo "- Data fetched at start (sites, points, schema, tour, polar basemap, ephemeris 2026-2035): $(mb $d/sites.json $d/points.json $d/constraints.schema.json $d/tour.json $d/basemap.json $d/basemaps/pole.png $d/ephemeris.json $d/ephemeris/*)"
+echo "- One region, fetched on demand (masks + slopes + heightmap + basemap): $(mb $d/masks/change7-shackleton-rim.bin $d/slopes/change7-shackleton-rim.bin $d/heightmaps/change7-shackleton-rim.png $d/basemaps/change7-shackleton-rim.png)"
+echo "- All nine regions' masks and slopes (fetched when the finder or the matrix runs): $(mb $d/masks/* $d/slopes/*)"

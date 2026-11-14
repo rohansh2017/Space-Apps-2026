@@ -57,8 +57,8 @@
    ],
    "heightmap": {
     "file": "heightmaps/haworth.png",
-    "offset_m": 1316.2609384421314,
-    "scale_m": 0.007754841853221262,
+    "offset_m": 1316.2609384421303,
+    "scale_m": 0.007754841853221276,
     "size_px": 256,
     "span_m": 5000.0
    }
@@ -123,8 +123,8 @@
    ],
    "heightmap": {
     "file": "heightmaps/nobile-rim-2.png",
-    "offset_m": 823.9529207013467,
-    "scale_m": 0.008786586639172493,
+    "offset_m": 823.9529207013464,
+    "scale_m": 0.008786586639172528,
     "size_px": 256,
     "span_m": 5000.0
    }
@@ -145,8 +145,8 @@
    ],
    "heightmap": {
     "file": "heightmaps/connecting-ridge.png",
-    "offset_m": 1084.5949484599075,
-    "scale_m": 0.013342118643641277,
+    "offset_m": 1084.594948459908,
+    "scale_m": 0.01334211864364127,
     "size_px": 256,
     "span_m": 5000.0
    }

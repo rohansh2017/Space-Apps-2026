@@ -27,21 +27,29 @@ Exit (M1): Skyfield angles match Horizons within 0.1° at 3 sites; a real mask a
 
 ## P2 Core on real data
 
-Exit (M2): a slipped-date scenario returns ranked alternatives in under 3 s and opens in 3D with HUD values equal to engine values.
+Exit (M2): a slipped-date scenario returns ranked alternatives in under 3 s and opens in 3D with HUD values equal to engine values. **Met 2026-11-14** (`web/tests/e2e/demo.spec.ts` asserts it; PERF.md).
 
-- [ ] A: engine.ts + parity test; finder worker with run lengths and prefix sums
-- [ ] B: masks for all curated sites and grids; heightmaps; grid snapping
-- [ ] C: real heightmaps, silhouette ring, Earth sprite, HUD bound to the engine, shadows
-- [ ] D: constraint panel with presets, ranked results, pass/fail chips, diff text, click-through to 3D
+- [x] A: engine.ts + parity test; finder worker with run lengths and prefix sums
+- [x] B: masks for all curated sites and grids; heightmaps; grid snapping
+- [x] C: real heightmaps, silhouette ring, Earth sprite, HUD bound to the engine, shadows
+- [x] D: constraint panel with presets, ranked results, pass/fail chips, diff text, click-through to 3D
 
 ## P3 Complete demo
 
-Exit (M3, cut line): all seven objectives shown in the deployed app.
+Exit (M3, cut line): all seven objectives shown in the deployed app. **Not met yet: built and tested locally, not deployed** (see PROGRESS.md, 2026-11-14 15:30).
 
 - [ ] A: lit/dark validation against Quickmap and PGDA; numbers for the validation slide
+  - [x] PGDA, scripted: nine sites, Pearson r 0.95 to 0.99 (VALIDATION.md); Horizons extended to six sites
+  - [ ] Quickmap, by hand, for the judges' Q&A (needs a person)
 - [ ] B: custom-coordinate snapping in the UI; slope grid ready; data files uploaded to R2 and loaded by region
-- [ ] C: playback with trails; performance pass to 30 fps
+  - [x] Custom coordinates and map clicks snap to the grid and show the snap distance
+  - [x] Slope grid ready (in the finder since P2; the check against the LOLA slope map is F16, P4)
+  - [x] Worker serves `/data/*` from R2 with the bundled copy as fallback (checked with `wrangler dev --local`)
+  - [ ] Data files uploaded to R2 (`make deploy` does it; not run yet)
+- [x] C: playback with trails; performance pass to 30 fps (60 fps on an M1 Pro, PERF.md)
 - [ ] D: Planner/Explorer modes and labels, basic scenario matrix, deploy to Cloudflare with data served from R2
+  - [x] Planner/Explorer modes, labels and glossary tooltips; scenario matrix
+  - [ ] Deploy (`make deploy`), then check `x-data-source: r2` on the live URL
 
 ## P4 Should-haves (in this order)
 

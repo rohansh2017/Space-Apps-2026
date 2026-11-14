@@ -28,7 +28,11 @@ def main(only: list[str]) -> None:
 
     with rasterio.open(RAW / "LDEM_80S_80MPP_ADJ.TIF") as d:
         far, far_left, far_top, far_res = d.read(1), d.bounds.left, d.bounds.top, d.res[0]
-    sites, points = [], []
+    assert abs(far_left + export.POLE_HALF_M) < 1 and far.shape[0] % 10 == 0, "unexpected 80 m DEM"
+    # polar basemap: block-mean to 800 m per pixel, relief exaggerated so it reads at that scale
+    coarse = far.reshape(far.shape[0] // 10, 10, far.shape[1] // 10, 10).mean(axis=(1, 3))
+    pole_map = export.hillshade(coarse, far_res * 10, exaggeration=4.0)
+    sites, points, region_maps = [], [], {}
     with rasterio.open(RAW / "LDEM_80S_20MPP_ADJ.TIF") as dem:
         for s in src["sites"]:
             if not s["terrain"] or (only and s["id"] not in only):
@@ -59,12 +63,20 @@ def main(only: list[str]) -> None:
             hy = cy - e * np.sin(lam) + n * np.cos(lam)
             heights = sample(near, left, top, res, hx.ravel(), hy.ravel()).reshape(hx.shape)
             assert np.isfinite(heights).all(), s["id"]
+            half = int(export.REGION_HALF_M / res)
+            col, row = round((cx - left) / res), round((top - cy) / res)
+            region_maps[s["id"]] = export.hillshade(
+                near[row - half : row + half, col - half : col + half], res
+            )
             entry, pts = export.write_region(OUT, s, lat, lon, x, y, elev, masks, slopes, heights)
             sites.append(entry)
             points += pts
             print(f"{s['id']}: elev {elev[220]:.0f} m, mask {masks[220].min():.2f}..{masks[220].max():.2f} deg "
                   f"({time.time() - t0:.0f} s)", flush=True)  # fmt: skip
     export.write_index(OUT, sites, points, synthetic=False)
+    export.write_basemap(OUT, pole_map, region_maps, synthetic=False)
+    tour = json.loads((ROOT / "build" / "tour_src.json").read_text())
+    export.write_json(OUT / "tour.json", {"synthetic": False, **tour})
     print(f"done: {len(sites)} sites, {len(points)} points")
 
 

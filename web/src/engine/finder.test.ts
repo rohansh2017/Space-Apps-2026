@@ -40,8 +40,9 @@ describe('finder', () => {
     const steep = r.results.find((x) => cands[x.candidate].id === 'steep')!
     expect(steep.evaluation.passes.max_slope_deg).toBe(false)
     expect(steep.evaluation.passes.min_continuous_sun_days).toBe(true)
-    // 3 candidates x 61 daily starts, minus the plan itself, plus the plan and the hourly refinement
-    expect(r.evaluated).toBeGreaterThanOrEqual(3 * 61)
+    // 3 candidates x 31 daily starts, minus the plan itself, plus the plan and the hourly refinement
+    expect(r.evaluated).toBeGreaterThanOrEqual(3 * 31)
+    expect(r.results.every((x) => x.start >= 24 * 40)).toBe(true) // never earlier than the slipped date
   })
   it('finds a later date at the same site when only the date is wrong', () => {
     // the Sun is behind the wall (azimuths 80..200 seen from this site) at the planned date
@@ -49,7 +50,7 @@ describe('finder', () => {
     const r = runFinder(table, hours, cands, 24 * 40, C)
     expect(r.baseline.evaluation.fails).toBeGreaterThan(0)
     expect(r.results[0].candidate).toBe(0)
-    expect(r.results[0].start).not.toBe(24 * 40)
+    expect(r.results[0].start).toBeGreaterThan(24 * 40)
     expect(r.results[0].evaluation.fails).toBe(0)
   })
   it('refuses a window that runs past the ephemeris', () => {

@@ -26,8 +26,9 @@ downloads just to run or test the app.
 make dev        # http://localhost:5173, reloads on save
 ```
 
-What to try: choose a site, change the date (UTC), drag the lunar-day scrubber, drag inside the 3D
-view to look around. The readout line and the panorama should change together.
+What to try: choose a site, change the date (UTC), drag the lunar-day scrubber or press Play, drag
+inside the 3D view to look around. Slip the date and press Find alternatives. Type a custom
+coordinate or click either map. Switch to Explorer mode. Open the scenario matrix and click a cell.
 
 ### Test
 
@@ -37,14 +38,15 @@ view to look around. The readout line and the panorama should change together.
 | `make parity` | Python engine and TypeScript engine give the same answers | ~3 s |
 | `make e2e` | Opens the built app in headless Chromium, clicks through it, saves screenshots to `web/tests/screenshots/` | ~15 s |
 | `make check` | Lint + typecheck + all of the above. **Run this before every push.** | ~30 s |
-| `make validate` | Engine angles vs JPL Horizons; rewrites [docs/VALIDATION.md](docs/VALIDATION.md). Offline after the first run (responses are cached) | ~5 s |
+| `make validate` | Engine angles vs JPL Horizons, and sunlit % vs the PGDA illumination maps; rewrites [docs/VALIDATION.md](docs/VALIDATION.md). Needs `make data-download` for the PGDA part | ~35 s |
+| `make perf` | Finder timing, 3D frame rate on this machine's GPU, download sizes; rewrites [docs/PERF.md](docs/PERF.md) | ~40 s |
 
 After a UI change, open the screenshots in `web/tests/screenshots/` and look at them.
 
 ### Rebuild the data (only if the pipeline or site list changes)
 
 ```sh
-make data-download   # ~6.7 GB into data/raw/ (resumable)
+make data-download   # ~6.8 GB into data/raw/ (resumable)
 make data            # real ephemeris, masks, slopes, heightmaps -> web/public/data/ (~15 s)
 make validate && make check
 ```
@@ -55,8 +57,11 @@ banner. Run `make data` to go back to real data. Do not commit synthetic files.
 ### Deploy
 
 ```sh
-make deploy          # builds and publishes to Cloudflare (needs `npx wrangler login` once)
+make deploy          # builds, uploads the data files to R2, publishes to Cloudflare
 ```
+
+Auth: `npx wrangler login` once, or `Cloudflare_Token_Value` in `.env`. After a deploy,
+`curl -sI <live>/data/sites.json | grep x-data-source` should say `r2`.
 
 Secrets (R2 keys, `GEMINI_API_KEY`) live in `.env`, which is gitignored. Never commit it.
 
@@ -68,4 +73,5 @@ Details and hashes: [docs/DATA.md](docs/DATA.md).
 ## Limits
 
 Screening-grade only: 500 m search grid, 20 m terrain within 10 km and 80 m beyond. Not a mission
-design, landing hazard, power, thermal or link-budget tool.
+design, landing hazard, power, thermal or link-budget tool. In the 3D view, ground detail finer than
+the 20 m terrain, the stars, the Sun's glare and Earth's surface are illustrative.

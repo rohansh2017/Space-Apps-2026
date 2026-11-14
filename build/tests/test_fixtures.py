@@ -76,3 +76,19 @@ def test_constraint_schema_has_spec_defaults():
     assert {k: v["default"] for k, v in c.items()} == want
     for x in c.values():
         assert set(x) == {"id", "type", "unit", "min", "max", "default"}
+
+
+def test_basemaps_are_8bit_square_pngs():
+    meta = load("basemap.json")
+    terrain = {s["id"] for s in load("sites.json")["sites"] if s["terrain"]}
+    assert set(meta["regions"]["files"]) == terrain
+    assert meta["pole"]["half_width_m"] > 0 and meta["regions"]["half_width_m"] >= 5000
+    for file in [meta["pole"]["file"], *meta["regions"]["files"].values()]:
+        w, h, depth, colour = struct.unpack(">IIBB", (DATA / file).read_bytes()[16:26])
+        assert w == h and (depth, colour) == (8, 0), file
+
+
+def test_tour_has_steps_and_glossary():
+    tour = load("tour.json")
+    assert tour["steps"] and all(set(s) >= {"id", "title", "body"} for s in tour["steps"])
+    assert tour["glossary"] and all(set(g) == {"term", "definition"} for g in tour["glossary"])

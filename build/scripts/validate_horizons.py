@@ -16,9 +16,12 @@ from horizonwalk import engine
 
 CACHE = Path(__file__).resolve().parents[1] / "cache"
 DATA = Path(__file__).resolve().parents[2] / "web" / "public" / "data"
-# id: (lat, lon east-positive, elevation m). Elevation 0 on both sides; P3 extends to six sites.
+# id: (lat, lon east-positive, elevation m). Elevation 0 on both sides. Three Apollo sites, three polar.
 SITES = {
     "apollo11": (0.67, 23.47, 0.0),
+    "apollo15": (26.13, 3.63, 0.0),
+    "apollo17": (20.19, 30.77, 0.0),
+    "connecting-ridge": (-89.463, -137.49, 0.0),
     "change7-shackleton-rim": (-88.8, 123.4, 0.0),
     "im2-mons-mouton": (-84.78, 29.13, 0.0),
 }
