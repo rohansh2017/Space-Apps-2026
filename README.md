@@ -91,7 +91,8 @@ not a communications link budget (geometric Earth visibility only), and not glob
 80–90°S. Apollo 11, 15 and 17 are in the site list only to validate Sun and Earth angles.
 
 In the 3D view, ground detail finer than the 20 m terrain, the stars, the Sun's glare and Earth's
-surface are illustrative and do not feed any number.
+surface are illustrative and do not feed any number. Being replaced (P6 in [docs/PLAN.md](docs/PLAN.md)):
+real stars from the Yale Bright Star Catalogue, and 5 m LOLA terrain where PGDA has a site DEM.
 
 **Synthetic data:** none in the deployed app. `make data-fixtures` can generate synthetic
 contract-shaped files for development; the app then shows a banner, and such files are never committed.
