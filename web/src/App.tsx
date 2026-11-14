@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Chips from './Chips'
+import Compare from './Compare'
 import ConstraintPanel from './ConstraintPanel'
 import type { Dataset, Region } from './data'
 import { loadDataset, loadRegion } from './data'
-import type { Constraints } from './engine/engine'
-import { buildSeries, evaluate, nextChange, siteAngles, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
+import type { Constraints, Metrics } from './engine/engine'
+import { buildSeries, evaluate, nextChange, nudgeNeighbour, siteAngles, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
 import type { Candidate, FinderResult } from './engine/finder'
 import type { FinderRequest } from './engine/finder.worker'
 import type { Mode } from './guide'
@@ -17,6 +18,7 @@ import Results from './Results'
 import Scene3D from './Scene3D'
 import SiteMap from './SiteMap'
 import Summary from './Summary'
+import Tour from './Tour'
 
 const LUNAR_DAY_H = 708
 const LOOKAHEAD_H = 720 // countdowns look this far past the scrubbed lunar day
@@ -42,6 +44,8 @@ export default function App() {
   const [found, setFound] = useState<{ finder: FinderResult; candidates: Candidate[] } | null>(null)
   const [opened, setOpened] = useState<number | null>(null)
   const [matrix, setMatrix] = useState(false)
+  const [nudgeFrom, setNudgeFrom] = useState<Metrics | null>(null) // F14: metrics before the last nudge
+  const [tour, setTour] = useState(false)
   const [busy, setBusy] = useState(false)
   const worker = useRef<Worker | null>(null)
 
@@ -68,6 +72,7 @@ export default function App() {
     setFound(null)
     setOpened(null)
     setPlaying(false)
+    setNudgeFrom(null)
   }, [])
 
   const selectSite = useCallback((id: string, index: number | null = null) => {
@@ -115,15 +120,15 @@ export default function App() {
   const observer = alt ? found!.candidates[alt.candidate] : plan
   const viewStart = alt ? alt.start : planHour
 
-  /** Everything about the observer's lunar day that does not depend on the scrubber position. */
-  const day = useMemo(() => {
-    if (!data || !site || !observer || !plan || constraints.mission_duration_days === undefined) return null
-    const frame = siteFrame(observer.lat, observer.lon, observer.elevM)
-    const mask = site.terrain ? observer.mask : null
-    const n = Math.min(LUNAR_DAY_H + LOOKAHEAD_H, data.hours - viewStart)
-    const series = buildSeries(data.ephemeris, viewStart, n, frame, mask, Number(constraints.min_earth_elevation_deg))
+  /** Everything about one observer's lunar day from a landing hour that does not depend on the scrubber position. */
+  const dayOf = useCallback((obs: Candidate, start: number) => {
+    if (!data || !site || !plan || constraints.mission_duration_days === undefined) return null
+    const frame = siteFrame(obs.lat, obs.lon, obs.elevM)
+    const mask = site.terrain ? obs.mask : null
+    const n = Math.min(LUNAR_DAY_H + LOOKAHEAD_H, data.hours - start)
+    const series = buildSeries(data.ephemeris, start, n, frame, mask, Number(constraints.min_earth_elevation_deg))
     const track = []
-    for (let h = 0; h <= Math.min(LUNAR_DAY_H, n - 1); h++) track.push(siteAngles(data.ephemeris, viewStart + h, frame))
+    for (let h = 0; h <= Math.min(LUNAR_DAY_H, n - 1); h++) track.push(siteAngles(data.ephemeris, start + h, frame))
     const dur = Math.round(Number(constraints.mission_duration_days) * 24)
     const metrics = dur <= n ? windowMetrics(series, 0, dur) : null
     // observer offset from the site centre in the site's east/north axes, metres
@@ -131,8 +136,17 @@ export default function App() {
     const home = siteFrame(site.lat, site.lon, centre?.elev_m ?? 0)
     const d = frame.pos.map((v, i) => (v - home.pos[i]) * 1000)
     const dot = (a: number[]) => a[0] * d[0] + a[1] * d[1] + a[2] * d[2]
-    return { mask, series, track, metrics, evaluation: metrics && evaluate(metrics, observer.slopeDeg, constraints), east: dot(home.east), north: dot(home.north) }
-  }, [data, site, observer, plan, viewStart, constraints])
+    return { mask, series, track, metrics, evaluation: metrics && evaluate(metrics, obs.slopeDeg, constraints), east: dot(home.east), north: dot(home.north) }
+  }, [data, site, plan, constraints])
+  const day = useMemo(() => (observer ? dayOf(observer, viewStart) : null), [dayOf, observer, viewStart])
+  /** F11: the plan's own day, kept alongside while an alternative is open. */
+  const planDay = useMemo(() => (alt && plan ? dayOf(plan, planHour) : null), [dayOf, alt, plan, planHour])
+
+  /** F14: the grid neighbours one 500 m step away in each compass direction (null at the grid edge). */
+  const neighbours = useMemo(
+    () => data && planPoint ? Object.fromEntries((['N', 'E', 'S', 'W'] as const).map((d) => [d, nudgeNeighbour(data.points, planPoint, d)])) : null,
+    [data, planPoint],
+  )
 
   const view = useMemo(() => {
     if (!data || !day) return null
@@ -167,6 +181,34 @@ export default function App() {
   const togglePlay = () => {
     playFrom.current = offset >= last ? 0 : offset
     setPlaying(!playing)
+  }
+
+  /** F14 nudge: move the plan one grid step (500 m) or one day; the summary tiles then show what changed. */
+  const nudge = (dir: 'N' | 'E' | 'S' | 'W' | 'earlier' | 'later') => {
+    if (!data || !planPoint || !day?.metrics) return
+    const from = day.metrics
+    if (dir === 'earlier' || dir === 'later') {
+      const h = planHour + (dir === 'later' ? 24 : -24)
+      if (h < 0 || h >= data.hours) return
+      setPlanHour(h)
+      setOffset(0)
+      clearResults()
+    } else {
+      const next = neighbours?.[dir]
+      if (!next) return
+      selectSite(next.region, next.index === data.centreIndex ? null : next.index)
+    }
+    setSnapNote('')
+    setNudgeFrom(from) // after clearResults, so this write wins
+  }
+
+  /** F13: what the app does as the tour reaches each step (step ids come from tour.json). */
+  const tourStep = (id: string) => {
+    if (id === 'pole-sun' && site?.terrain) {
+      playFrom.current = 0
+      setOffset(0)
+      setPlaying(true)
+    } else setPlaying(false)
   }
 
   const terrain = useMemo(() => data?.sites.filter((s) => s.terrain) ?? [], [data])
@@ -240,10 +282,11 @@ export default function App() {
           <div>
             <h1>Tranquility Base</h1>
             <p className="note">Lunar south-pole landing site navigator</p>
+            {mode === 'explorer' && <button type="button" disabled={tour} onClick={() => setTour(true)}>Start tour</button>}
           </div>
           <div className="modes" role="group" aria-label="Mode">
             {(['planner', 'explorer'] as const).map((m) => (
-              <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>{m === 'planner' ? 'Planner' : 'Explorer'}</button>
+              <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); if (m === 'planner') setTour(false) }}>{m === 'planner' ? 'Planner' : 'Explorer'}</button>
             ))}
           </div>
         </header>
@@ -313,6 +356,7 @@ export default function App() {
                   <span>{date(viewStart)} UTC landing</span>
                   {day.evaluation ? <Chips evaluation={day.evaluation} /> : <span className="note">Mission window runs past 2035</span>}
                 </div>
+                {tour && <Tour steps={data.tour.steps} onStep={tourStep} onClose={() => { setTour(false); setPlaying(false) }} />}
                 <div className="viewport">
                   {site.terrain
                     ? <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
@@ -336,8 +380,25 @@ export default function App() {
                     <input type="range" min={0} max={last} value={view.t} onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
                   </label>
                 </div>
-                {day.metrics && <Summary metrics={day.metrics} />}
-                <Panorama mask={day.mask} track={day.track} t={view.t} />
+                {!alt && site.terrain && (
+                  <div className="nudge" role="group" aria-label="Nudge the plan">
+                    <span className="note">Nudge:</span>
+                    {(['N', 'E', 'S', 'W'] as const).map((d) => (
+                      <button key={d} type="button" disabled={!neighbours?.[d]} onClick={() => nudge(d)}>500 m {d}</button>
+                    ))}
+                    <button type="button" disabled={planHour < 24} onClick={() => nudge('earlier')}>1 day earlier</button>
+                    <button type="button" disabled={planHour + 24 >= data.hours} onClick={() => nudge('later')}>1 day later</button>
+                    {nudgeFrom && <span className="note" data-testid="nudge-note">Tiles show the change since the last nudge.</span>}
+                  </div>
+                )}
+                {planDay && alt && plan
+                  ? <Compare plan={{ label: plan.label, date: date(planHour), day: planDay }} alt={{ label: observer.label, date: date(viewStart), day }} t={view.t} />
+                  : (
+                    <>
+                      {day.metrics && <Summary metrics={day.metrics} previous={nudgeFrom} />}
+                      <Panorama mask={day.mask} track={day.track} t={view.t} />
+                    </>
+                  )}
                 {found && <Results finder={found.finder} candidates={found.candidates} opened={opened} date={date}
                   onOpen={(i) => { setOpened(i); setOffset(0); setPlaying(false) }} />}
                 {matrix && allLoaded

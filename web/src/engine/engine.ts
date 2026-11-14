@@ -265,3 +265,28 @@ export function snapToGrid<P extends { lat: number; lon: number; x: number; y: n
   const [a, b] = [siteFrame(latDeg, lonDeg, 0).pos, siteFrame(best.lat, best.lon, 0).pos]
   return { point: best, distanceM: Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) * 1000 }
 }
+
+/** The grid point one step from `current` toward a local compass direction, or null at the grid edge. */
+export function nudgeNeighbour<P extends { lat: number; lon: number; index: number; region: string }>(
+  points: readonly P[], current: P, dir: 'N' | 'E' | 'S' | 'W', n = 21,
+): P | null {
+  const f = siteFrame(current.lat, current.lon, 0)
+  const want = dir === 'N' ? [0, 1] : dir === 'S' ? [0, -1] : dir === 'E' ? [1, 0] : [-1, 0]
+  const [row, col] = [Math.floor(current.index / n), current.index % n]
+  let best: P | null = null
+  let bestCos = 0
+  for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    const [r, c] = [row + dr, col + dc]
+    if (r < 0 || c < 0 || r >= n || c >= n) continue
+    const p = points.find((q) => q.region === current.region && q.index === r * n + c)
+    if (!p) continue
+    const pos = siteFrame(p.lat, p.lon, 0).pos
+    const d = [pos[0] - f.pos[0], pos[1] - f.pos[1], pos[2] - f.pos[2]]
+    const e = f.east[0] * d[0] + f.east[1] * d[1] + f.east[2] * d[2]
+    const no = f.north[0] * d[0] + f.north[1] * d[1] + f.north[2] * d[2]
+    // the grid is square in stereographic x/y, so the best neighbour is at least cos 45 deg toward the wanted direction
+    const cos = (e * want[0] + no * want[1]) / Math.hypot(e, no)
+    if (cos > bestCos) [best, bestCos] = [p, cos]
+  }
+  return best
+}

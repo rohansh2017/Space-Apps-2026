@@ -14,10 +14,10 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F8 | Plain-language difference from the original plan | M | 4, 7 | web/src/engine/finder.ts diffText | finder.test.ts, e2e demo.spec.ts | done |
 | F9 | Planner and Explorer modes | M | 7 | web/src/App.tsx, Summary.tsx, Hud.tsx, Glossary.tsx | e2e p3.spec.ts (Explorer mode) | done |
 | F10 | Scenario matrix | S | 1, 2, 5 | web/src/Matrix.tsx | e2e p3.spec.ts (scenario matrix) | done |
-| F11 | Side-by-side comparison | S | 1, 5 |  |  | todo |
+| F11 | Side-by-side comparison | S | 1, 5 | web/src/Compare.tsx, App.tsx planDay | e2e p4.spec.ts (F11) | done (paired panoramas + metrics, D27) |
 | F12 | Lunar-day playback with trails | S | 6 | web/src/App.tsx (playback), Scene3D.tsx, Panorama.tsx | e2e p3.spec.ts (playback) | done |
-| F13 | Guided tour from tour.json | S | 7 | build/tour_src.json (text only) |  | partial (text and glossary written; no tour UI) |
-| F14 | Nudge control (100 m / 1 day) | S | 1, 2, 7 |  |  | todo |
+| F13 | Guided tour from tour.json | S | 7 | web/src/Tour.tsx, build/tour_src.json | e2e p4.spec.ts (F13) | done (outsider test of the tour still pending) |
+| F14 | Nudge control (100 m / 1 day) | S | 1, 2, 7 | web/src/App.tsx nudge, engine.ts nudgeNeighbour, Summary.tsx deltas | metrics.test.ts, e2e p4.spec.ts (F14) | done (500 m grid step, not 100 m: D26) |
 | F15 | Top-down illumination map | S | 5 |  |  | todo |
 | F16 | Slope screening (numpy.gradient, checked vs LOLA slope map) | S | 1 |  |  | todo |
 | F17 | Shareable URL | S | 7 |  |  | todo |

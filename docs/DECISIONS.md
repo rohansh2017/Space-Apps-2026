@@ -49,3 +49,9 @@
 **D24 R2 with a bundled fallback.** The Worker answers `/data/*` from R2 and falls back to the copy bundled in the static assets, so a failed or stale upload cannot break the demo (the spec's "local build as the backup"). `raw/` keys are never served. Responses carry `x-data-source: r2|assets`.
 
 **D25 PGDA comparison is a pattern check.** PGDA's map is an 18.6-year average at the surface of 60 or 120 m terrain; ours is 2026–2035 at 2 m above 20 m terrain. → Pass criterion is Pearson r ≥ 0.5 across each site's 441 points, with the means reported, not an equality test.
+
+**D26 Nudge step is one grid point (500 m), not 100 m.** The spec's nudge moves the site 100 m, but horizon masks exist only at the 500 m grid, and a 100 m move needs a new ray-march (offline, numba). → The nudge moves to the neighbouring grid point closest to the chosen compass direction (`nudgeNeighbour`), labelled "500 m N/E/S/W", and ±1 day. The summary tiles show each metric's change since the last nudge. Upgrade path: precompute a finer grid around the demo sites.
+
+**D27 Side-by-side as paired panoramas.** The spec allows split 3D or paired panoramas. → Paired panoramas with paired metric tiles and pass/fail chips, scrubbed together; the 3D view stays on the opened alternative. A second WebGL scene would halve the frame rate on the 30 fps target.
+
+**D28 Tour mechanics.** Three steps from `tour.json` in a card above the 3D view, Explorer mode only. Step 1 adds a small inline sketch of an Earth sunrise against the polar Sun path (the spec's "contrasting with an Earth sunrise"); step 2 starts lunar-day playback; step 3 points at the nudge control. Switching to Planner closes it.

@@ -55,7 +55,7 @@ Exit (M3, cut line): all seven objectives shown in the deployed app. **Met 2026-
 
 Exit: someone outside the team completes the tour unaided.
 
-- [ ] Side-by-side compare (F11), nudge control (F14), guided tour (F13)
+- [x] Side-by-side compare (F11), nudge control (F14), guided tour (F13) — built and tested 2026-11-14 18:10 (`web/tests/e2e/p4.spec.ts`, screenshots 10–12). The phase exit (an outsider completes the tour unaided) still needs a person.
 - [ ] Mission room (F24): Durable Object with WebSocket sync of site, date and constraints; two browsers stay in step
 - [ ] Gemini sentence entry (F21), then the horizon description (F22) if time remains
 - [ ] Illumination map (F15), slope screening (F16), shareable URL (F17)

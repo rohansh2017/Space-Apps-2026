@@ -28,7 +28,9 @@ make dev        # http://localhost:5173, reloads on save
 
 What to try: choose a site, change the date (UTC), drag the lunar-day scrubber or press Play, drag
 inside the 3D view to look around. Slip the date and press Find alternatives. Type a custom
-coordinate or click either map. Switch to Explorer mode. Open the scenario matrix and click a cell.
+coordinate or click either map. Open a result: the plan and the alternative appear side by side.
+Nudge the plan 500 m or a day and watch the tiles change. Switch to Explorer mode and press
+Start tour. Open the scenario matrix and click a cell.
 
 ### Test
 

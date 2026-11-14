@@ -97,3 +97,15 @@ Pulled the teammate's "Phase 3 nearly done" commit onto the Intel Mac that did P
 **Still open from P3**: Quickmap lit/dark comparison by hand (judges' Q&A); frame rate on a non-Apple laptop (only Apple GPUs measured: M1 Pro and M5, both 60 fps).
 
 **Next**: P4 in the spec's order: side-by-side compare (F11), nudge (F14), guided tour (F13, text exists), mission room (F24), Gemini sentence entry (F21), then F15–F17.
+
+## 2026-11-14 18:15 EST — P4 first group: side-by-side, nudge, tour
+
+**Changed**
+- F11 `Compare.tsx`: when a finder result is opened, the plan's own day is computed alongside (`dayOf`) and shown as paired panoramas, metric tiles and chips, scrubbed together (D27).
+- F14 nudge row under the scrubber: 500 m N/E/S/W via `engine.nudgeNeighbour` (unit-tested) and ±1 day; `Summary` shows per-tile deltas since the last nudge with a short animation (D26).
+- F13 `Tour.tsx`: three steps from `tour.json`, Earth-sunrise sketch on step 1, playback on step 2; "Start tour" appears in Explorer mode (D28).
+- `web/tests/e2e/p4.spec.ts` covers all three; screenshots 10–12 viewed (layout holds, nothing overlaps).
+
+**Test status**: tsc, oxlint clean; vitest 25 passed; Playwright 8 passed. Deployed with `make deploy`; `make e2e-live` result below.
+
+**Next**: mission room (F24, Durable Object), then Gemini sentence entry (F21), then F15–F17. Still needs a person: outsider tour test (P4 exit), Quickmap comparison, non-Apple frame rate.
