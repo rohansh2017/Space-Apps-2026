@@ -17,7 +17,9 @@ const EARTH_M = 9000
 const TRAIL_M = 9500
 const STAR_M = 20000
 const EARTH_RADIUS_KM = 6371
-const DETAIL_TILE_M = 12 // one repeat of the illustrative regolith texture
+// One repeat of the illustrative regolith texture. Its largest bump or crater is about 1.5 m across, below what even
+// the 5 m DEM resolves, so it adds texture under the real relief and never invents a feature the data would show.
+const DETAIL_TILE_M = 12
 const MESH_N = 384 // terrain mesh quads per side
 const WARP_A = 0.25 // share of linear spacing in the mesh warp: smaller = finer near the observer
 
@@ -172,9 +174,6 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
     return g
   }, [mask])
 
-  // 5 m terrain carries its own relief; the procedural soil is only for coarser patches and level ground
-  const realRelief = hm.res_m <= 5
-  const bare = useMemo(() => new THREE.MeshStandardMaterial({ color: '#9a958e', roughness: 1, metalness: 0 }), [])
   const starGroup = useMemo(() => starField(stars, STAR_M), [stars])
   sceneMatrix(sky, starGroup.matrix)
   starGroup.matrixWorldNeedsUpdate = true
@@ -261,7 +260,7 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
         </mesh>
       </group>
       {geometry && onPatch ? (
-        <mesh key="patch" geometry={geometry} material={realRelief ? bare : soil} rotation={[-Math.PI / 2, 0, 0]} position={[0, -ground, 0]} castShadow receiveShadow />
+        <mesh key="patch" geometry={geometry} material={soil} rotation={[-Math.PI / 2, 0, 0]} position={[0, -ground, 0]} castShadow receiveShadow />
       ) : (
         // shortcut: heightmaps cover 5 x 5 km around each curated site; farther grid points get level ground (the ring is still exact). Upgrade by exporting a heightmap per opened point.
         // The keys keep React from reusing one mesh object for both branches (its geometry prop would go stale).

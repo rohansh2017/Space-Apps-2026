@@ -85,6 +85,7 @@ Goal: replace illustrative 3D assets with real data where a source exists. Exit:
 - [x] Download the PGDA 78 5 m site DEMs (8 files, ~530 MB) and the Yale Bright Star Catalogue (BSC5, Harvard TDC copy of VizieR V/50); hashes in DATA.md; raw copies in R2 under `raw/`
 - [x] Heightmaps from the 5 m DEMs (1024 × 1024 over 5 × 5 km, ~4.9 m per cell) where a 5 m file covers the patch; 20 m elsewhere (IM-2 Mons Mouton); `source` and `res_m` recorded per site
 - [x] Remove the procedural soil relief on 5 m patches (real relief replaces it); keep it on 20 m patches and on the level-ground fallback, labelled
+  - Reversed 2026-11-15 (D43): the 5 m ground looked unrealistically smooth; the sub-1.5 m texture is back on every patch, under the real relief
 - [x] Real stars: BSC5 positions, magnitudes and B−V colours, oriented for the site and hour from an hourly ICRF→MOON_ME orientation table (new contract file); validated by rotating the Sun's ICRF direction onto the stored ephemeris vector
 - [x] Footer, README, DECISIONS updated; screenshots viewed; `make perf` re-run (2026-11-14 23:30; D40, D41)
 

@@ -529,9 +529,10 @@ export default function App() {
         <footer>
           Screening-grade results: 500 m search grid, 20 m terrain within 10 km and 80 m beyond. Not a
           mission design, hazard, power, thermal or link-budget tool. 3D view: terrain relief is LOLA data
-          (5 m where PGDA has a site DEM, otherwise 20 m with illustrative fine detail); the ground colour,
-          the Sun's glare and Earth's surface are illustrative; stars are from the Yale Bright Star
-          Catalogue at their real positions for this site and hour, with colours approximated from B−V.
+          (5 m where PGDA has a site DEM, otherwise 20 m); soil texture finer than that (bumps and craters
+          under 1.5 m), the ground colour, the Sun's glare and Earth's surface are illustrative; stars are
+          from the Yale Bright Star Catalogue at their real positions for this site and hour, with colours
+          approximated from B−V.
           Every number comes from the engine. Data: NASA/JPL DE440, LRO LOLA (NASA GSFC PGDA), BSC5.
         </footer>
       </main>

@@ -76,5 +76,5 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
 
 - Smallest change that meets the spec. No speculative features or abstraction layers.
 - Never present synthetic data as real; `docs/VALIDATION.md` holds only command output.
-- 3D decoration that is not data (procedural soil on 20 m patches and level ground, the ground colour, Sun glare, Earth's surface, star colours from B−V) must stay labelled; no number may come from the renderer. Star positions and 5 m relief are data.
+- 3D decoration that is not data (procedural soil texture below 1.5 m on every patch, the ground colour, Sun glare, Earth's surface, star colours from B−V) must stay labelled and must stay below the DEM's resolution; no number may come from the renderer. Star positions and LOLA relief are data.
 - Branch `build/tranquility-base`; conventional commits; never commit `data/raw/` or files > 50 MB.

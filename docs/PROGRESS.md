@@ -242,3 +242,7 @@ Success metrics: SM1 done, SM2 done (0.0007°), SM3 done (0.86 s), SM4 partial (
 **Test status**: `make check` passes (pytest 24, vitest 49, Playwright 12 + room 1); `make validate` exit 0 with VALIDATION.md unchanged; `make perf`: 60 fps (M5), finder 0.9 s, demo-region load 9.2 MB of 10 (D42).
 
 **Visual finding**: LOLA's 5 m surface is interpolated between tracks, so most landing points look like smooth slopes from 2 m; small craters appear where they exist. Shadows are physical, so some sites are mostly dark at some hours.
+
+## 2026-11-15 — Soil texture back on 5 m sites (D43)
+
+Team feedback: the 5 m ground looked smooth and unrealistic. Cause: the 5 m DEM has no detail below ~5 m, and D39 had removed the procedural texture there. The texture (all features ≤ 1.5 m, below the data's resolution) is back on every patch; footer, README, CLAUDE.md and DECISIONS say so. Checked on the GPU at the Shackleton rim (screenshot viewed). Tests and deploy below.

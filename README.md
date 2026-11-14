@@ -95,9 +95,10 @@ not a communications link budget (geometric Earth visibility only), and not glob
 What the 3D view takes from data and what it invents: terrain relief is LOLA data, at 5 m for eight of
 the nine sites (PGDA site DEMs) and 20 m for IM-2 Mons Mouton; stars are the 9,096 stars of the Yale
 Bright Star Catalogue at their true positions for the site and hour; the Sun and Earth sit at their
-ephemeris positions. Invented, and labelled in the app: the ground colour, the fine soil texture on
-the 20 m site and on the level ground used off the terrain patch, the Sun's glare, Earth's surface, and
-star colours (approximated from each star's B−V index). None of it feeds any number.
+ephemeris positions. Invented, and labelled in the app: soil texture below the data's resolution
+(bumps and craters under about 1.5 m, so it never contradicts the LOLA relief), the ground colour, the
+Sun's glare, Earth's surface, and star colours (approximated from each star's B−V index). None of it
+feeds any number.
 
 **Synthetic data:** none in the deployed app. `make data-fixtures` can generate synthetic
 contract-shaped files for development; the app then shows a banner, and such files are never committed.
