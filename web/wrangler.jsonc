@@ -1,0 +1,6 @@
+{
+  "name": "tranquility-base",
+  "compatibility_date": "2026-11-01",
+  // Static assets only for now; Worker routes (Gemini), R2 and the mission room are added in later phases.
+  "assets": { "directory": "./dist", "not_found_handling": "single-page-application" }
+}

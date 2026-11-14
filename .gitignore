@@ -1,0 +1,10 @@
+data/raw/
+node_modules/
+.venv/
+__pycache__/
+dist/
+.wrangler/
+*.log
+.env*
+.dev.vars
+*.egg-info/

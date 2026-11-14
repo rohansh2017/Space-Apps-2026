@@ -1,0 +1,22 @@
+{
+ "synthetic": true,
+ "frame": "MOON_ME_DE440_ME421",
+ "start_utc": "2026-01-01T00:00:00Z",
+ "step_seconds": 3600,
+ "dtype": "float32-le",
+ "fields": [
+  "sun_x",
+  "sun_y",
+  "sun_z",
+  "earth_x",
+  "earth_y",
+  "earth_z",
+  "earth_dist_km"
+ ],
+ "years": {
+  "2026": {
+   "file": "ephemeris/2026.bin",
+   "hours": 8760
+  }
+ }
+}

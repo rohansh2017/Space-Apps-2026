@@ -1,0 +1,22 @@
+[project]
+name = "horizonwalk"
+version = "0.1.0"
+description = "Offline pipeline and reference engine for Tranquility Base"
+requires-python = ">=3.11"
+dependencies = ["skyfield", "numpy", "rasterio", "numba<0.62", "requests"]
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools]
+packages = ["horizonwalk"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

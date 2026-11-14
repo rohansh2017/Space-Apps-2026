@@ -1,0 +1,67 @@
+# Tranquility Base
+
+NASA Space Apps 2026 entry (Lunar Landing Site Navigator). A static web app: pick a lunar south-pole
+site and date, stand on real LOLA terrain in 3D, see the Sun and Earth against the true horizon, and
+let a constraint finder rank alternative sites and dates when a launch slips. Python precomputes
+everything offline; the browser does all live work.
+
+**Resume protocol:** read this file → `docs/PROGRESS.md` (last 3 entries) → `docs/PLAN.md` →
+`docs/TRACEABILITY.md`, then continue from the first unchecked item.
+
+Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC.md`. How we work:
+`SUPER_PROMPT.md`.
+
+## Repo map
+
+- `build/` Python pipeline and reference engine (`horizonwalk`), see `build/CLAUDE.md`
+- `web/` React + TS + Vite app, Cloudflare config, see `web/CLAUDE.md`
+- `web/public/data/` generated contract files (currently SYNTHETIC fixtures, flagged `"synthetic": true`)
+- `shared/fixtures/` small JSON fixtures used by both engines
+- `data/raw/` downloaded DEMs and kernels (gitignored)
+- `docs/` PLAN, PROGRESS, DECISIONS, DATA, VALIDATION, TRACEABILITY, spec/SPEC.md
+
+## Commands
+
+`make setup` · `make data-download` · `make data-fixtures` · `make test` · `make validate` ·
+`make check` (lint + typecheck + test) · `make dev` · `make build` · `make deploy`.
+Not built yet: `data`, `parity`, `e2e`, `perf`.
+
+Live URL: https://tranquility-base.rohansh2017.workers.dev (Workers static assets).
+
+## Scientific invariants (each gets a unit test)
+
+1. One frame everywhere: MOON_ME_DE440_ME421 (matches the LOLA DE421 mean-Earth DEMs).
+2. Ephemeris offline with Skyfield: hourly Sun/Earth unit vectors + Earth distance, 2026–2035, Float32 per year.
+3. Per-site angles by rotating into the site's east/north/up frame; Earth gets the parallax correction (~0.26°).
+4. DEM: south polar stereographic, true at the pole, R = 1,737,400 m, pixel-registered; round trip < 1 cm.
+5. Horizon mask: 360 × 1° bins from 2 m, ray-march to ~300 km (20 m DEM inside 10 km, 80 m beyond,
+   step ≈ 0.5% of d), minus curvature d²/(2R), no refraction, linear interpolation between bins.
+6. Sun is a 0.53° disk (visible fraction 0–1); Earth visible when its centre is ≥ 1° above the mask.
+7. Metrics exactly as in the spec's metric table; Python and TS must agree on `shared/fixtures`.
+8. Finder: per-constraint pass/fail, ranked by normalized weighted margin, O(1) per start time.
+9. Custom coordinates snap to the nearest grid point and show the snap distance.
+
+## Data contracts (frozen in P0; writer: `build/scripts/make_fixtures.py`, checks: `build/tests/test_fixtures.py`)
+
+All binaries little-endian. All paths relative to `web/public/data/` (same paths in R2).
+
+- `ephemeris.json`: `frame`, `start_utc`, `step_seconds`, `fields`, `years{year: {file, hours}}`.
+  `ephemeris/{year}.bin`: Float32 × 7 per hour: sun xyz (unit), earth xyz (unit), earth distance km.
+- `points.json`: `mask{dtype, bins, unit_deg, offset_deg}`, `grid{n, step_m, centre_index}`,
+  `points[]{id, region, parent_site, index, lat, lon, x, y, elev_m}`.
+  `masks/{region}.bin`: Uint16 × 360 per point, row = `index`; elevation° = value × 0.01 − 10; bin k = azimuth k°.
+  A region is one curated site's 21 × 21 grid (500 m), row-major from (−5 km, −5 km) in stereographic x/y; the site is index 220.
+- `slopes/{region}.bin`: Uint8 degrees per point, same order.
+- `sites.json`: `sites[]{id, name, lat, lon, coord_source, approximate, terrain, mission, agency, blurb, links, heightmap}`;
+  `heightmap` is null for no-terrain sites, else `{file, offset_m, scale_m, size_px, span_m}`.
+- `heightmaps/{site}.png`: 16-bit greyscale, 256 × 256 over 5 × 5 km, row 0 = north (+y); height m = offset_m + value × scale_m.
+- `tour.json`: `steps[]{id, title, body}`, `glossary[]{term, definition}`.
+- `constraints.schema.json` (hand-authored): `constraints[]{id, type, unit, min, max, default}`.
+- Room message: `{type: "state", site_id, utc, constraints{id: value}, sender}` (`shared/fixtures/room_message.json`).
+- Any file made from synthetic data carries `"synthetic": true` in its JSON.
+
+## Conventions
+
+- Smallest change that meets the spec. No speculative features or abstraction layers.
+- Never present synthetic data as real; `docs/VALIDATION.md` holds only command output.
+- Branch `build/tranquility-base`; conventional commits; never commit `data/raw/` or files > 50 MB.
