@@ -17,5 +17,12 @@
    "peak-near-shackleton": "basemaps/peak-near-shackleton.png",
    "faustini-rim-a": "basemaps/faustini-rim-a.png"
   }
+ },
+ "globe": {
+  "file": "basemaps/globe.png",
+  "projection": "equirectangular",
+  "lon0_deg": 0.0,
+  "row0": "north",
+  "source": "LOLA LDEM_16 (LRO-L-LOLA-4-GDR-V1.0, 16 px/deg)"
  }
 }

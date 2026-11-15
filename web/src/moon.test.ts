@@ -3,9 +3,9 @@ import engineCases from '../../shared/fixtures/engine_cases.json'
 import fixture from '../../shared/fixtures/metrics_cases.json'
 import pointsFile from '../public/data/points.json'
 import type { Constraints } from './engine/engine'
-import { buildSeries, evaluate, latLonToXY, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
+import { R_MOON_KM, buildSeries, evaluate, latLonToXY, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
 import type { Vec3 } from './moon'
-import { flyPose, gridIndex, latLonToMe, meToLatLon, meToThree, meToXY, pickGrid, raySphere, threeToMe, verdict, xyToMe } from './moon'
+import { flyPose, globeUV, gridIndex, latLonToMe, meToLatLon, meToThree, meToXY, pickGrid, raySphere, siteHillshade, siteUV, threeToMe, verdict, xyToMe } from './moon'
 
 const points = pointsFile.points
 const region = points.filter((p) => p.region === 'change7-shackleton-rim')
@@ -110,5 +110,38 @@ describe('fly-down pose', () => {
     expect(Math.hypot(...flyPose(a, 0.5, b, 0.005, 0))).toBeCloseTo(1.5, 12)
     expect(Math.hypot(...flyPose(a, 0.5, b, 0.005, 1))).toBeCloseTo(1.005, 12)
     expect(Math.hypot(...flyPose(a, 0.5, b, 0.005, 0.5)) - 1).toBeCloseTo(0.05, 12)
+  })
+})
+
+describe('whole-Moon and site texture coordinates', () => {
+  it('maps the equirectangular globe: 0°E at u = 0, 90°E at u = 0.25, the south pole at v = 0', () => {
+    expect(globeUV(latLonToMe(0, 0))[0]).toBeCloseTo(0, 12)
+    expect(globeUV(latLonToMe(0, 90))).toEqual([expect.closeTo(0.25, 12), expect.closeTo(0.5, 12)])
+    expect(globeUV(latLonToMe(0, -90))[0]).toBeCloseTo(0.75, 12)
+    expect(globeUV(latLonToMe(-90, 0))[1]).toBeCloseTo(0, 12)
+    expect(globeUV(latLonToMe(45, 10))[1]).toBeCloseTo(0.75, 12)
+  })
+  it('maps a site heightmap: the site at its centre texel, and 1 km east/north to the right texels', () => {
+    const f = siteFrame(-88.8, 123.4, 0)
+    const n = 1024
+    const span = 5000
+    const [u, v] = siteUV(latLonToMe(-88.8, 123.4), f, n, span)
+    expect(u).toBeCloseTo(0.5, 6)
+    expect(v).toBeCloseTo(0.5, 6)
+    const step = (dir: number[], km: number) => {
+      const p = f.up.map((x, i) => x + (dir[i] * km) / R_MOON_KM)
+      const len = Math.hypot(...p)
+      return siteUV(p.map((x) => x / len) as Vec3, f, n, span)
+    }
+    const cell = span / (n - 1)
+    expect(step(f.east, 1)[0] - u).toBeCloseTo(1000 / cell / n, 4) // east is +u
+    expect(step(f.north, 1)[1] - v).toBeCloseTo(-1000 / cell / n, 4) // north is up the image: row 0
+  })
+  it('shades flat ground like the basemaps, and a slope facing the light brighter', () => {
+    const flat = siteHillshade(new Float32Array(9), 3, 5, 1, 0)
+    expect(flat[4]).toBe(Math.round(Math.sin((35 * Math.PI) / 180) * 255))
+    // at 0°E the light is from the north-west; ground rising to the south-east faces it
+    const hm = Float32Array.from({ length: 9 }, (_, k) => (k % 3) * 5 + Math.floor(k / 3) * 5) // rises east and south
+    expect(siteHillshade(hm, 3, 5, 1, 0)[4]).toBeGreaterThan(flat[4])
   })
 })

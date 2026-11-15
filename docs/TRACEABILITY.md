@@ -14,7 +14,7 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F8 | Plain-language difference from the original plan | M | 4, 7 | web/src/engine/finder.ts diffText | finder.test.ts, e2e demo.spec.ts | done (rows titled by difference, D47) |
 | F9 | Planner and Explorer modes | M | 7 | web/src/App.tsx, Summary.tsx, Hud.tsx, Glossary.tsx | e2e p3.spec.ts (Explorer mode) | done |
 | F10 | Scenario matrix | S | 1, 2, 5 | web/src/Matrix.tsx | e2e p3.spec.ts (scenario matrix) | done |
-| F11 | Side-by-side comparison | S | 1, 5 | web/src/Tray.tsx (compare tray), App.tsx planDay/pinnedDays | e2e p4.spec.ts (F11) | done (plan + up to 3 pinned scenarios as a table, shared scrubber, adopt a pin as the plan, D27, D49, D50) |
+| F11 | Side-by-side comparison | S | 1, 5 | web/src/Tray.tsx (compare tray), App.tsx planDay/pinnedDays | e2e p4.spec.ts (F11) | done (plan + up to 3 pinned scenarios as a table, shared scrubber, adopt a pin as the plan, D27, D49, D50); snapshot pins, reorder by drag or Alt+arrows (D59) |
 | F12 | Lunar-day playback with trails | S | 6 | web/src/App.tsx (playback), Scene3D.tsx, Panorama.tsx | e2e p3.spec.ts (playback) | done |
 | F13 | Guided tour from tour.json | S | 7 | web/src/Tour.tsx, build/tour_src.json | e2e p4.spec.ts (F13) | done (outsider test of the tour still pending) |
 | F14 | Nudge control (100 m / 1 day) | S | 1, 2, 7 | web/src/App.tsx nudge, engine.ts nudgeNeighbour, Summary.tsx deltas | metrics.test.ts, e2e p4.spec.ts (F14) | done (500 m grid step, not 100 m: D26) |
@@ -28,7 +28,7 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F22 | Gemini horizon description with template fallback | C | 7 | web/worker/describe.js, web/src/describe.ts, HorizonText.tsx | describe.test.ts, e2e p4.spec.ts (mocked: kept / rejected), gemini.spec.ts (live) | done |
 | F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js, web/scripts/upload-data.sh | make e2e-live (15 browser tests on the live URL; `x-data-source: r2`) | done |
 | F24 | Mission room (Durable Object, WebSockets) | S | Prize | web/worker/room.js (MissionRoom), worker/index.js /room/{id}, web/src/room.ts, App.tsx | e2e room.spec.ts (make e2e-room, make e2e-live) | done |
-| F25 | Moon view: every site at a glance, fly down to a site's grid, drag the landing point | S | 1, 5 | web/src/MoonView.tsx, moon.ts, App.tsx (stageView, gridStats, loadSitePoint), Tray.tsx, worker/index.js (Range) | moon.test.ts, e2e moon.spec.ts | done (D58) |
+| F25 | Moon view: every site at a glance, fly down to a site's grid, drag the landing point | S | 1, 5 | web/src/MoonView.tsx, moon.ts, App.tsx (stageView, gridStats, loadSitePoint), Tray.tsx, worker/index.js (Range) | moon.test.ts, e2e moon.spec.ts | done (D58; whole-Moon relief and 5 m site layer, D60) |
 | SM1 | Every M item works end to end in the deployed build | M | - | live URL | make e2e-live (demo path F1–F9 on the deployed build) | done |
 | SM2 | Engine within 0.1° of Horizons (az and el) at the validation sites | M | - | build/horizonwalk/engine.py, ephem.py | make validate | done (6 sites, 720 h, max error 0.0007°) |
 | SM3 | Finder under 3 s for 5,000 candidates × 60-day slip | M | - | web/src/engine/finder.ts | make perf (finder.perf.test.ts) | done (966 ms) |

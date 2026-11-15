@@ -35,7 +35,13 @@ The page opens on the *Moon*: the south polar region, which you orbit by draggin
 site is a pin, solid when it meets every constraint for the planned landing date and hollow when it fails (hover for
 its numbers). Click a pin to fly down to that site's 10 km search grid: the dots are coloured by sunlit %, Earth %
 or verdict; drag the landing marker, click a dot or use the arrow keys, and press *Stand here* (or Enter) to stand
-on that point in 3D. *Moon* on the left rail and *Show on the Moon* in the tray bring it back.
+on that point in 3D. *Moon* on the left rail and *Show on the Moon* in the tray bring it back. The whole globe carries
+LOLA relief, sharpest at each site (its 5 m terrain).
+
+*Pin this view* freezes what you are looking at (the plan or an alternative, at its point and date) as a column of the
+*Compare* tray; press it again on the same view to unpin. Pin as many spots as you like, four at a time (a fifth asks which
+to replace); drag a column's grip, or press Alt with an arrow key on it, to reorder; *Compare to this* picks the column
+the others are measured against. The tab on the bottom panel's edge (*Timeline & compare*) opens and closes it.
 
 The ground view fills the window too. The page opens quietly: the Plan panel is open, and the plan card, the countdown
 panel and the bottom panel are folded to one line each (unfold them with their arrows). Your plan's site, point

@@ -116,6 +116,17 @@ def test_basemaps_are_8bit_square_pngs():
         assert w == h and (depth, colour) == (8, 0), file
 
 
+def test_globe_is_an_8bit_equirectangular_png():
+    globe = load("basemap.json")["globe"]
+    assert {k: globe[k] for k in ("projection", "lon0_deg", "row0")} == {
+        "projection": "equirectangular",
+        "lon0_deg": 0.0,
+        "row0": "north",
+    }
+    w, h, depth, colour = struct.unpack(">IIBB", (DATA / globe["file"]).read_bytes()[16:26])
+    assert w == 2 * h and (depth, colour) == (8, 0)
+
+
 def test_tour_has_steps_and_glossary():
     tour = load("tour.json")
     assert tour["steps"] and all(set(s) >= {"id", "title", "body"} for s in tour["steps"])

@@ -127,7 +127,8 @@ test('Moon view: pins with engine verdicts, fly-down, drag the landing point, st
   expect((await observer(page)).point).toBe(nudged.point)
 
   // back from the tray; the grid can also be coloured by verdict; then out to the pole
-  await page.getByTestId('tray-plan').getByRole('button', { name: 'Show the plan on the Moon' }).click()
+  await page.getByRole('button', { name: 'Pin this view' }).click() // pins work from any view, any point (D59)
+  await page.getByTestId('tray-pin').first().getByRole('button', { name: /^Show .* on the Moon$/ }).click()
   await expect(moon).toHaveAttribute('data-level', 'site')
   await page.getByRole('button', { name: 'Verdict' }).click()
   await expect(page.getByTestId('moon-legend')).toContainText('meets every constraint')
@@ -139,6 +140,19 @@ test('Moon view: pins with engine verdicts, fly-down, drag the landing point, st
   await page.getByRole('button', { name: 'Moon', exact: true }).click() // and the rail brings the Moon back
   await expect(moon).toBeVisible()
   expect(errors).toEqual([])
+})
+
+test('Moon view: the whole Moon is textured from LOLA, fetched only after the polar map', async ({ page }) => {
+  const order: string[] = []
+  page.on('request', (r) => { const f = r.url().split('/data/basemaps/')[1]; if (f) order.push(f) })
+  await page.goto('/')
+  await expect(page.getByTestId('moon-view')).toBeVisible()
+  await expect.poll(() => order.includes('globe.png')).toBe(true)
+  expect(order.indexOf('pole.png')).toBeLessThan(order.indexOf('globe.png'))
+  // flying to a site adds its 5 m (or 20 m) heightmap as a texture layer
+  const heightmap = page.waitForRequest((r) => r.url().includes('/data/heightmaps/connecting-ridge.png'))
+  await page.getByTestId('moon-pin-connecting-ridge').click()
+  await heightmap
 })
 
 test('Moon view: reduced motion jumps instead of flying; a link to an exact point opens on the ground', async ({ page }) => {

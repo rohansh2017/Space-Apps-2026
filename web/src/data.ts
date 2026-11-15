@@ -44,6 +44,7 @@ export interface Tour {
 /** 8-bit hillshade images in stereographic x/y axes (row 0 = +y, col 0 = -x), centred on the pole or a region centre. */
 export interface Basemap {
   pole: { file: string; half_width_m: number }
+  globe?: { file: string; projection: 'equirectangular'; lon0_deg: number; row0: 'north'; source: string } // whole Moon (D60)
   regions: { half_width_m: number; files: Record<string, string> }
 }
 
@@ -60,9 +61,14 @@ export interface Dataset {
   startMs: number // UTC time of ephemeris row 0
   hours: number
   ephemeris: Float32Array // hours x 7
+  starSource: string
+  /** The star field's inputs, fetched the first time the ground view needs them (1.6 MB the Moon view never uses, D60). */
+  loadSky: () => Promise<Sky>
+}
+
+export interface Sky {
   orientation: Float32Array // hours x 4: ICRF -> MOON_ME quaternion (w, x, y, z)
   stars: Float32Array // count x 5: ICRF unit vector, V magnitude, B-V (NaN when unknown)
-  starSource: string
 }
 
 const BASE = `${import.meta.env.BASE_URL}data/`
@@ -92,12 +98,19 @@ export async function loadDataset(): Promise<Dataset> {
     if (offset !== out.length) throw new Error('hourly table size does not match ephemeris.json')
     return out
   }
-  const [ephemeris, orientation, stars] = await Promise.all([
-    concat(years.map((y) => eph.years[y].file), 7),
-    concat(years.map((y) => eph.orientation.years[y].file), 4),
-    get(starMeta.file).then(async (r) => new Float32Array(await r.arrayBuffer())),
-  ])
-  if (stars.length !== starMeta.count * 5) throw new Error('stars.bin size does not match stars.json')
+  const ephemeris = await concat(years.map((y) => eph.years[y].file), 7)
+  let sky: Promise<Sky> | null = null
+  const loadSky = () => {
+    sky ??= Promise.all([
+      concat(years.map((y) => eph.orientation.years[y].file), 4),
+      get(starMeta.file).then(async (r) => new Float32Array(await r.arrayBuffer())),
+    ]).then(([orientation, stars]) => {
+      if (stars.length !== starMeta.count * 5) throw new Error('stars.bin size does not match stars.json')
+      return { orientation, stars }
+    })
+    sky.catch(() => { sky = null }) // a failed load is retried next time
+    return sky
+  }
   return {
     synthetic: Boolean(sites.synthetic || points.synthetic || eph.synthetic || basemap.synthetic || starMeta.synthetic),
     tour,
@@ -109,9 +122,8 @@ export async function loadDataset(): Promise<Dataset> {
     startMs: Date.parse(eph.start_utc),
     hours,
     ephemeris,
-    orientation,
-    stars,
     starSource: starMeta.source,
+    loadSky,
   }
 }
 
@@ -171,8 +183,21 @@ export function loadSitePoint(region: string, index: number): Promise<SitePoint>
   return p
 }
 
+const heightmaps = new Map<string, Promise<Uint16Array>>()
+
+/** A site heightmap, decoded once and shared by the ground view and the Moon view's 5 m layer. A failed load is not cached. */
+export function loadHeightmap(file: string, size: number): Promise<Uint16Array> {
+  let p = heightmaps.get(file)
+  if (!p) {
+    p = decodeHeightmap(file, size)
+    p.catch(() => heightmaps.delete(file))
+    heightmaps.set(file, p)
+  }
+  return p
+}
+
 /** Decode a 16-bit greyscale PNG written by horizonwalk.export.write_png16. */
-export async function loadHeightmap(file: string, size: number): Promise<Uint16Array> {
+async function decodeHeightmap(file: string, size: number): Promise<Uint16Array> {
   const bytes = new Uint8Array(await (await get(file)).arrayBuffer())
   const view = new DataView(bytes.buffer)
   const idat: Uint8Array[] = []

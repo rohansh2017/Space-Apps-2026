@@ -5,11 +5,11 @@ import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, 
 import { createPortal } from 'react-dom'
 import * as THREE from 'three'
 import type { Dataset, Point, Site } from './data'
-import { dataUrl } from './data'
+import { dataUrl, loadHeightmap } from './data'
 import type { Constraints } from './engine/engine'
 import { EPHEM_STRIDE, R_MOON_KM, siteFrame } from './engine/engine'
 import type { GridStats, Verdict } from './moon'
-import { easeInOut, flyPose, latLonToMe, meToThree, pickGrid, xyToMe } from './moon'
+import { easeInOut, flyPose, latLonToMe, meToThree, pickGrid, siteHillshade, xyToMe } from './moon'
 import { LABELS } from './presets'
 import { EARTH_RAMP, SUN_RAMP, colour } from './ramp'
 
@@ -95,20 +95,38 @@ const globeShader = () => ({
   uniforms: {
     poleMap: { value: null as THREE.Texture | null }, regionMap: { value: null as THREE.Texture | null }, hasPole: { value: 0 }, hasRegion: { value: 0 },
     hwPole: { value: 1 }, hwRegion: { value: 1 }, centre: { value: new THREE.Vector2() }, sunDir: { value: new THREE.Vector3(1, 0, 0) },
+    globeMap: { value: null as THREE.Texture | null }, hasGlobe: { value: 0 },
+    siteMap: { value: null as THREE.Texture | null }, hasSite: { value: 0 }, siteC: { value: new THREE.Vector3() }, siteE: { value: new THREE.Vector3() },
+    siteN: { value: new THREE.Vector3() }, sitePx: { value: 1 }, siteSpan: { value: 1 },
   },
   vertexShader: 'varying vec3 p; void main() { p = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `uniform sampler2D poleMap; uniform sampler2D regionMap; uniform float hasPole; uniform float hasRegion;
     uniform float hwPole; uniform float hwRegion; uniform vec2 centre; uniform vec3 sunDir; varying vec3 p;
+    uniform sampler2D globeMap; uniform float hasGlobe;
+    uniform sampler2D siteMap; uniform float hasSite; uniform vec3 siteC; uniform vec3 siteE; uniform vec3 siteN; uniform float sitePx; uniform float siteSpan;
     void main() {
       vec3 q = normalize(p);
       vec3 me = vec3(q.x, -q.z, q.y); // three.js axes to MOON_ME
+      // the whole Moon (LOLA LDEM_16, equirectangular): of two longitude seams take the one that does not jump here,
+      // so mipmapping draws no line along 0 or 180 degrees (moon.ts globeUV)
+      float lon = atan(me.y, me.x) / 6.2831853;
+      float u1 = fract(lon);
+      float u2 = fract(lon + 0.5) - 0.5;
+      float gu = fwidth(u1) <= fwidth(u2) + 1e-7 ? u1 : u2;
+      float shade = mix(0.11, texture2D(globeMap, vec2(gu, 0.5 + asin(clamp(me.z, -1.0, 1.0)) / 3.1415927)).r, hasGlobe);
       vec2 st = 2.0 * vec2(me.y, me.x) / max(1.0 - me.z, 0.25); // south polar stereographic, units of R
       vec2 uv = (st + hwPole) / (2.0 * hwPole);
       vec2 edge = min(uv, 1.0 - uv);
-      float shade = mix(0.11, texture2D(poleMap, uv).r, hasPole * smoothstep(0.0, 0.04, min(edge.x, edge.y)));
+      shade = mix(shade, texture2D(poleMap, uv).r, hasPole * smoothstep(0.0, 0.04, min(edge.x, edge.y)) * step(0.0, -me.z));
       vec2 uv2 = (st - centre + hwRegion) / (2.0 * hwRegion);
       vec2 edge2 = min(uv2, 1.0 - uv2);
       shade = mix(shade, texture2D(regionMap, uv2).r, hasRegion * smoothstep(0.0, 0.02, min(edge2.x, edge2.y)));
+      // the site's own heightmap (5 m where PGDA has a site DEM), shaded in the browser (moon.ts siteUV, siteHillshade)
+      vec3 d = me - siteC;
+      float cell = siteSpan / (sitePx - 1.0);
+      vec2 uv3 = vec2((dot(d, siteE) * 1737400.0 + siteSpan * 0.5) / cell + 0.5, (siteSpan * 0.5 - dot(d, siteN) * 1737400.0) / cell + 0.5) / sitePx;
+      vec2 edge3 = min(uv3, 1.0 - uv3);
+      shade = mix(shade, texture2D(siteMap, uv3).r, hasSite * smoothstep(0.0, 0.02, min(edge3.x, edge3.y)));
       float lit = smoothstep(-0.0046, 0.0046, dot(q, sunDir)); // the Sun is a 0.53 degree disk
       gl_FragColor = vec4(vec3(1.0, 0.985, 0.96) * shade * mix(${NIGHT.toFixed(2)}, 1.0, lit), 1.0);
       #include <colorspace_fragment>
@@ -151,6 +169,8 @@ function Globe({ data, hour, region }: { data: Dataset; hour: number; region: Si
     material.dispose()
   }, [geometry, cap, material])
   const uniforms = useCallback(() => material.uniforms as Uniforms, [material])
+  const invalidate = useThree((s) => s.invalidate)
+  const [poleReady, setPoleReady] = useState(false)
   const textures = useRef<THREE.Texture[]>([])
   useEffect(() => {
     const loaded = textures.current
@@ -169,7 +189,50 @@ function Globe({ data, hour, region }: { data: Dataset; hour: number; region: Si
     u.poleMap.value = t
     textures.current.push(t)
     u.hasPole.value = 1
+    setPoleReady(true)
   })
+  // the whole Moon (about 2 MB) only after the polar map: the first frame does not wait for it
+  useHillshade(poleReady ? data.basemap.globe?.file : undefined, (t) => {
+    const u = uniforms()
+    t.wrapS = THREE.RepeatWrapping // the shader's second longitude seam runs from -0.5 to 0.5
+    u.globeMap.value = t
+    textures.current.push(t)
+    u.hasGlobe.value = 1
+  })
+  // the site's own heightmap, shaded here like the basemaps, once its site is flown to
+  const hm = region?.heightmap ?? null
+  useEffect(() => {
+    const u = uniforms()
+    u.hasSite.value = 0
+    if (!region || !hm) return
+    let live = true
+    loadHeightmap(hm.file, hm.size_px).then((heights) => {
+      if (!live) return
+      const n = hm.size_px
+      const grey = siteHillshade(heights, n, hm.span_m / (n - 1), hm.scale_m, region.lon)
+      const rgba = new Uint8Array(n * n * 4)
+      for (let k = 0; k < n * n; k++) rgba.set([grey[k], grey[k], grey[k], 255], k * 4)
+      const t = new THREE.DataTexture(rgba, n, n, THREE.RGBAFormat)
+      t.colorSpace = THREE.SRGBColorSpace // decoded like the PNG basemaps, so the layers match
+      t.generateMipmaps = true
+      t.minFilter = THREE.LinearMipmapLinearFilter
+      t.magFilter = THREE.LinearFilter
+      t.needsUpdate = true
+      const f = siteFrame(region.lat, region.lon, 0)
+      ;(u.siteMap.value as THREE.Texture | null)?.dispose()
+      u.siteMap.value = t
+      u.siteC.value.set(...latLonToMe(region.lat, region.lon))
+      u.siteE.value.set(...f.east)
+      u.siteN.value.set(...f.north)
+      u.sitePx.value = n
+      u.siteSpan.value = hm.span_m
+      u.hasSite.value = 1
+      invalidate()
+    }, () => undefined) // without it the 20 m region map stays: nothing is lost
+    return () => {
+      live = false
+    }
+  }, [region, hm, uniforms, invalidate])
   // one region's hillshade at a time, fetched when its site is first flown to
   useHillshade(region ? data.basemap.regions.files[region.id] : undefined, (t) => {
     const u = uniforms()

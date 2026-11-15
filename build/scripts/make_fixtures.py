@@ -80,6 +80,12 @@ def main() -> None:
     export.write_basemap(
         OUT, export.hillshade(rng.normal(0, 30, (256, 256)), 20.0), regions, synthetic=True
     )
+    export.write_globe(
+        OUT,
+        export.hillshade(rng.normal(0, 30, (128, 256)), 20.0),
+        "synthetic fixture",
+        synthetic=True,
+    )
     export.write_json(OUT / "tour.json", {
         "synthetic": True,
         "steps": [{"id": "placeholder", "title": "Placeholder step", "body": "Mock tour text."}],

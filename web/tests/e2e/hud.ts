@@ -35,7 +35,7 @@ export function expectedHud(view: Record<string, string>) {
 }
 
 
-/** The app opens quiet (card, HUD and band folded, tray empty); tests that read them unfold all three and pin the plan (Pin this view on the plan adds its live column). */
+/** The app opens quiet (card, HUD and band folded, tray empty); tests that read them unfold all three. Nothing is pinned (D59: pins are snapshots). */
 export async function expandPanels(page: import('@playwright/test').Page) {
   await page.getByTestId('view').waitFor()
   for (const name of [/^Show the landing time/, /^Show the Sun and Earth details$/, /^Expand the timeline and comparison panel$/]) {
@@ -43,7 +43,4 @@ export async function expandPanels(page: import('@playwright/test').Page) {
     if (await b.count()) await b.click()
   }
   await page.getByTestId('tray').waitFor()
-  const pin = page.getByRole('button', { name: 'Pin this view' })
-  if (await pin.isEnabled()) await pin.click()
-  await page.getByTestId('tray-plan').waitFor()
 }

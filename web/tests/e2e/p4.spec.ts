@@ -9,45 +9,52 @@ const hudOf = async (page: import('@playwright/test').Page) => ({
 const observer = (page: import('@playwright/test').Page) =>
   page.getByTestId('view').evaluate((el: HTMLElement) => ({ ...el.dataset }) as Record<string, string>)
 
-test('F11: opened alternatives are pinned to the compare tray beside the plan', async ({ page }) => {
+test('F11: the plan and alternatives are pinned side by side; opening a result does not pin it', async ({ page }) => {
   await page.goto('/')
   await expandPanels(page)
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  const tray = page.getByTestId('tray')
+  await page.getByRole('button', { name: 'Pin this view' }).click() // the plan, frozen at its point and date
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(1)
+  await expect(tray.getByTestId('tray-pin').first()).toContainText('2026-12-01 00:00 UTC')
+  await expect(tray.getByTestId('plan-tag')).toHaveCount(1)
   await page.getByRole('button', { name: 'Find alternatives' }).click()
   await page.getByTestId('result').first().getByRole('button', { name: 'Open in 3D' }).click()
   await expect(page.getByTestId('view')).toBeFocused() // focus follows the scenario into the view
-  const tray = page.getByTestId('tray')
-  await expect(tray.getByTestId('tray-plan')).toContainText('Shackleton rim')
-  await expect(tray.getByTestId('tray-plan')).toContainText('2026-12-01 00:00 UTC')
-  await expect(tray.getByTestId('tray-pin')).toHaveCount(1) // opening pinned it
-  await expect(tray.getByTestId('tray-pin')).toContainText(/(\d+(\.\d)? km [NESW]{1,2}|Same site) · ([+−]|same date)/)
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(1) // opening did not pin it (D59)
+  await page.getByRole('button', { name: 'Pin this view' }).click()
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(2)
+  await expect(page.getByRole('button', { name: 'Unpin this view' })).toBeVisible() // the button now unpins what is in view
+  const [planCol, top] = [tray.getByTestId('tray-pin').nth(0), tray.getByTestId('tray-pin').nth(1)]
+  await expect(top).toContainText(/(\d+(\.\d)? km [NESW]{1,2}|Same site) · ([+−]|same date)/)
   await expect(tray.locator('canvas.panorama')).toHaveCount(2)
-  await expect(tray.getByTestId('tray-plan').locator('.chip.fail').first()).toBeVisible() // the plan fails
-  await expect(tray.getByTestId('tray-pin').locator('.chip.fail')).toHaveCount(0) // the top result passes
+  await expect(planCol.locator('.chip.fail').first()).toBeVisible() // the plan fails
+  await expect(top.locator('.chip.fail')).toHaveCount(0) // the top result passes
   // a second result pins beside it; the pin button toggles
   await page.getByRole('button', { name: 'Pin #2 to the compare tray' }).click()
-  await expect(tray.getByTestId('tray-pin')).toHaveCount(2)
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(3)
   await page.getByRole('button', { name: 'Unpin #2 from the compare tray' }).click()
-  await expect(tray.getByTestId('tray-pin')).toHaveCount(1)
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(2)
   // the scrubber moves every column
   await page.getByRole('slider').fill('200')
   await expect(page.getByTestId('view')).toHaveAttribute('data-hour', /\d+/)
   await page.waitForTimeout(1200)
   await page.screenshot(shot('10-compare-tray'))
   // pins travel in the share link
-  expect(new URL(page.url()).searchParams.get('pins')).toMatch(/^plan,[a-z0-9-]+:\d+@\d+$/) // the live plan's column, then the pin
-  // back to the plan keeps the pin
+  expect(new URL(page.url()).searchParams.get('pins')).toMatch(/^[a-z0-9-]+:\d+@\d+,[a-z0-9-]+:\d+@\d+$/) // two frozen scenarios, no live column
+  // back to the plan keeps the pins
   await page.getByRole('button', { name: 'Back to plan' }).click()
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
-  await expect(tray.getByTestId('tray-pin')).toHaveCount(1)
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(2)
   // the best value in a row is marked, in words for screen readers too
-  await expect(tray.getByTestId('tray-pin').locator('dd.best').first()).toContainText('(best in the tray)')
+  await expect(top.locator('dd.best').first()).toContainText('(best in the tray)')
   // a pin can become the plan: the old plan takes its column
   await page.getByRole('button', { name: /^Make .* the plan$/ }).click()
   await expect(page.getByTestId('view')).toBeFocused()
-  await expect(tray.getByTestId('tray-plan').locator('.chip.fail')).toHaveCount(0)
-  await expect(tray.getByTestId('tray-pin').locator('.chip.fail').first()).toBeVisible()
-  await expect(tray.getByTestId('tray-pin')).toContainText('2026-12-01 00:00 UTC')
+  await expect(page.getByTestId('view').locator('.chip.fail')).toHaveCount(0)
+  await expect(tray.getByTestId('plan-tag')).toHaveCount(0) // the old plan's columns are no longer the plan
+  await expect(tray.getByTestId('tray-pin').nth(1).locator('.chip.fail').first()).toBeVisible()
+  await expect(tray.getByTestId('tray-pin').nth(1)).toContainText('2026-12-01 00:00 UTC')
 })
 
 test('F14: nudging the plan by one grid step or one day marks what changed', async ({ page }) => {
@@ -299,22 +306,23 @@ test('the first view is quiet, and locations survive a reload from the bare addr
   // a site, a date and a pinned scenario are stored; nothing else is
   await page.getByRole('combobox', { name: 'Site' }).selectOption('connecting-ridge')
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
-  await expandPanels(page) // pins the plan's live column
+  await expandPanels(page)
+  await page.getByRole('button', { name: 'Pin this view' }).click()
   await page.getByRole('button', { name: 'Explorer' }).click()
   const stored = await page.evaluate(() => localStorage.getItem('tranquility-base:locations'))
   expect(stored).toContain('site=connecting-ridge')
-  expect(stored).toContain('pins=plan')
+  expect(stored).toContain('pins=connecting-ridge%3A220%40')
   expect(stored).not.toContain('mode')
   await page.goto('/') // no query string: the stored locations fill in
   await expect(page.getByTestId('view')).toContainText('Plan: Connecting Ridge')
   await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('2026-12-01 00:00 UTC landing')
-  await expect(page.getByTestId('tray-plan')).toBeVisible() // restored from storage, not re-pinned
-  await expect(page.getByRole('button', { name: 'Pin this view' })).toBeDisabled()
+  await expect(page.getByTestId('tray-pin')).toHaveCount(1) // restored from storage, not re-pinned
+  await expect(page.getByRole('button', { name: 'Unpin this view' })).toBeEnabled() // what is in view is that pin
   await expect(page.getByRole('button', { name: 'Planner' })).toHaveAttribute('aria-pressed', 'true') // mode is not stored
 })
 
-test('the tray starts empty; the plan is optional; any column can be the baseline the others are compared to', async ({ page }) => {
+test('the tray starts empty; any column can be the baseline the others are compared to', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
   await page.getByRole('button', { name: 'Expand the timeline and comparison panel' }).click()
@@ -328,22 +336,75 @@ test('the tray starts empty; the plan is optional; any column can be the baselin
   await page.getByRole('button', { name: 'Pin #2 to the compare tray' }).click()
   await expect(tray.getByTestId('tray-pin')).toHaveCount(2)
   await expect(tray.getByTestId('tray-pin').first().getByTestId('baseline')).toBeVisible() // the first column is the baseline
-  // with the plan in view, Pin this view adds the plan's live column; it can leave again
+  // with the plan in view, Pin this view adds a snapshot of the plan; it can leave again
   await page.getByRole('button', { name: 'Pin this view' }).click()
-  await expect(tray.getByTestId('tray-plan')).toBeVisible()
+  await expect(tray.getByTestId('plan-tag')).toHaveCount(1)
   // compare everything to #2 instead: its column carries no differences, the others are measured against it
   await page.getByRole('button', { name: /^Compare the others to 165 km/ }).click()
   const second = tray.getByTestId('tray-pin').nth(1)
   await expect(second.getByTestId('baseline')).toBeVisible()
+  await expect(tray.getByTestId('compared-to')).toContainText('B · 165 km')
   await expect(second.getByTestId('delta')).toHaveCount(0)
-  await expect(tray.getByTestId('tray-plan').getByTestId('delta').first()).toBeVisible()
+  await expect(tray.getByTestId('tray-pin').nth(2).getByTestId('delta').first()).toBeVisible()
   expect(new URL(page.url()).searchParams.get('ref')).toMatch(/^im2-mons-mouton:\d+@\d+$/)
-  expect(new URL(page.url()).searchParams.get('pins')).toMatch(/^plan,/)
-  await page.getByRole('button', { name: 'Remove the plan from the tray' }).click()
-  await expect(tray.getByTestId('tray-plan')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Unpin this view' }).click()
+  await expect(tray.getByTestId('plan-tag')).toHaveCount(0)
   await expect(second.getByTestId('baseline')).toBeVisible()
   // unpinning the baseline hands the role to the first column left
   await page.getByRole('button', { name: /^Unpin 165 km/ }).click()
   await expect(tray.getByTestId('tray-pin')).toHaveCount(1)
   await expect(tray.getByTestId('baseline')).toHaveCount(0) // a single column has nothing to compare to
+})
+
+test('pins are snapshots: pin spot after spot, the button never dies, a full tray asks, columns reorder by drag and keys', async ({ page }) => {
+  await page.goto('/')
+  await expandPanels(page)
+  const tab = page.getByRole('button', { name: 'Collapse the timeline and comparison panel' })
+  await expect(tab).toContainText('Hide') // the band's tab says what it does (D59)
+  const tray = page.getByTestId('tray')
+  const pin = page.getByRole('button', { name: 'Pin this view' })
+  // move the plan one grid step at a time and pin each spot: every press is a new column
+  await pin.click()
+  for (const d of ['500 m E', '500 m N', '500 m W']) {
+    await page.getByRole('button', { name: d, exact: true }).click()
+    await expect(pin).toBeEnabled()
+    await pin.click()
+  }
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(4)
+  await expect(tray.locator('.tray-letter')).toHaveText(['A', 'B', 'C', 'D'])
+  // a fifth spot: the button still works and the tray asks which column to replace
+  await page.getByRole('button', { name: '500 m S', exact: true }).click()
+  await page.getByRole('button', { name: '500 m S', exact: true }).click()
+  await pin.click()
+  await expect(page.locator('.tray-full')).toContainText('Replace which one')
+  await page.locator('.tray-full').getByRole('button', { name: /^Replace / }).first().click()
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(4)
+  await expect(page.getByRole('button', { name: 'Unpin this view' })).toBeVisible()
+  // the baseline is the first column until chosen; choose C, then reorder: the baseline stays on its scenario
+  const keys = () => tray.getByTestId('tray-pin').evaluateAll((els) => els.map((e) => e.getAttribute('data-key')))
+  const before = await keys()
+  await tray.getByTestId('tray-pin').nth(2).getByRole('button', { name: /^Compare the others to/ }).click()
+  await tray.getByTestId('tray-grip').nth(2).dragTo(tray.getByTestId('tray-pin').nth(0))
+  await expect.poll(keys).toEqual([before[2], before[0], before[1], before[3]])
+  await expect(tray.getByTestId('tray-pin').nth(0).getByTestId('baseline')).toBeVisible()
+  await expect(tray.getByTestId('tray-pin').nth(0).locator('.tray-letter')).toHaveText('A')
+  // keyboard: Alt+Right on a grip moves its column one place
+  await tray.getByTestId('tray-grip').nth(0).focus()
+  await page.keyboard.press('Alt+ArrowRight')
+  await expect.poll(keys).toEqual([before[0], before[2], before[1], before[3]])
+  await expect(page.getByTestId('announcer')).toContainText('Moved to position B')
+  expect(new URL(page.url()).searchParams.get('pins')!.split(',')).toEqual([before[0], before[2], before[1], before[3]])
+  await page.waitForTimeout(400) // a moved column replays its short rise-in
+  await page.screenshot(shot('21-tray-four-pins'))
+})
+
+test('a link from before D59 with the live plan column opens with a snapshot of the plan, and it stays the baseline', async ({ page }) => {
+  await page.goto('/?site=haworth&t=2026-12-01T00:00Z&pins=plan,im2-mons-mouton:220@8016&ref=plan')
+  await expandPanels(page)
+  const tray = page.getByTestId('tray')
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(2)
+  await expect(tray.getByTestId('tray-pin').first().getByTestId('plan-tag')).toBeVisible()
+  await expect(tray.getByTestId('tray-pin').first().getByTestId('baseline')).toBeVisible()
+  await expect(page).toHaveURL(/pins=haworth%3A220%408016%2Cim2-mons-mouton%3A220%408016/)
+  await expect(page).toHaveURL(/ref=haworth%3A220%408016/)
 })

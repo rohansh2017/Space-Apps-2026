@@ -359,10 +359,12 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 }
 
 /* --- the band's tab: centred on its top edge, same place open or closed */
-.band-tab { grid-area: band; position: absolute; z-index: 3; top: -13px; left: 50%; width: 52px; height: 22px; margin-left: -26px; padding: 0;
-  justify-content: center; border-radius: 11px; background: var(--panel-solid); border: 1px solid var(--line-strong); color: var(--dim);
+/* a labelled pill (D59): big enough to find, and it says what it opens */
+.band-tab { grid-area: band; position: absolute; z-index: 3; top: -17px; left: 50%; translate: -50% 0; height: 32px; padding: 0 0.95rem 0 0.7rem; gap: 0.4rem;
+  justify-content: center; border-radius: 16px; background: var(--raised); border: 1.5px solid var(--mute); color: var(--text); font-size: 0.8rem; font-weight: 650;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 55%);
   transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s cubic-bezier(0.22, 1, 0.36, 1); }
-.band-tab:hover:not(:disabled) { color: var(--text); border-color: var(--mute); background: var(--raised); transform: translateY(-1px); }
+.band-tab:hover:not(:disabled) { color: #fff; border-color: var(--text); background: #2a2a2e; transform: translateY(-1px); }
 .app.cinematic.idle .band-tab { opacity: 0.35; }
 .app.cinematic .band-tab { transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), color 0.15s, transform 0.15s; }
 
@@ -495,3 +497,19 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
 @media (max-width: 860px) {
   .moon, .app.side-closed .moon { left: 0; }
 }
+
+/* --- tray (D59): every column is a frozen pin; drag the grip (or Alt+arrows) to reorder */
+.tray-grip { cursor: grab; color: var(--mute); touch-action: none; }
+.tray-grip:active { cursor: grabbing; }
+.tray-col { position: relative; }
+.tray-col.dragging { opacity: 0.45; }
+.tray-col.drop-before::before, .tray-col.drop-after::after { content: ''; position: absolute; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: var(--text); }
+.tray-col.drop-before::before { left: -6px; }
+.tray-col.drop-after::after { right: -6px; }
+.tray-col-title strong { flex: 1; min-width: 0; }
+.tray-col > header > .plan-tag { justify-self: start; margin-top: 0.2rem; padding: 0.06rem 0.45rem; border-radius: 999px; font-size: 0.7rem; border: 1px solid var(--line-strong); color: var(--text); }
+.tray-head .compared-to strong { color: var(--text); font-weight: 600; }
+.tray-head .pin-view { background: var(--text); color: #141416; border-color: var(--text); font-weight: 650; }
+.tray-head .pin-view:hover:not(:disabled) { background: #fff; border-color: #fff; }
+.band-summary .summary { gap: 0.3rem; }
+.band-summary .summary > * { padding: 0.25rem 0.5rem; }

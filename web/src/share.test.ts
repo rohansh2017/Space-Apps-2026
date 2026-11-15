@@ -41,12 +41,13 @@ it('only locations are stored, and a link with its own site wins over them', () 
   expect(withStoredLocations(new URLSearchParams(''), null).toString()).toBe('')
 })
 
-it('round-trips the live plan column and the baseline', () => {
+it('round-trips the baseline; a legacy live-plan column still decodes, and is never written', () => {
   const defs = [] as never[]
   const p = encodeShare(new URLSearchParams(), { site: 'haworth', point: null, utc: '2026-11-19T00:00:00.000Z', constraints: {}, defs, mode: 'planner',
-    pins: [{ point: 'haworth:3', hour: 7 }], planInTray: true, ref: 'haworth:3@7' })
-  expect(p.get('pins')).toBe('plan,haworth:3@7')
-  const d = decodeShare(p)
-  expect([d.planInTray, d.pins, d.ref]).toEqual([true, [{ point: 'haworth:3', hour: 7 }], 'haworth:3@7'])
-  expect(decodeShare(new URLSearchParams('ref=plan')).ref).toBe('plan')
+    pins: [{ point: 'haworth:3', hour: 7 }], ref: 'haworth:3@7' })
+  expect(p.get('pins')).toBe('haworth:3@7')
+  expect(decodeShare(p).ref).toBe('haworth:3@7')
+  // links and stored locations from D56/D57: the app turns "plan" into a snapshot of the plan (D59)
+  const old = decodeShare(new URLSearchParams('pins=plan,haworth:3@7&ref=plan'))
+  expect([old.planInTray, old.pins, old.ref]).toEqual([true, [{ point: 'haworth:3', hour: 7 }], 'plan'])
 })
