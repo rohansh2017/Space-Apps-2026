@@ -556,3 +556,85 @@ test('fewer clicks (D61): the folded card shows the tally, Pin and Pole are one 
   await expect(page.getByTestId('moon-view')).toHaveAttribute('data-level', 'site')
   await expect(page.getByTestId('view')).toContainText('Alternative:')
 })
+
+test('F30: filters hide behind the funnel, narrow the alternatives, stay visible as pills, and clear back to the top 10', async ({ page }) => {
+  await page.goto('/')
+  await expandPanels(page)
+  await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  await page.getByRole('button', { name: 'Find alternatives' }).click()
+  const rows = page.getByTestId('result')
+  await expect(rows).toHaveCount(10)
+  const toggle = page.getByTestId('filter-toggle')
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByTestId('results-filter')).toHaveCount(0) // hidden by default
+  await toggle.click()
+  const menu = page.getByTestId('results-filter')
+  await expect(menu).toBeVisible()
+
+  // days out: every shown landing is at most 3 days after the plan
+  await menu.getByLabel('Maximum days out').fill('3')
+  const shiftHours = (t: string) => {
+    const m = t.match(/· ([+−])([\d.]+) (h|days?)$/)
+    return m ? Number(m[2]) * (m[3] === 'h' ? 1 : 24) : 0 // "same date"
+  }
+  for (const t of await page.getByTestId('result-title').allInnerTexts()) expect(shiftHours(t)).toBeLessThanOrEqual(72)
+
+  // site: only the first result's site
+  await menu.getByLabel('Maximum days out').fill('')
+  const site = (await rows.first().locator('.result-title > span').innerText()).split(' · ')[0]
+  const siteBox = menu.getByRole('checkbox', { name: site, exact: true })
+  if (await siteBox.count()) {
+    await siteBox.check()
+    for (const r of await rows.all()) await expect(r.locator('.result-title > span')).toContainText(site)
+  }
+
+  // criteria: meets every constraint leaves no failing chip (or says nothing matches)
+  await menu.getByRole('checkbox', { name: 'Meets every constraint' }).check()
+  if (await rows.count()) await expect(page.locator('.results .chip.fail')).toHaveCount(0)
+  else await expect(page.getByTestId('filter-empty')).toBeVisible()
+
+  // hiding the menu keeps the filters, shown as pills and a badge
+  await menu.getByRole('button', { name: 'Hide filters' }).click()
+  await expect(page.getByTestId('results-filter')).toHaveCount(0)
+  await expect(toggle).toHaveAccessibleName(/Filters, \d active/)
+  await expect(page.getByRole('button', { name: 'Remove filter: Meets every constraint' })).toBeVisible()
+  await page.getByRole('button', { name: 'Remove filter: Meets every constraint' }).click()
+  await page.getByTestId('filter-pills').getByRole('button', { name: 'Clear all' }).click()
+  await expect(page.getByTestId('filter-pills')).toHaveCount(0)
+  await expect(rows).toHaveCount(10)
+  await expect(page.getByTestId('result-title').first()).toContainText('#1 ·')
+
+  // sort: soonest landing puts the dates in order, and a pinned row still pins
+  await page.getByTestId('results-sort').selectOption('soonest')
+  const starts = []
+  for (const r of await rows.all())
+    starts.push(Date.parse(`${(await r.locator('.result-title > span').innerText()).match(/\d{4}-\d\d-\d\d \d\d:\d\d/)![0].replace(' ', 'T')}Z`))
+  expect(starts).toEqual([...starts].sort((a, b) => a - b))
+  await rows.first().getByRole('button', { name: /^Pin #\d+ to the compare tray$/ }).click()
+  await expect(page.getByTestId('tray').getByTestId('tray-pin')).toHaveCount(1)
+})
+
+test('F31: Recompute ranks on the ticked criteria alone, and pressing it again restores the full search', async ({ page }) => {
+  await page.goto('/')
+  await expandPanels(page)
+  await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  await page.getByRole('button', { name: 'Find alternatives' }).click()
+  await expect(page.getByTestId('result')).toHaveCount(10)
+  await page.getByTestId('filter-toggle').click()
+  const menu = page.getByTestId('results-filter')
+  const recompute = menu.getByTestId('recompute')
+  await expect(recompute).toBeDisabled() // nothing ticked yet
+  await menu.getByRole('checkbox', { name: 'Max terrain slope' }).check()
+  await menu.getByRole('checkbox', { name: 'Min Earth visibility' }).check()
+  await recompute.click()
+  await expect(page.getByTestId('focus-note')).toContainText('Ranked on Min Earth visibility and Max terrain slope only')
+  await expect(page.getByTestId('finder-summary')).toContainText('meet the chosen criteria')
+  await expect(page.getByTestId('result').first()).toBeVisible()
+  // only the chosen criteria are judged on each row
+  const chips = await page.locator('.results li').first().locator('.chip').allInnerTexts()
+  expect(chips.every((c) => /Earth|Slope/.test(c))).toBe(true)
+  await page.getByTestId('focus-note').getByRole('button', { name: 'Use every criterion' }).click()
+  await expect(page.getByTestId('focus-note')).toHaveCount(0)
+  await expect(page.getByTestId('finder-summary')).toContainText('meet every constraint')
+  await expect(page.locator('.results li').first().locator('.chip')).not.toHaveCount(2)
+})

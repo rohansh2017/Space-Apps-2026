@@ -124,17 +124,17 @@ describe('F26/F29 copilot summary', () => {
   })
   const date = (h: number) => `hour ${h}`
   it('is built from the finder result alone', () => {
-    const f: FinderResult = { baseline: scored(0, 100, 1), results: [scored(1, 148, 0), scored(0, 200, 1)], evaluated: 3, ms: 1, planPassStart: 130 }
+    const f: FinderResult = { baseline: scored(0, 100, 1), results: [scored(1, 148, 0), scored(0, 200, 1)], pool: [], only: null, evaluated: 3, ms: 1, planPassStart: 130 }
     const text = copilotSummary(f, [cand('plan', -89.9), cand('alt', -89.8)], date)
     expect(text).toMatch(/^The slipped plan fails 1 constraint; the same point passes if you land hour 130 UTC\./)
     expect(text).toMatch(/1 of 2 alternatives meet everything\. Best: alt, .* 2 days later/)
   })
   it('says when nothing in the slip range fixes the plan', () => {
-    const f: FinderResult = { baseline: scored(0, 100, 2), results: [scored(1, 148, 1)], evaluated: 2, ms: 1, planPassStart: null }
+    const f: FinderResult = { baseline: scored(0, 100, 2), results: [scored(1, 148, 1)], pool: [], only: null, evaluated: 2, ms: 1, planPassStart: null }
     expect(copilotSummary(f, [cand('plan', -89.9), cand('alt', -89.8)], date)).toMatch(/no later date in the slip range fixes it.*None of the 1 alternatives/)
   })
   it('leads with the slip from the original date and what was searched, and names the earliest result', () => {
-    const f: FinderResult = { baseline: scored(0, 100, 0), results: [scored(1, 136, 0)], evaluated: 2, ms: 1, planPassStart: 100 }
+    const f: FinderResult = { baseline: scored(0, 100, 0), results: [scored(1, 136, 0)], pool: [], only: null, evaluated: 2, ms: 1, planPassStart: 100 }
     const text = copilotSummary(f, [cand('plan', -89.9), cand('alt', -89.8)], date,
       { slip: { days: 11, fromMs: 0, toMs: 11 * 86_400_000 }, searched: "Shackleton rim's grid within 5 km, earliest date that meets everything first", order: 'earliest' },
       (ms) => `day ${ms / 86_400_000}`)
@@ -142,7 +142,7 @@ describe('F26/F29 copilot summary', () => {
     expect(text).toMatch(/Earliest: alt, .*landing hour 136 UTC\./)
   })
   it('calls it "the plan", not "the slipped plan", when the sentence gave no slip (D70)', () => {
-    const f: FinderResult = { baseline: scored(0, 100, 1), results: [], evaluated: 1, ms: 1, planPassStart: null }
+    const f: FinderResult = { baseline: scored(0, 100, 1), results: [], pool: [], only: null, evaluated: 1, ms: 1, planPassStart: null }
     const text = copilotSummary(f, [cand('plan', -89.9)], date, { slip: null, searched: 'x', order: 'margin' })
     expect(text).toMatch(/Searched x\. The plan fails 1 constraint, and no later date/)
   })

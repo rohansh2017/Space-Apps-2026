@@ -45,6 +45,30 @@ describe('finder', () => {
     expect(r.evaluated).toBeGreaterThanOrEqual(3 * 31)
     expect(r.results.every((x) => x.start >= 24 * 40)).toBe(true) // never earlier than the slipped date
   })
+  it('F30: returns every candidate\'s best start as a pool that starts with the results', () => {
+    const cands = [candidate('walled', 5, 0, 300), candidate('open', 0), candidate('steep', 0, 0, 0, 25), candidate('ridge', 5, 80, 200)]
+    const r = runFinder(table, hours, cands, 24 * 40, C, {}, 2)
+    expect(r.results).toHaveLength(2)
+    expect(r.pool).toHaveLength(cands.length)
+    expect(r.pool.slice(0, 2)).toEqual(r.results)
+    expect(new Set(r.pool.map((x) => x.candidate)).size).toBe(cands.length)
+    for (let i = 1; i < r.pool.length; i++) {
+      const [a, b] = [r.pool[i - 1].evaluation, r.pool[i].evaluation]
+      expect(a.fails < b.fails || (a.fails === b.fails && a.score >= b.score)).toBe(true)
+    }
+  })
+  it('F31: ranks on the chosen constraints only; the others neither fail nor score', () => {
+    const cands = [candidate('walled', 5, 0, 300), candidate('steep', 0, 0, 0, 25), candidate('open', 0)]
+    const full = runFinder(table, hours, cands, 24 * 40, C)
+    expect(full.only).toBeNull()
+    expect(cands[full.results[0].candidate].id).toBe('open')
+    const r = runFinder(table, hours, cands, 24 * 40, C, {}, 10, { only: ['min_continuous_sun_days'] })
+    expect(r.only).toEqual(['min_continuous_sun_days'])
+    for (const x of [r.baseline, ...r.pool]) expect(Object.keys(x.evaluation.passes)).toEqual(['min_continuous_sun_days'])
+    const steep = r.pool.find((x) => cands[x.candidate].id === 'steep')!
+    expect(steep.evaluation.fails).toBe(0) // its slope no longer counts
+    expect(r.baseline.evaluation.fails).toBe(1) // the wall still blocks the Sun
+  })
   it('finds a later date at the same site when only the date is wrong', () => {
     // the Sun is behind the wall (azimuths 80..200 seen from this site) at the planned date
     const cands = [candidate('ridge', 5, 80, 200)]
@@ -123,6 +147,7 @@ describe('difference text', () => {
     const cand = { ...base, lat: -88.767, lon: 1.6 }
     expect(diffParts(base, scored(100, 70, 61, 50), cand, scored(148, 79, 30, 45))).toEqual({
       where: '1.4 km NE', when: '2 days later', shift: '+2 days', metrics: '+9% sun, −31 h dark, −5% comms',
+      km: expect.closeTo(1.436, 2), hours: 48,
     })
     expect(diffParts(base, scored(100, 70, 61, 50), base, scored(88, 70, 61, 50)).shift).toBe('−12 h')
     expect(diffParts(base, scored(100, 70, 61, 50), base, scored(100, 70, 61, 50)).shift).toBe('same date')

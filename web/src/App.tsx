@@ -25,6 +25,8 @@ import MoonView from './MoonView'
 import Panorama from './Panorama'
 import { defaults } from './presets'
 import Results from './Results'
+import type { ResultFilter } from './resultFilter'
+import { NO_FILTER } from './resultFilter'
 import type { Room, RoomState } from './room'
 import { connectRoom, newRoomId, roomIdFromUrl, roomLink, stateKey, validConstraints } from './room'
 import Scene3D from './Scene3D'
@@ -108,6 +110,7 @@ export default function App() {
   const [statusOpen, setStatusOpen] = useState(false)
   const [bandOpen, setBandOpen] = useState(false)
   const [resultsMin, setResultsMin] = useState(false) // the alternatives folded into their corner
+  const [resultFilter, setResultFilter] = useState<ResultFilter>(NO_FILTER) // F30: view-only, never shared
   const [resultsFresh, setResultsFresh] = useState(false) // a search just finished: the list plays its entrance
   const resultsChip = useRef<HTMLButtonElement | null>(null)
   const [bandHeight, setBandHeight] = useState<number | null>(null) // null = sized by its content
@@ -513,7 +516,8 @@ export default function App() {
     writeOnboarded()
   }, [])
 
-  async function runFinder() {
+  /** `only` (F31): rank on these constraints alone; a new search passes null, *Run again* keeps the current results' choice. */
+  async function runFinder(only: string[] | null = null) {
     if (!data || !site || !plan || !planPoint) return
     setBusy(true)
     setFinderError('')
@@ -543,7 +547,7 @@ export default function App() {
       worker.current ??= new Worker(new URL('./engine/finder.worker.ts', import.meta.url), { type: 'module' })
       const slipHours = windowHours(spec, data.startMs + planHour * HOUR_MS) ?? undefined
       const request: FinderRequest = {
-        table: data.ephemeris, tableHours: data.hours, candidates, start: planHour, constraints, options: { order: spec.order, slipHours },
+        table: data.ephemeris, tableHours: data.hours, candidates, start: planHour, constraints, options: { order: spec.order, slipHours, only: only ?? undefined },
       }
       const reply = await new Promise<{ ok: boolean; result?: FinderResult; error?: string }>((resolve) => {
         worker.current!.onmessage = (e) => resolve(e.data)
@@ -552,6 +556,9 @@ export default function App() {
       if (!reply.ok) throw new Error(reply.error)
       const result = reply.result!
       setFound({ finder: result, candidates, constraints })
+      // F30: filters carry over to a new search, minus sites it no longer reaches
+      const reached = new Set(result.pool.map((r) => candidates[r.candidate].label))
+      setResultFilter((f) => (f.sites.every((s) => reached.has(s)) ? f : { ...f, sites: f.sites.filter((s) => reached.has(s)) }))
       const ctx: SummaryContext = { slip: copilotSlip.current, searched: searchWords(spec, site.id), order: spec.order }
       const copilot = copilotRun.current ? copilotSummary(result, candidates, (h) => dateText(data.startMs + h * HOUR_MS), ctx, dateText) : ''
       copilotRun.current = false
@@ -561,7 +568,9 @@ export default function App() {
       setViewing(null)
       setStale(false)
       const passing = result.results.filter((r) => r.evaluation.fails === 0).length
-      setAnnounce(copilot || `Search finished: ${result.results.length} alternatives ranked, ${passing} meet every constraint.`)
+      setAnnounce(copilot || (only
+        ? `Recomputed on ${only.length} chosen criteri${only.length === 1 ? 'on' : 'a'}: ${passing} of ${result.results.length} alternatives meet them.`
+        : `Search finished: ${result.results.length} alternatives ranked, ${passing} meet every constraint.`))
       focusResults.current = true // the effect below moves focus once the results have rendered
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
@@ -751,11 +760,7 @@ export default function App() {
       viewStatus.current.focus()
     }
   }, [viewing, observer, stageView, moonZoom])
-  const resultRef = (i: number): ScenarioRef | null => {
-    if (!found) return null
-    const r = found.finder.results[i]
-    return { point: found.candidates[r.candidate].id, hour: r.start }
-  }
+  const resultRef = (r: Scored): ScenarioRef | null => (found ? { point: found.candidates[r.candidate].id, hour: r.start } : null)
 
   // --- full screen (projector demos); browsers without the API simply get no button
   const canFullscreen = typeof document !== 'undefined' && Boolean(document.fullscreenEnabled)
@@ -896,7 +901,7 @@ export default function App() {
 
   // the 3D view's scenario, named the way the results and the tray name it
   const openedIndex = found && viewing
-    ? found.finder.results.findIndex((r) => refKey({ point: found.candidates[r.candidate].id, hour: r.start }) === refKey(viewing))
+    ? found.finder.pool.findIndex((r) => refKey({ point: found.candidates[r.candidate].id, hour: r.start }) === refKey(viewing))
     : -1
   const viewTitle = viewed && day
     ? `${openedIndex >= 0 ? `#${openedIndex + 1} · ` : ''}${differenceOf(viewed, viewStart, day.metrics)}`
@@ -1041,7 +1046,7 @@ export default function App() {
               }} />
             </div>
             <div className="side-foot">
-              <button type="button" className="primary" data-tour="find" disabled={busy || !site.terrain || !plan} aria-busy={busy} onClick={runFinder}>
+              <button type="button" className="primary" data-tour="find" disabled={busy || !site.terrain || !plan} aria-busy={busy} onClick={() => runFinder()}>
                 {busy ? 'Searching…' : 'Find alternatives'}
               </button>
               {!isDefaultSpec(searchSpec) && specWords && (
@@ -1144,12 +1149,13 @@ export default function App() {
                   <ListOrdered size={15} aria-hidden="true" />Alternatives <span className="count">{found.finder.results.length}</span>
                 </button>
               )}
-              {found && !resultsMin && <Results finder={found.finder} fresh={resultsFresh} onMinimize={() => smooth(() => { setResultsMin(true); setResultsFresh(false) }, () => resultsChip.current?.focus())} candidates={found.candidates} opened={openedIndex >= 0 ? openedIndex : null} date={date} stale={stale}
-                headingRef={resultsHeading} onRerun={runFinder} busy={busy} constraints={found.constraints} lead={copilotText}
-                pinned={pinnedKeys} onPin={(i) => { const r = resultRef(i); if (r) togglePin(r) }}
-                onMoon={(i) => { const r = resultRef(i); if (r) showOnMoon(r) }}
-                onOpen={(i) => {
-                  const r = i === null ? null : resultRef(i)
+              {found && !resultsMin && <Results finder={found.finder} fresh={resultsFresh} onMinimize={() => smooth(() => { setResultsMin(true); setResultsFresh(false) }, () => resultsChip.current?.focus())} candidates={found.candidates} opened={openedIndex >= 0 && viewing ? refKey(viewing) : null} date={date} stale={stale}
+                filter={resultFilter} onFilter={setResultFilter} onAnnounce={setAnnounce}
+                headingRef={resultsHeading} onRerun={() => runFinder(found.finder.only)} onRecompute={(only) => runFinder(only)} busy={busy} constraints={found.constraints} lead={copilotText}
+                pinned={pinnedKeys} onPin={(s) => { const r = resultRef(s); if (r) togglePin(r) }}
+                onMoon={(s) => { const r = resultRef(s); if (r) showOnMoon(r) }}
+                onOpen={(s) => {
+                  const r = s === null ? null : resultRef(s)
                   if (r) showScenario(r)
                   else viewScenario(null) // back to the plan, in whichever view is on the stage
                 }} />}
