@@ -151,7 +151,9 @@ test('F26 + F27: the copilot plans a slip in one call, the engine answers, and "
   const calls: string[] = []
   await page.route('**/api/copilot', async (route) => {
     calls.push('copilot')
-    await route.fulfill({ json: { plan: { constraints: { min_earth_visible_pct: 100 }, slip_days: 3, site: 'haworth' }, model: 'mock', generated: true } })
+    await route.fulfill({ json: { plan: {
+      constraints: { min_earth_visible_pct: 100 }, slip: { days: 3, quote: 'slip 3 days' }, where: { scope: 'sites', sites: ['haworth'], quote: 'move to Haworth' },
+    }, model: 'mock', generated: true } })
   })
   let invent = false
   await page.route('**/api/whynot', async (route) => {
@@ -193,6 +195,71 @@ test('F26 + F27: the copilot plans a slip in one call, the engine answers, and "
   await expect(page.getByTestId('plan-whynot-note')).toContainText('did not match the facts')
   await expect(page.getByTestId('plan-whynot-text')).not.toContainText('999')
   expect(calls).toEqual(['copilot', 'whynot', 'whynot']) // one call per press, none otherwise
+})
+
+test('F29: "slipped by 11 days, stay near the rim" moves the landing 11 days from the original plan, once, and searches only this site', async ({ page }) => {
+  const calls: string[] = []
+  let reply: unknown = {
+    slip: { days: 11, quote: 'slipped by 11 days' }, where: { scope: 'current', quote: 'stay near the rim' }, constraints: {},
+  }
+  await page.route('**/api/copilot', async (route) => {
+    calls.push('copilot')
+    if (reply === 429) await route.fulfill({ status: 429, json: { error: 'Too many requests; try again in a minute' } })
+    else await route.fulfill({ json: { plan: reply, model: 'mock', generated: true } })
+  })
+  await page.goto('/')
+  await expandPanels(page)
+  await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  const dateBox = page.getByLabel('Landing date and time (UTC)')
+  const original = Date.parse(`${await dateBox.inputValue()}Z`)
+  const box = page.getByPlaceholder(/survive 4 days of dark/)
+  const plan = async (text: string) => {
+    await box.fill(text)
+    await page.getByRole('button', { name: 'Plan the slip' }).click()
+    await expect(page.getByTestId('suggestion')).toBeVisible()
+  }
+  await plan('My mission slipped by 11 days. Stay near the rim.')
+  await expect(page.getByTestId('copilot-slip')).toContainText('11 days later than the original plan')
+  await expect(page.getByTestId('copilot-where')).toContainText("Shackleton rim (Chang'e-7 target)'s grid within 5 km")
+  await page.getByRole('button', { name: 'Apply and find alternatives' }).click()
+  const summary = page.getByTestId('copilot-summary')
+  await expect(summary).toContainText('Slipped 11 days from', { timeout: 30_000 })
+  await expect(summary).toContainText("Searched Shackleton rim (Chang'e-7 target)'s grid within 5 km")
+  expect(Date.parse(`${await dateBox.inputValue()}Z`) - original).toBe(11 * 86_400_000)
+  const results = await page.getByTestId('result').all()
+  expect(results.length).toBeGreaterThan(0)
+  for (const r of results) await expect(r.locator('.result-title > span')).toContainText('Shackleton rim')
+  await expect(page.getByTestId('search-spec')).toContainText('grid within 5 km')
+
+  // the same slip again is measured from the original plan: still 11 days, not 22
+  await plan('My mission slipped by 11 days, stay near the rim')
+  await expect(page.getByTestId('copilot-slip')).toContainText(new Date(original).toISOString().slice(0, 16).replace('T', ' '))
+  await page.getByRole('button', { name: 'Apply and find alternatives' }).click()
+  await expect(summary).toContainText('Slipped 11 days from', { timeout: 30_000 })
+  expect(Date.parse(`${await dateBox.inputValue()}Z`) - original).toBe(11 * 86_400_000)
+
+  // any site, earliest first: every grid is searched and passing results come in date order
+  reply = { where: { scope: 'all', quote: 'any site' }, when: { order: 'earliest', quote: 'as soon as possible' } }
+  await plan('any site is fine, as soon as possible')
+  await expect(page.getByTestId('copilot-when')).toContainText('earliest date that meets everything first')
+  await page.getByRole('button', { name: 'Apply and find alternatives' }).click()
+  await expect(summary).toContainText("Searched every site's full grid", { timeout: 30_000 })
+  await expect(page.getByTestId('finder-summary')).toContainText('across 3969 points')
+  const starts: number[] = []
+  for (const r of await page.getByTestId('result').all()) {
+    if (await r.getByTestId('result-whynot').count()) break // failing results follow the passing ones
+    starts.push(Date.parse(`${(await r.locator('.result-title > span').innerText()).match(/\d{4}-\d\d-\d\d \d\d:\d\d/)![0].replace(' ', 'T')}Z`))
+  }
+  expect(starts).toEqual([...starts].sort((a, b) => a - b))
+  await page.getByRole('button', { name: 'Remove: earliest first' }).click()
+  await expect(page.getByTestId('results-stale')).toBeVisible()
+
+  // Gemini unreachable: the slip is still read from the words
+  reply = 429
+  await plan('launch delayed 2 days')
+  await expect(page.getByTestId('copilot-note')).toContainText('Read without Gemini (Too many requests')
+  await expect(page.getByTestId('copilot-slip')).toContainText('2 days later')
+  expect(calls).toEqual(['copilot', 'copilot', 'copilot', 'copilot']) // one call per press
 })
 
 test('F17: the URL carries site, point, date, constraints and mode, and reopens to the same state', async ({ page, context }) => {

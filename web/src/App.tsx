@@ -1,10 +1,10 @@
-import { ChevronDown, ChevronUp, Compass, Globe, Info, Pin, PinOff, ListOrdered, LayoutGrid, Link2, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
+import { ChevronDown, ChevronUp, Compass, Globe, Info, Pin, PinOff, ListOrdered, LayoutGrid, Link2, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Chips from './Chips'
 import ConstraintPanel from './ConstraintPanel'
-import type { CopilotPlan } from './copilot'
-import { copilotSummary } from './copilot'
+import type { CopilotHooks, CopilotPlan, SearchSpec, SlipAnchor, SummaryContext } from './copilot'
+import { DEFAULT_SPEC, copilotSummary, dayText, isDefaultSpec, planSite, slipFrom, specFromPlan, whenText, whereText, windowHours } from './copilot'
 import type { Dataset, Region, SitePoint, Sky } from './data'
 import { loadDataset, loadRegion, loadSitePoint } from './data'
 import { horizonFacts } from './describe'
@@ -45,6 +45,7 @@ const HOUR_MS = 3_600_000
 const START_HOUR = 7728 // 2026-11-19 00:00 UTC
 const TRAY_LETTERS = 'ABCD' // pinned scenarios, as the tray and the Moon view mark them
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16)
+const dateText = (ms: number) => iso(ms).replace('T', ' ') // "2026-12-03 14:00", the copilot's dates (UTC)
 
 // locations survive a refresh or a bare URL (storage can be blocked: private windows, previews)
 const LOCATIONS_KEY = 'tranquility-base:locations'
@@ -138,6 +139,9 @@ export default function App() {
   const [copilotPending, setCopilotPending] = useState(false) // F26: a confirmed copilot plan waits for its site's terrain, then searches
   const [copilotText, setCopilotText] = useState('') // F26: the template answer for the search the copilot ran
   const copilotRun = useRef(false)
+  const [searchSpec, setSearchSpec] = useState<SearchSpec>(DEFAULT_SPEC) // F29: where and when the copilot asked to search
+  const [slipAnchor, setSlipAnchor] = useState<SlipAnchor | null>(null) // F29: a slip is measured from the original plan
+  const copilotSlip = useRef<SummaryContext['slip']>(null) // F29: the slip the copilot's search was run for
 
   useEffect(() => {
     loadDataset().then((d) => {
@@ -200,6 +204,7 @@ export default function App() {
     setPointIndex(index)
     setOffset(0)
     setLoadError('')
+    setSearchSpec(DEFAULT_SPEC) // a site picked by hand searches the usual way
     clearResults()
   }, [clearResults])
 
@@ -514,13 +519,21 @@ export default function App() {
     setFinderError('')
     setAnnounce('Searching for alternatives…')
     try {
-      // candidates: the plan first, then its grid within the search radius, then the other curated sites
+      // candidates: the plan first, then (by default) its grid within the search radius and the other curated sites'
+      // own points; the copilot's search spec (F29) narrows this to the plan's site or named sites, or widens it to every grid
       const loaded = await loadAll()
-      const radiusM = Number(constraints.search_radius_km) * 1000
+      const spec = searchSpec
+      const radiusM = (spec.withinKm ?? Number(constraints.search_radius_km)) * 1000
       const candidates: Candidate[] = [plan]
       for (const p of data.points) {
         const own = p.region === site.id
-        if (own ? p.index === planPoint.index || Math.hypot(p.x - planPoint.x, p.y - planPoint.y) > radiusM : p.index !== data.centreIndex) continue
+        if (own && p.index === planPoint.index) continue
+        const near = own && Math.hypot(p.x - planPoint.x, p.y - planPoint.y) <= radiusM
+        const keep = spec.scope === 'current' ? near
+          : spec.scope === 'all' ? true
+            : spec.scope === 'sites' ? spec.sites.includes(p.region) && (!own || near)
+              : own ? near : p.index === data.centreIndex
+        if (!keep) continue
         const r = loaded[p.region]
         candidates.push({
           id: p.id, label: terrain.find((s) => s.id === p.region)!.name, lat: p.lat, lon: p.lon, elevM: p.elev_m,
@@ -528,7 +541,10 @@ export default function App() {
         })
       }
       worker.current ??= new Worker(new URL('./engine/finder.worker.ts', import.meta.url), { type: 'module' })
-      const request: FinderRequest = { table: data.ephemeris, tableHours: data.hours, candidates, start: planHour, constraints }
+      const slipHours = windowHours(spec, data.startMs + planHour * HOUR_MS) ?? undefined
+      const request: FinderRequest = {
+        table: data.ephemeris, tableHours: data.hours, candidates, start: planHour, constraints, options: { order: spec.order, slipHours },
+      }
       const reply = await new Promise<{ ok: boolean; result?: FinderResult; error?: string }>((resolve) => {
         worker.current!.onmessage = (e) => resolve(e.data)
         worker.current!.postMessage(request)
@@ -536,7 +552,8 @@ export default function App() {
       if (!reply.ok) throw new Error(reply.error)
       const result = reply.result!
       setFound({ finder: result, candidates, constraints })
-      const copilot = copilotRun.current ? copilotSummary(result, candidates, (h) => `${iso(data.startMs + h * HOUR_MS).replace('T', ' ')}`) : ''
+      const ctx: SummaryContext = { slip: copilotSlip.current, searched: searchWords(spec, site.id), order: spec.order }
+      const copilot = copilotRun.current ? copilotSummary(result, candidates, (h) => dateText(data.startMs + h * HOUR_MS), ctx, dateText) : ''
       copilotRun.current = false
       setCopilotText(copilot)
       setResultsMin(false)
@@ -555,17 +572,59 @@ export default function App() {
     }
   }
 
-  /** F26: apply a confirmed copilot plan (site, later landing, constraints), then search once the plan is ready. */
+  /** F29: words for where and when a search spec looks, as the card, the chips and the answer say it. */
+  const describeSpec = (spec: SearchSpec, id: string) => ({
+    where: whereText(spec, terrain.find((s) => s.id === id)?.name ?? id, (x) => terrain.find((s) => s.id === x)?.name ?? x, Number(constraints.search_radius_km)),
+    when: whenText(spec, dateText),
+  })
+  const searchWords = (spec: SearchSpec, id: string) => {
+    const w = describeSpec(spec, id)
+    return `${w.where}, ${w.when}`
+  }
+
+  /**
+   * F26/F29: apply a confirmed copilot plan (site, a slip measured from the original landing, where and when to
+   * search, constraints), then search once the plan is ready.
+   */
   const applyCopilot = (p: CopilotPlan) => {
     if (!data) return
-    if (p.site && p.site !== siteId) selectSite(p.site)
+    const target = planSite(p)
+    if (target && target !== siteId) selectSite(target)
     else clearResults()
-    if (p.slipDays) setPlanHour((h) => Math.min(data.hours - 1, h + Math.round(p.slipDays! * 24))) // forward only (D19)
+    copilotSlip.current = null
+    if (p.slipDays !== null) {
+      const a = slipFrom(slipAnchor, planHour, p.slipDays, data.hours - 1) // forward only (D19), never stacked
+      setSlipAnchor(a)
+      setPlanHour(a.applied)
+      copilotSlip.current = { days: p.slipDays, fromMs: data.startMs + a.origin * HOUR_MS, toMs: data.startMs + a.applied * HOUR_MS }
+    }
+    setSearchSpec(specFromPlan(p))
     setConstraints((c) => ({ ...c, ...p.values }))
     setStale(false)
     setCopilotPending(true)
     setAnnounce('Copilot plan applied; searching for alternatives…')
   }
+  /** F29: the copilot card's view of the app. */
+  const copilotHooks: CopilotHooks | undefined = data && site ? {
+    siteIds: terrain.map((s) => s.id),
+    siteId: site.id,
+    planUtc: new Date(data.startMs + planHour * HOUR_MS).toISOString(),
+    siteName: (id) => terrain.find((s) => s.id === id)?.name ?? id,
+    preview: (days) => {
+      const a = slipFrom(slipAnchor, planHour, days, data.hours - 1)
+      return { fromMs: data.startMs + a.origin * HOUR_MS, toMs: data.startMs + a.applied * HOUR_MS }
+    },
+    describe: describeSpec,
+    date: dateText,
+    apply: applyCopilot,
+  } : undefined
+  /** F29: drop one part of the copilot's search spec; results from the old spec are marked out of date. */
+  const editSpec = (change: Partial<SearchSpec>, what: string) => {
+    setSearchSpec((s) => ({ ...s, ...change }))
+    if (found && !stale) setStale(true)
+    setAnnounce(`${what} removed: Find alternatives searches the usual way for it.`)
+  }
+  const specWords = site ? describeSpec(searchSpec, site.id) : null
   useEffect(() => {
     if (!copilotPending || !plan || busy) return
     setCopilotPending(false)
@@ -970,7 +1029,7 @@ export default function App() {
                 <p className="note">{site.mission} · {site.agency}<br />{(plan?.lat ?? site.lat).toFixed(3)}°, {(plan?.lon ?? site.lon).toFixed(3)}°E · {site.coord_source}</p>
                 {mode === 'explorer' && site.blurb && <p className="note">{site.blurb}</p>}
               </section>
-              <ConstraintPanel defs={data.constraintDefs} value={constraints} sites={terrain} onCopilot={applyCopilot} onChange={(c) => {
+              <ConstraintPanel defs={data.constraintDefs} value={constraints} copilot={copilotHooks} onChange={(c) => {
                 setConstraints(c)
                 setNudgeFrom(null)
                 if (found && !stale) {
@@ -983,6 +1042,26 @@ export default function App() {
               <button type="button" className="primary" data-tour="find" disabled={busy || !site.terrain || !plan} aria-busy={busy} onClick={runFinder}>
                 {busy ? 'Searching…' : 'Find alternatives'}
               </button>
+              {!isDefaultSpec(searchSpec) && specWords && (
+                <div className="chips spec-chips" data-testid="search-spec" role="group" aria-label="Copilot search settings">
+                  {(searchSpec.scope !== 'default' || searchSpec.withinKm !== null) && (
+                    <button type="button" className="chip" aria-label={`Remove: search ${specWords.where}`}
+                      onClick={() => editSpec({ scope: 'default', sites: [], withinKm: null }, 'Where to search')}>
+                      {specWords.where[0].toUpperCase() + specWords.where.slice(1)} <X size={12} aria-hidden />
+                    </button>
+                  )}
+                  {searchSpec.order === 'earliest' && (
+                    <button type="button" className="chip" aria-label="Remove: earliest first" onClick={() => editSpec({ order: 'margin' }, 'Earliest first')}>
+                      Earliest first <X size={12} aria-hidden />
+                    </button>
+                  )}
+                  {(searchSpec.landBy !== null || searchSpec.windowDays !== null) && (
+                    <button type="button" className="chip" aria-label="Remove: search window" onClick={() => editSpec({ landBy: null, windowDays: null }, 'The search window')}>
+                      {searchSpec.landBy !== null ? `Land by ${dateText(searchSpec.landBy)}` : `Within ${dayText(searchSpec.windowDays!)}`} <X size={12} aria-hidden />
+                    </button>
+                  )}
+                </div>
+              )}
               {finderError && <p className="inline-error" role="alert" data-testid="finder-error">{finderError}</p>}
             </div>
           </aside>

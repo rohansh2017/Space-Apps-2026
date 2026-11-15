@@ -69,8 +69,10 @@ A **quick tour** opens on your first visit. *Quick tour* in the top bar replays 
    says *why not*.
 5. **Compare.** Pin results to the tray, choose a baseline with *Compare to this*, and *Copy link* to share the exact view.
 
-Or describe the whole slip in one go: *Plan the slip* with *"we slip 3 days, move to Haworth, need Earth in view the
-whole time"* proposes the changes, you confirm, and the finder runs.
+Or describe the whole slip in one go: *Plan the slip* with *"my mission slipped by 11 days, stay near the rim"* or
+*"slipped two weeks, anywhere on Nobile, soonest"*. The card shows how each part was read: the new landing (always
+measured from the original plan), where to search (this site, named sites, or every site) and when (earliest first, land
+by a date). You confirm, and the finder runs. The search settings stay as removable chips under *Find alternatives*.
 
 <details>
 <summary><b>All controls</b></summary>
