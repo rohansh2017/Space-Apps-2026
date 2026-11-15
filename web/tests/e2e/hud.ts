@@ -20,7 +20,7 @@ export function expectedHud(view: Record<string, string>) {
 }
 
 
-/** The app opens quiet (card, HUD and band folded); tests that read them unfold all three first. */
+/** The app opens quiet (card, HUD and band folded, tray empty); tests that read them unfold all three and add the live plan to the tray. */
 export async function expandPanels(page: import('@playwright/test').Page) {
   await page.getByTestId('view').waitFor()
   for (const name of [/^Show the landing time/, /^Show the Sun and Earth details$/, /^Expand the timeline and comparison panel$/]) {
@@ -28,4 +28,9 @@ export async function expandPanels(page: import('@playwright/test').Page) {
     if (await b.count()) await b.click()
   }
   await page.getByTestId('tray').waitFor()
+  const add = page.getByRole('button', { name: 'Add the plan' })
+  if (await add.count()) await add.click()
+  // compare mode folds the nudge row, the large skyline and the horizon text into a disclosure
+  const more = page.locator('details.band-more:not([open]) > summary')
+  if (await more.count()) await more.click()
 }

@@ -145,7 +145,9 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .band.comparing .band-time { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
 /* the tray's heading joins the timeline strip, and its table spans the band */
 .band.comparing .tray { display: contents; }
-.band.comparing .tray-head { grid-area: 1 / 2; }
+.band-grip { grid-row: 1; }
+.band.comparing .band-time { grid-area: 2 / 1; }
+.band.comparing .tray-head { grid-area: 2 / 2; }
 .band.comparing .tray-full, .band.comparing .tray-cols { grid-column: 1 / -1; }
 .band-more { font-size: 0.8rem; color: var(--dim); }
 .band-more summary { cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; white-space: nowrap; }
@@ -165,7 +167,7 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .tray { display: grid; gap: 0.5rem; align-content: start; min-width: 0; }
 .tray-head { display: flex; align-items: center; gap: 0.75rem; }
 .tray-head h2 { margin: 0; }
-.tray-head button { margin-left: auto; }
+.tray-head button:first-of-type { margin-left: auto; }
 .tray-full { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 0.45rem 0.6rem; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--raised); font-size: 0.82rem; }
 /* the tray is a table: a label column plus one column per scenario, all sharing ten rows
    (head, chips, six metrics, skyline, actions), so the same metric reads straight across */
@@ -195,10 +197,8 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .tray-metrics-empty { grid-row: span 6; }
 .tray-col .chip { font-size: 0.68rem; padding: 0 0.4rem 0 0.3rem; }
 .tray-col .chips { gap: 0.2rem; }
-.tray-empty { grid-row: span 10; margin: 0; align-self: center; font-size: 0.82rem; color: var(--dim); }
-.tray-empty svg { vertical-align: -2px; }
 .summary .best { font-weight: 700; color: #fff; }
-.tray-col.pin .delta { animation: none; color: var(--dim); } /* against the plan: a steady difference, not a change */
+.tray-col.compared .delta { animation: none; color: var(--dim); } /* against the plan: a steady difference, not a change */
 
 /* short windows (720p projectors): give the 3D view more of the height */
 @media (max-height: 800px) and (min-width: 861px) {
@@ -248,8 +248,7 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .custom div { display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.3rem; }
 .custom input { min-width: 0; width: 100%; }
 .note { font-size: 0.78rem; color: var(--dim); margin: 0; text-wrap: pretty; }
-.results li, .horizon-text, .tray-empty { text-wrap: pretty; }
-.note + .note { margin-top: 0.4rem; }
+.results li, .horizon-text, .note + .note { margin-top: 0.4rem; }
 .snap { color: var(--text); background: var(--raised); border: 1px solid var(--line-strong); padding: 0.4rem 0.55rem; border-radius: 6px; margin-bottom: 0.5rem; }
 .chips { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
 .chip { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; padding: 0.1rem 0.5rem 0.1rem 0.4rem; border-radius: 999px; border: 1px solid; white-space: nowrap; }
@@ -453,3 +452,10 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
   border-radius: var(--radius); padding: 0.45rem 0.7rem; color: var(--text); font-size: 0.84rem; }
 .results-chip .count { font-size: 0.72rem; padding: 0 0.45rem; border-radius: 999px; background: var(--raised); color: var(--dim); }
 .results-chip:hover:not(:disabled) { border-color: var(--mute); background: var(--raised); }
+
+/* the baseline: the column every other column's differences are measured against */
+.tray-col.base { border-color: var(--line-strong); }
+.baseline-tag, .baseline-set { justify-self: start; margin-top: 0.2rem; font-size: 0.7rem; line-height: 1.2; }
+.baseline-tag { padding: 0.08rem 0.45rem; border-radius: 999px; background: var(--text); color: #141416; font-weight: 600; }
+.baseline-set { gap: 0.25rem; padding: 0.08rem 0.4rem; border-radius: 999px; background: none; border: 1px dashed var(--line-strong); color: var(--dim); }
+.baseline-set:hover:not(:disabled) { color: var(--text); border-style: solid; border-color: var(--mute); background: none; }

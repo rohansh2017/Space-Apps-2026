@@ -35,7 +35,7 @@ test('F11: opened alternatives are pinned to the compare tray beside the plan', 
   await page.waitForTimeout(1200)
   await page.screenshot(shot('10-compare-tray'))
   // pins travel in the share link
-  expect(new URL(page.url()).searchParams.get('pins')).toMatch(/^[a-z0-9-]+:\d+@\d+$/)
+  expect(new URL(page.url()).searchParams.get('pins')).toMatch(/^plan,[a-z0-9-]+:\d+@\d+$/) // the live plan's column, then the pin
   // back to the plan keeps the pin
   await page.getByRole('button', { name: 'Back to plan' }).click()
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
@@ -312,4 +312,36 @@ test('the first view is quiet, and locations survive a reload from the bare addr
   await expect(page.getByTestId('view')).toContainText('2026-12-01 00:00 UTC landing')
   await expect(page.getByTestId('tray-pin')).toHaveCount(1)
   await expect(page.getByRole('button', { name: 'Planner' })).toHaveAttribute('aria-pressed', 'true') // mode is not stored
+})
+
+test('the tray starts empty; the plan is optional; any column can be the baseline the others are compared to', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  await page.getByRole('button', { name: 'Expand the timeline and comparison panel' }).click()
+  const tray = page.getByTestId('tray')
+  await expect(tray.locator('.tray-col')).toHaveCount(0) // nothing pinned, the plan included
+  await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  await page.getByRole('button', { name: 'Find alternatives' }).click()
+  await page.getByRole('button', { name: 'Pin #1 to the compare tray' }).click()
+  await page.getByRole('button', { name: 'Pin #2 to the compare tray' }).click()
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(2)
+  await expect(tray.getByTestId('tray-pin').first().getByTestId('baseline')).toBeVisible() // the first column is the baseline
+  // the plan joins as a column, and can leave again
+  await page.getByRole('button', { name: 'Add the plan' }).click()
+  await expect(tray.getByTestId('tray-plan')).toBeVisible()
+  // compare everything to #2 instead: its column carries no differences, the others are measured against it
+  await page.getByRole('button', { name: /^Compare the others to 165 km/ }).click()
+  const second = tray.getByTestId('tray-pin').nth(1)
+  await expect(second.getByTestId('baseline')).toBeVisible()
+  await expect(second.getByTestId('delta')).toHaveCount(0)
+  await expect(tray.getByTestId('tray-plan').getByTestId('delta').first()).toBeVisible()
+  expect(new URL(page.url()).searchParams.get('ref')).toMatch(/^im2-mons-mouton:\d+@\d+$/)
+  expect(new URL(page.url()).searchParams.get('pins')).toMatch(/^plan,/)
+  await page.getByRole('button', { name: 'Remove the plan from the tray' }).click()
+  await expect(tray.getByTestId('tray-plan')).toHaveCount(0)
+  await expect(second.getByTestId('baseline')).toBeVisible()
+  // unpinning the baseline hands the role to the first column left
+  await page.getByRole('button', { name: /^Unpin 165 km/ }).click()
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(1)
+  await expect(tray.getByTestId('baseline')).toHaveCount(0) // a single column has nothing to compare to
 })

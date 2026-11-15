@@ -41,10 +41,11 @@ the bottom panel drops and rises with the tab on its top edge, and resizes by dr
 double-click resets it). Choose a site and date (UTC) in
 the Plan panel on the left, drag the lunar-day scrubber or press Play, drag inside the 3D view to look
 around. Slip the date and press *Find alternatives*. Open a result: it is pinned to the *Compare* tray
-at the bottom, beside the plan, and every column follows the same scrubber. Pin up to three (the pin
-on each result, or *Pin this view*); pins travel in the copied link. The tray reads like a table: one row
-per metric, the best value in each row in bold, differences against the plan beside each pin. *Make this
-the plan* on a pin swaps it with the plan. Nudge the plan 500 m or a day and
+at the bottom, beside the plan, and every column follows the same scrubber. The tray starts empty: pin up to four
+scenarios (the pin on each result, or *Pin this view*), and add your live plan with *Add the plan* if you want it
+there. One column is the baseline (the first, until you press *Compare to this* on another): every other column
+shows its differences from it, and the best value in each row is bold. The tray, the plan's place in it and the
+baseline travel in the copied link. *Make this the plan* on a pin swaps it with the plan. Nudge the plan 500 m or a day and
 watch the plan's tiles change. Type a custom coordinate, or open *Map* on the left rail and click
 either map; the region map colours each 500 m cell by its sunlit % for the mission window. Open
 *Scenario matrix* and click a cell. Plan, Map and Scenario matrix share the left edge, so opening one closes the

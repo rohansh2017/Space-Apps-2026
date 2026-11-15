@@ -92,13 +92,25 @@ function SiteMap({ data, site, point, illumination, onPick }: Props) {
       if (!s.terrain) continue
       const [x, y] = px(...latLonToXY(s.lat, s.lon))
       const selected = s.id === site.id
+      // the canvas is drawn at 560 px and shown about half that, so marks are sized up; a dark halo keeps them clear of the hillshade
       g.beginPath()
-      g.arc(x, y, selected ? 9 : 6, 0, 2 * Math.PI)
-      g.fillStyle = selected ? '#ece8e1' : '#9a948a'
-      g.fill()
-      g.lineWidth = 2
-      g.strokeStyle = '#0a0c11'
+      g.arc(x, y, selected ? 14 : 10, 0, 2 * Math.PI)
+      g.fillStyle = selected ? '#ffffff' : '#ece8e1'
+      g.lineWidth = 5
+      g.strokeStyle = 'rgb(5 6 8 / 85%)'
       g.stroke()
+      g.fill()
+      if (selected) {
+        g.beginPath()
+        g.arc(x, y, 21, 0, 2 * Math.PI)
+        g.lineWidth = 3
+        g.strokeStyle = '#ffffff'
+        g.stroke()
+        g.beginPath()
+        g.arc(x, y, 5, 0, 2 * Math.PI)
+        g.fillStyle = '#050608'
+        g.fill()
+      }
     }
   }
 
@@ -122,11 +134,19 @@ function SiteMap({ data, site, point, illumination, onPick }: Props) {
     }
     if (point) {
       const [x, y] = px(point.x, point.y)
+      // the plan's point: a white ring over a dark halo, with a centre dot, readable on any sunlit-% colour
       g.beginPath()
-      g.arc(x, y, 10, 0, 2 * Math.PI)
-      g.lineWidth = 3
-      g.strokeStyle = '#ece8e1'
+      g.arc(x, y, 15, 0, 2 * Math.PI)
+      g.lineWidth = 8
+      g.strokeStyle = 'rgb(5 6 8 / 80%)'
       g.stroke()
+      g.lineWidth = 4
+      g.strokeStyle = '#ffffff'
+      g.stroke()
+      g.beginPath()
+      g.arc(x, y, 4, 0, 2 * Math.PI)
+      g.fillStyle = '#ffffff'
+      g.fill()
     }
     // north (away from the pole) at this site, as an arrow in the corner
     const lon = (site.lon * Math.PI) / 180

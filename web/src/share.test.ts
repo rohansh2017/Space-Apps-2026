@@ -15,13 +15,13 @@ describe('shareable URL', () => {
     expect(p.get('room')).toBe('tb-abc123')
     expect(p.toString()).toBe('room=tb-abc123&site=connecting-ridge&point=241&t=2026-12-01T00%3A00Z&c=max_continuous_dark_hours%3A60%2Clanding_sun_and_earth_visible%3Afalse&mode=explorer')
     const d = decodeShare(p)
-    expect(d).toEqual({ site: 'connecting-ridge', point: 241, utc: '2026-12-01T00:00Z', constraints: { max_continuous_dark_hours: 60, landing_sun_and_earth_visible: false }, mode: 'explorer', pins: [] })
+    expect(d).toEqual({ site: 'connecting-ridge', point: 241, utc: '2026-12-01T00:00Z', constraints: { max_continuous_dark_hours: 60, landing_sun_and_earth_visible: false }, mode: 'explorer', pins: [], planInTray: false })
     expect(Date.parse(d.utc!)).toBe(Date.parse('2026-12-01T00:00:00Z'))
   })
   it('leaves defaults out and ignores junk', () => {
     const p = encodeShare(new URLSearchParams(), { site: 'haworth', point: null, utc: '2026-11-19T00:00:00.000Z', constraints: defaults, defs, mode: 'planner' })
     expect(p.toString()).toBe('site=haworth&t=2026-11-19T00%3A00Z')
-    expect(decodeShare(new URLSearchParams('point=abc&t=yesterday&c=nonsense,:5&mode=god&pins=x,haworth:9@abc'))).toEqual({ constraints: {}, pins: [] })
+    expect(decodeShare(new URLSearchParams('point=abc&t=yesterday&c=nonsense,:5&mode=god&pins=x,haworth:9@abc&ref=x'))).toEqual({ constraints: {}, pins: [], planInTray: false })
   })
   it('round-trips pinned scenarios', () => {
     const pins = [{ point: 'change7-shackleton-rim:382', hour: 8112 }, { point: 'im2-mons-mouton:220', hour: 8064 }]
@@ -39,4 +39,14 @@ it('only locations are stored, and a link with its own site wins over them', () 
   expect(withStoredLocations(new URLSearchParams('site=b'), stored).get('site')).toBe('b')
   expect(withStoredLocations(new URLSearchParams('room=tb-x'), stored).has('site')).toBe(false)
   expect(withStoredLocations(new URLSearchParams(''), null).toString()).toBe('')
+})
+
+it('round-trips the live plan column and the baseline', () => {
+  const defs = [] as never[]
+  const p = encodeShare(new URLSearchParams(), { site: 'haworth', point: null, utc: '2026-11-19T00:00:00.000Z', constraints: {}, defs, mode: 'planner',
+    pins: [{ point: 'haworth:3', hour: 7 }], planInTray: true, ref: 'haworth:3@7' })
+  expect(p.get('pins')).toBe('plan,haworth:3@7')
+  const d = decodeShare(p)
+  expect([d.planInTray, d.pins, d.ref]).toEqual([true, [{ point: 'haworth:3', hour: 7 }], 'haworth:3@7'])
+  expect(decodeShare(new URLSearchParams('ref=plan')).ref).toBe('plan')
 })

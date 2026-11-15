@@ -314,3 +314,7 @@ Team request (D54): default view is the Plan panel with the card, HUD and band f
 ## 2026-11-15 — `make check-changed` (branch `feat/quiet-first-view`)
 
 Team request (D55): per-push checks limited to what the changed files can affect; full `make check` kept for merges to `main` and deploys. Verified: docs-only change → nothing runs; this branch → lint, typecheck, 1 unit-test file, all browser tests, room test (passed, 3 min 8 s). CLAUDE.md, README updated.
+
+## 2026-11-15 — Baseline of your choice, optional plan column, clearer map marks (branch `feat/quiet-first-view`)
+
+Team request (D56). Tray starts empty, the plan is an optional column, *Compare to this* sets the baseline; carried in the link and stored locations. Tray hint removed. Map markers enlarged with dark halos. New e2e test (empty start, add/remove plan, change baseline, unpin baseline); the shared `expandPanels` helper adds the plan and opens the compare-mode disclosure so earlier tests keep their meaning; fixed the disclosure folding on a site change. Checked in Chromium at 1440×900 (empty tray, three columns with the plan or a pin as baseline, map drawer).
