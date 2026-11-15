@@ -133,6 +133,11 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .result-actions { display: flex; align-items: center; gap: 0.25rem; }
 .result-actions button:not(.icon-button) { font-size: 0.78rem; padding: 0.25rem 0.5rem; }
 .result-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.copilot-lead { margin: 0.4rem 0 0.6rem; padding: 0.5rem 0.6rem; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--raised); font-size: 0.86rem; }
+.whynot { margin: 0; font-size: 0.8rem; }
+.whynot strong { color: var(--text); }
+.whynot button { font-size: 0.76rem; padding: 0.15rem 0.45rem; }
+.results-panel > .whynot { margin: 0 0 0.5rem; }
 .stale { margin: 0 0 0.6rem; padding: 0.5rem 0.6rem; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--raised); font-size: 0.84rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 
 /* the band: timeline + signature panorama on the left, compare tray on the right */

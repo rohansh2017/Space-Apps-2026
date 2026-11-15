@@ -71,23 +71,24 @@ export function templateDescription(f: HorizonFacts): string {
     + `Over the next ${span(f.window_hours)} the Sun clears it ${f.sunlit_pct}% of the time, never more than ${f.sun_max_elevation_deg}° high. ${sun}; ${earth}.`
 }
 
-/** Numbers Gemini may use: every numeric fact, its rounded forms, and day/hour conversions of the countdowns. */
-export function allowedNumbers(f: HorizonFacts): Set<string> {
+/** A number and the forms Gemini may legitimately write it in (as given, whole, one decimal). */
+export function allowedFrom(values: (number | null)[]): Set<string> {
   const out = new Set<string>()
-  const add = (v: number | null) => {
-    if (v === null) return
+  for (const v of values) {
+    if (v === null || !Number.isFinite(v)) continue
     for (const s of [String(v), v.toFixed(0), v.toFixed(1), Math.round(v).toString()]) out.add(s.replace(/\.0$/, ''))
   }
-  for (const v of [f.ridge_elevation_deg, f.lowest_elevation_deg, f.window_hours, f.sunlit_pct, f.sun_max_elevation_deg]) add(v)
+  return out
+}
+
+/** Numbers Gemini may use: every numeric fact, its rounded forms, and day/hour conversions of the countdowns. */
+export function allowedNumbers(f: HorizonFacts): Set<string> {
+  const values: (number | null)[] = [f.ridge_elevation_deg, f.lowest_elevation_deg, f.window_hours, f.sunlit_pct, f.sun_max_elevation_deg]
   for (const h of [f.hours_to_sun_change, f.hours_to_earth_change, f.window_hours]) {
-    add(h)
-    if (h !== null) {
-      add(Math.round(h / 24))
-      add(Math.round((h / 24) * 10) / 10)
-      add(Math.floor(h / 24))
-      add(h % 24)
-    }
+    values.push(h)
+    if (h !== null) values.push(Math.round(h / 24), Math.round((h / 24) * 10) / 10, Math.floor(h / 24), h % 24)
   }
+  const out = allowedFrom(values)
   out.add('30') // "more than 30 days"
   return out
 }
@@ -98,10 +99,14 @@ export function numbersCheck(text: string, f: HorizonFacts): boolean {
   return (text.match(/-?\d+(?:\.\d+)?/g) ?? []).every((n) => allowed.has(n.replace(/^-/, '').replace(/\.0$/, '')) || allowed.has(n))
 }
 
-/** A reply that refuses or talks about the task instead of the horizon is not a description. */
-export function looksLikeDescription(text: string): boolean {
-  return text.length > 30 && /\b(sun|earth|ridge|skyline|horizon)\b/i.test(text) && !/\b(cannot|can't|unable|not (?:contain|possible|provided)|as specified|the facts do not)\b/i.test(text)
+const REFUSAL = /\b(cannot|can't|unable|not (?:contain|possible|provided)|as specified|the facts do not)\b/i
+
+/** A reply that refuses or talks about the task instead of the subject is not usable prose. */
+export function looksLikeProse(text: string, subject: RegExp): boolean {
+  return text.length > 30 && subject.test(text) && !REFUSAL.test(text)
 }
+
+export const looksLikeDescription = (text: string) => looksLikeProse(text, /\b(sun|earth|ridge|skyline|horizon)\b/i)
 
 export async function askDescription(facts: HorizonFacts): Promise<string> {
   const r = await fetch('/api/describe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ facts }) })

@@ -70,8 +70,10 @@ the 3D view invents.
 
 On the deployed site two more things work that need the Cloudflare Worker: the *Mission room* header
 button (start a room, open its link in a second browser; both follow each other), *Interpret with Gemini* under the
-constraints ("survive 4 days of dark, talk to Earth half the time") and *Describe with Gemini* under
-the panorama. Locally those report an error and everything else still works; the horizon sentence
+constraints ("survive 4 days of dark, talk to Earth half the time"), *Plan the slip* beside it ("we slip 3 days,
+move to Haworth, need Earth in view the whole time": one Gemini call, you confirm, the finder runs), *Say it plainly*
+on the "Why not?" line of a failing plan, and *Describe with Gemini* under the panorama. Gemini only reads and
+words things; every number is the engine's. Locally those report an error and everything else still works; the horizon sentence
 then stays the engine's own template.
 
 ## Architecture in five lines

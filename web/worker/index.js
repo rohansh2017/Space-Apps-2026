@@ -1,9 +1,12 @@
 // Data files under /data/ come from the R2 bucket (same paths as web/public/data); the copy bundled
 // with the static assets is the fallback. /room/{id} is the mission room WebSocket (F24).
-// /api/constraints turns a typed sentence into constraint JSON through Gemini (F21); /api/describe puts horizon facts into words (F22).
+// /api/constraints turns a typed sentence into constraint JSON through Gemini (F21); /api/describe puts horizon facts into words (F22);
+// /api/copilot turns a slip scenario into a plan for the finder (F26); /api/whynot rephrases why a plan fails (F27).
 // Everything else is a static asset.
 import { describeHorizon } from './describe.js'
+import { planSlip } from './copilot.js'
 import { constraintsFromSentence } from './gemini.js'
+import { explainWhyNot } from './whynot.js'
 
 export { MissionRoom } from './room.js'
 
@@ -15,6 +18,8 @@ export default {
     const { pathname } = new URL(request.url)
     if (pathname === '/api/constraints') return constraintsFromSentence(request, env)
     if (pathname === '/api/describe') return describeHorizon(request, env)
+    if (pathname === '/api/copilot') return planSlip(request, env)
+    if (pathname === '/api/whynot') return explainWhyNot(request, env)
     if (pathname.startsWith('/room/')) {
       const id = pathname.slice('/room/'.length)
       if (!ROOM_ID.test(id)) return new Response('Room ids are 3 to 40 lower-case letters, digits or dashes', { status: 400 })

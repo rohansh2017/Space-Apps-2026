@@ -22,9 +22,13 @@ export function parseSuggestion(defs: ConstraintDef[], raw: unknown): Suggestion
   return { values, rejected }
 }
 
+const cache = new Map<string, unknown>() // the same sentence is never sent twice in a session (tokens are limited)
+
 export async function askGemini(sentence: string): Promise<unknown> {
+  if (cache.has(sentence)) return cache.get(sentence)
   const r = await fetch('/api/constraints', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sentence }) })
   const body = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
+  cache.set(sentence, body.values)
   return body.values
 }

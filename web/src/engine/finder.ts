@@ -24,6 +24,7 @@ export interface FinderResult {
   results: Scored[] // best start per candidate, best first; the baseline pair itself is excluded
   evaluated: number // (candidate, start) pairs scored
   ms: number
+  planPassStart: number | null // F27: earliest hour, from the planned one, at which the plan's own point meets everything (null: none in the slip range)
 }
 
 const better = (a: Evaluation, b: Evaluation) => a.fails < b.fails || (a.fails === b.fails && a.score > b.score)
@@ -57,10 +58,16 @@ export function runFinder(
   const series = (ci: number) => buildSeries(table, first, n, frames[ci], candidates[ci].mask, minEarthEl)
 
   let baseline: Scored | null = null
+  let planPassStart: number | null = null
   const best: Scored[] = []
   candidates.forEach((_, ci) => {
     const p = series(ci)
-    if (ci === 0) baseline = score(0, p, start)
+    if (ci === 0) {
+      baseline = score(0, p, start)
+      // F27: walk the plan's own point hourly (forward only); windowMetrics walks run segments, so this stays cheap
+      for (let s = start; s <= lastStart && planPassStart === null; s++)
+        if (evaluate(windowMetrics(p, s - first, dur), candidates[0].slopeDeg, c, weights).fails === 0) planPassStart = s
+    }
     let top: Scored | null = null
     for (let s = first; s <= lastStart; s += 24) {
       if (ci === 0 && s === start) continue // the plan itself is not an alternative
@@ -81,7 +88,7 @@ export function runFinder(
     }
   }
   results.sort((a, b) => (better(a.evaluation, b.evaluation) ? -1 : better(b.evaluation, a.evaluation) ? 1 : 0))
-  return { baseline: baseline!, results, evaluated, ms: performance.now() - t0 }
+  return { baseline: baseline!, results, evaluated, ms: performance.now() - t0, planPassStart }
 }
 
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
@@ -121,4 +128,32 @@ export function diffParts(base: Candidate, baseScored: Scored, cand: Candidate, 
 export function diffText(base: Candidate, baseScored: Scored, cand: Candidate, scored: Scored): string {
   const { where, when, metrics } = diffParts(base, baseScored, cand, scored)
   return `${where}, ${when}: ${metrics}`
+}
+
+/** F27: what a failing constraint would have to be set to for this point and date to pass. */
+export interface Relaxation {
+  id: string
+  actual: number | boolean // what the point achieves (hours, %, degrees; days for sunlight)
+  limit: number | boolean // what the constraint asks for now
+  needed: number | boolean // the loosest-change value that passes
+}
+
+/** Read straight from the metrics: no search, no rounding that could make a "needed" value still fail. */
+export function relaxations(m: Metrics, slopeDeg: number, c: Constraints, e: Evaluation): Relaxation[] {
+  const out: Relaxation[] = []
+  for (const [id, pass] of Object.entries(e.passes)) {
+    if (pass) continue
+    if (id === 'min_continuous_sun_days') {
+      const days = Math.floor((m.longestLitH / 24) * 10) / 10 // round down so needed × 24 ≤ longest lit
+      out.push({ id, actual: days, limit: Number(c[id]), needed: days })
+    } else if (id === 'max_continuous_dark_hours') out.push({ id, actual: m.longestDarkH, limit: Number(c[id]), needed: m.longestDarkH })
+    else if (id === 'min_earth_visible_pct') {
+      const pct = Math.floor(m.earthPct)
+      out.push({ id, actual: pct, limit: Number(c[id]), needed: pct })
+    } else if (id === 'max_slope_deg') {
+      const deg = Math.ceil(slopeDeg)
+      out.push({ id, actual: deg, limit: Number(c[id]), needed: deg })
+    } else if (id === 'landing_sun_and_earth_visible') out.push({ id, actual: false, limit: true, needed: false })
+  }
+  return out
 }
