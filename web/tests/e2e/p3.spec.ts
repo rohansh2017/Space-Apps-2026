@@ -93,6 +93,18 @@ test('scenario matrix: sites by landing dates, click-through to 3D', async ({ pa
 test('lunar-day playback advances the scrubber and reports the frame rate', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
+  // the browser's own frame cap on an empty page: the ceiling for the app's number (macOS halves it on low battery)
+  await page.setContent('<body style="background:#000"></body>')
+  const cap = await page.evaluate(() => new Promise<number>((resolve) => {
+    let frames = 0
+    const t0 = performance.now()
+    requestAnimationFrame(function tick(now) {
+      frames++
+      if (now - t0 >= 2000) resolve((frames * 1000) / (now - t0))
+      else requestAnimationFrame(tick)
+    })
+  }))
+  console.log(`PERF Empty page in the same browser (frame cap): ${cap.toFixed(0)} fps`)
   await page.goto('/')
   await expect(page.getByTestId('view')).toContainText('Plan:')
   await page.waitForTimeout(1500)

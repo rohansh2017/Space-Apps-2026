@@ -44,7 +44,8 @@ per metric, the best value in each row in bold, differences against the plan bes
 the plan* on a pin swaps it with the plan. Nudge the plan 500 m or a day and
 watch the plan's tiles change. Type a custom coordinate, or open *Map* on the left rail and click
 either map; the region map colours each 500 m cell by its sunlit % for the mission window. Open
-*Scenario matrix* and click a cell. Switch to Explorer mode and press *Start tour*. *Copy link* gives
+*Scenario matrix* and click a cell. Plan, Map and Scenario matrix share the left edge, so opening one closes the
+others. The alternatives list folds into its top-right corner with its minimize button and reopens from the chip. Switch to Explorer mode and press *Start tour*. *Copy link* gives
 a URL that reopens the same plan. *About the data* (bottom right) lists the sources and everything
 the 3D view invents.
 

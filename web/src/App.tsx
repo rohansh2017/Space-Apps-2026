@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Info, LayoutGrid, Link2, Map as MapIcon, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
+import { ChevronDown, ChevronUp, Info, ListOrdered, LayoutGrid, Link2, Map as MapIcon, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Chips from './Chips'
@@ -37,11 +37,18 @@ const HOUR_MS = 3_600_000
 const START_HOUR = 7728 // 2026-11-19 00:00 UTC
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16)
 
-/** Panel opens and closes morph instead of jumping (View Transitions, ~200 ms); instant where unsupported or with reduced motion. */
-function smooth(update: () => void) {
+/**
+ * Panel opens and closes morph instead of jumping (View Transitions, ~200 ms); instant where unsupported or with reduced
+ * motion. `after` runs once the new layout is in the DOM (focus moves there).
+ */
+function smooth(update: () => void, after?: () => void) {
   const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown }
-  if (!doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) update()
-  else doc.startViewTransition(() => flushSync(update))
+  const run = () => {
+    flushSync(update)
+    after?.()
+  }
+  if (!doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) run()
+  else doc.startViewTransition(run)
 }
 
 /** A scenario is a grid point and a landing hour; the plan, finder results, pins and the 3D view all use it. */
@@ -73,6 +80,9 @@ export default function App() {
   const [hudOpen, setHudOpen] = useState(true)
   const [statusOpen, setStatusOpen] = useState(true)
   const [bandOpen, setBandOpen] = useState(true)
+  const [resultsMin, setResultsMin] = useState(false) // the alternatives folded into their corner
+  const [resultsFresh, setResultsFresh] = useState(false) // a search just finished: the list plays its entrance
+  const resultsChip = useRef<HTMLButtonElement | null>(null)
   const [bandHeight, setBandHeight] = useState<number | null>(null) // null = sized by its content
   const [idle, setIdle] = useState(false) // full screen: chrome fades out while the pointer rests
   const beforeFullscreen = useRef<{ side: boolean; hud: boolean; status: boolean; band: boolean } | null>(null)
@@ -373,6 +383,8 @@ export default function App() {
       if (!reply.ok) throw new Error(reply.error)
       const result = reply.result!
       setFound({ finder: result, candidates, constraints })
+      setResultsMin(false)
+      setResultsFresh(true)
       setViewing(null)
       setStale(false)
       const passing = result.results.filter((r) => r.evaluation.fails === 0).length
@@ -513,6 +525,7 @@ export default function App() {
       // cinematic: the terrain gets the screen; every panel is one click away
       smooth(() => {
         setSideOpen(false)
+        setDrawer(null)
         setHudOpen(false)
         setStatusOpen(false)
         setBandOpen(false)
@@ -560,7 +573,7 @@ export default function App() {
     const now = bandHeight ?? band.current?.getBoundingClientRect().height ?? 300
     setBandHeight(Math.min(max, Math.max(min, Math.round(now + (e.key === 'ArrowUp' ? 24 : -24)))))
   }
-  const closeDrawer = useCallback(() => setDrawer(null), [])
+  const closeDrawer = useCallback(() => smooth(() => setDrawer(null)), [])
   /** Make a pinned scenario the plan: it takes the plan's place, and the old plan takes its column in the tray. */
   const adoptPin = (key: string) => {
     const ref = pins.find((p) => refKey(p) === key)
@@ -574,8 +587,16 @@ export default function App() {
     setAnnounce('The pinned scenario is now the plan; the previous plan is pinned in its place.')
     focusView.current = true
   }
-  const openMatrix = () => {
-    setDrawer(drawer === 'matrix' ? null : 'matrix')
+  /** Plan, Map and Scenario matrix share the left edge: one at a time, and all open and close the same way. */
+  const openPanel = (which: 'plan' | 'map' | 'matrix') => {
+    const isOpen = which === 'plan' ? sideOpen : drawer === which
+    smooth(() => {
+      setSideOpen(which === 'plan' && !isOpen)
+      setDrawer(which === 'plan' || isOpen ? (drawer === 'room' ? 'room' : null) : which)
+    })
+    if (which === 'matrix' && !isOpen) loadMatrix()
+  }
+  const loadMatrix = () => {
     if (!matrix) {
       setMatrix(true)
       loadAll().catch((e) => {
@@ -671,15 +692,13 @@ export default function App() {
         <p className="sr-only" aria-live="polite" data-testid="announcer">{announce}</p>
 
         <nav className="rail" aria-label="Tools">
-          {!sideOpen && (
-            <button type="button" className="rail-button" onClick={() => smooth(() => setSideOpen(true))}>
-              <PanelLeftOpen size={18} aria-hidden="true" /><span>Plan</span>
-            </button>
-          )}
-          <button type="button" className="rail-button" ref={mapButton} aria-expanded={drawer === 'map'} onClick={() => setDrawer(drawer === 'map' ? null : 'map')}>
+          <button type="button" className="rail-button" aria-expanded={sideOpen} onClick={() => openPanel('plan')}>
+            <PanelLeftOpen size={18} aria-hidden="true" /><span>Plan</span>
+          </button>
+          <button type="button" className="rail-button" ref={mapButton} aria-expanded={drawer === 'map'} onClick={() => openPanel('map')}>
             <MapIcon size={18} aria-hidden="true" /><span>Map</span>
           </button>
-          <button type="button" className="rail-button" ref={matrixButton} aria-expanded={drawer === 'matrix'} onClick={openMatrix}>
+          <button type="button" className="rail-button" ref={matrixButton} aria-expanded={drawer === 'matrix'} onClick={() => openPanel('matrix')}>
             <LayoutGrid size={18} aria-hidden="true" /><span>Scenario matrix</span>
           </button>
         </nav>
@@ -799,7 +818,13 @@ export default function App() {
                   <p className="tag" data-testid="fill-tag">In shadow · view brightened so the terrain stays visible</p>
                 )}
               </div>
-              {found && <Results finder={found.finder} candidates={found.candidates} opened={openedIndex >= 0 ? openedIndex : null} date={date} stale={stale}
+              {found && resultsMin && (
+                <button type="button" className="results-chip" ref={resultsChip} aria-label={`Show the ${found.finder.results.length} alternatives`}
+                  onClick={() => smooth(() => setResultsMin(false), () => resultsHeading.current?.focus())}>
+                  <ListOrdered size={15} aria-hidden="true" />Alternatives <span className="count">{found.finder.results.length}</span>
+                </button>
+              )}
+              {found && !resultsMin && <Results finder={found.finder} fresh={resultsFresh} onMinimize={() => smooth(() => { setResultsMin(true); setResultsFresh(false) }, () => resultsChip.current?.focus())} candidates={found.candidates} opened={openedIndex >= 0 ? openedIndex : null} date={date} stale={stale}
                 headingRef={resultsHeading} onRerun={runFinder} busy={busy} constraints={found.constraints}
                 pinned={pinnedKeys} onPin={(i) => { const r = resultRef(i); if (r) togglePin(r) }}
                 onOpen={(i) => {
@@ -904,6 +929,8 @@ export default function App() {
         {drawer === 'map' && (
           <Drawer title="Map" side="left" onClose={closeDrawer} returnFocus={mapButton} testId="drawer-map">
             <SiteMap data={data} site={site} point={planPoint} illumination={illumination} onPick={locate} />
+            {/* invariant 9: a map click snaps to the grid and says how far; the Plan panel is closed while the map is open */}
+            {snapNote && <p className="note snap" role="status" data-testid="snap-note">{snapNote}</p>}
           </Drawer>
         )}
         {drawer === 'matrix' && (

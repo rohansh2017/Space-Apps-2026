@@ -245,3 +245,33 @@ test('panels collapse, the band resizes, and full screen goes cinematic then res
   await expect(page.getByTestId('tray')).toBeVisible()
   await expect(page.getByRole('complementary', { name: 'Plan and constraints' })).toBeVisible()
 })
+
+test('Plan, Map and Scenario matrix open one at a time; the alternatives fold into their corner and back', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  const side = page.getByRole('complementary', { name: 'Plan and constraints' })
+  await expect(side).toBeVisible()
+  await page.getByRole('button', { name: 'Map', exact: true }).click()
+  await expect(page.getByTestId('drawer-map')).toBeVisible()
+  await expect(side).toHaveCount(0) // opening Map closed Plan
+  await page.getByRole('button', { name: 'Scenario matrix' }).click()
+  await expect(page.getByTestId('drawer-matrix')).toBeVisible()
+  await expect(page.getByTestId('drawer-map')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Plan', exact: true }).click()
+  await expect(side).toBeVisible()
+  await expect(page.locator('.drawer')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Plan', exact: true }).click() // the rail button toggles it closed too
+  await expect(side).toHaveCount(0)
+  await page.getByRole('button', { name: 'Plan', exact: true }).click()
+
+  await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  await page.getByRole('button', { name: 'Find alternatives' }).click()
+  await expect(page.getByTestId('result').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Minimize the alternatives' }).click()
+  await expect(page.getByTestId('result')).toHaveCount(0)
+  const chip = page.getByRole('button', { name: /^Show the 10 alternatives$/ })
+  await expect(chip).toBeFocused()
+  await chip.click()
+  await expect(page.getByTestId('result')).toHaveCount(10)
+  await expect(page.locator('#results-heading')).toBeFocused()
+})

@@ -1,4 +1,4 @@
-import { Pin, PinOff } from 'lucide-react'
+import { Minimize2, Pin, PinOff } from 'lucide-react'
 import type { RefObject } from 'react'
 import Chips from './Chips'
 import type { Constraints } from './engine/engine'
@@ -18,13 +18,20 @@ interface Props {
   constraints: Constraints // the values this search ran with (they may have changed since)
   pinned: Set<string> // keys (point@hour) already in the compare tray
   onPin: (i: number) => void // toggles the result in the compare tray
+  onMinimize: () => void // folds the panel into its top-right corner
+  fresh: boolean // just searched: play the entrance
 }
 
-export default function Results({ finder, candidates, opened, date, onOpen, stale, busy, onRerun, headingRef, constraints, pinned, onPin }: Props) {
+export default function Results({ finder, candidates, opened, date, onOpen, stale, busy, onRerun, headingRef, constraints, pinned, onPin, onMinimize, fresh }: Props) {
   const passing = finder.results.filter((r) => r.evaluation.fails === 0).length
   return (
-    <section className="results-panel" aria-labelledby="results-heading">
-      <h2 id="results-heading" ref={headingRef} tabIndex={-1}>Alternatives</h2>
+    <section className={fresh ? 'results-panel fresh' : 'results-panel'} aria-labelledby="results-heading">
+      <div className="results-head">
+        <h2 id="results-heading" ref={headingRef} tabIndex={-1}>Alternatives</h2>
+        <button type="button" className="icon-button" onClick={onMinimize} aria-label="Minimize the alternatives" title="Minimize">
+          <Minimize2 size={15} aria-hidden="true" />
+        </button>
+      </div>
       {stale && (
         <p className="stale" data-testid="results-stale">
           Out of date: the constraints changed after this search, so the pass/fail marks below no longer apply.{' '}
