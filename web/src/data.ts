@@ -47,6 +47,22 @@ export interface Basemap {
   globe?: { file: string; projection: 'equirectangular'; lon0_deg: number; row0: 'north'; source: string } // whole Moon (D60)
   context?: { half_width_m: number; res_m: number; format: 'jpeg'; source: string; files: Record<string, string> } // +-32 km around each site (D62)
   regions: { half_width_m: number; files: Record<string, string> }
+  relief?: Relief // the Moon view's elevation (D67)
+}
+
+/** A 16-bit elevation grid: metres above R = 1,737,400 m = offset_m + value x scale_m; its heights span offset_m to max_m. */
+export interface ReliefFile {
+  file: string
+  offset_m: number
+  scale_m: number
+  max_m: number
+}
+
+/** Elevation for the Moon view's 3D relief, real-Sun shading and Topo layer (D67), in the same axes as the hillshades. */
+export interface Relief {
+  globe: ReliefFile & { width_px: number; source: string } // equirectangular, 2:1
+  pole: ReliefFile & { half_width_m: number; size_px: number; source: string }
+  context: { half_width_m: number; size_px: number; source: string; files: Record<string, ReliefFile> }
 }
 
 export const dataUrl = (file: string) => BASE + file
@@ -213,11 +229,11 @@ export function loadSitePoint(region: string, index: number): Promise<SitePoint>
 
 const heightmaps = new Map<string, Promise<Uint16Array>>()
 
-/** A site heightmap, decoded once and shared by the ground view and the Moon view's 5 m layer. A failed load is not cached. */
-export function loadHeightmap(file: string, size: number): Promise<Uint16Array> {
+/** A 16-bit heightmap (a site's, or a relief grid), decoded once and shared by the ground view and the Moon view. A failed load is not cached. */
+export function loadHeightmap(file: string, size: number, rows = size): Promise<Uint16Array> {
   let p = heightmaps.get(file)
   if (!p) {
-    p = decodeHeightmap(file, size)
+    p = decodeHeightmap(file, size, rows)
     p.catch(() => heightmaps.delete(file))
     heightmaps.set(file, p)
   }
@@ -225,26 +241,29 @@ export function loadHeightmap(file: string, size: number): Promise<Uint16Array> 
 }
 
 /** Decode a 16-bit greyscale PNG written by horizonwalk.export.write_png16. */
-async function decodeHeightmap(file: string, size: number): Promise<Uint16Array> {
+async function decodeHeightmap(file: string, size: number, rows: number): Promise<Uint16Array> {
   const bytes = new Uint8Array(await (await get(file)).arrayBuffer())
   const view = new DataView(bytes.buffer)
   const idat: Uint8Array[] = []
   for (let p = 8; p < bytes.length; ) {
     const len = view.getUint32(p)
     const type = String.fromCharCode(...bytes.subarray(p + 4, p + 8))
-    if (type === 'IHDR' && (view.getUint32(p + 8) !== size || bytes[p + 16] !== 16 || bytes[p + 17] !== 0))
-      throw new Error(`${file}: expected ${size} px 16-bit greyscale`)
+    if (type === 'IHDR' && (view.getUint32(p + 8) !== size || view.getUint32(p + 12) !== rows || bytes[p + 16] !== 16 || bytes[p + 17] !== 0))
+      throw new Error(`${file}: expected ${size} x ${rows} px 16-bit greyscale`)
     if (type === 'IDAT') idat.push(bytes.subarray(p + 8, p + 8 + len))
     p += 12 + len
   }
   const stream = new Blob(idat as BlobPart[]).stream().pipeThrough(new DecompressionStream('deflate'))
   const raw = new DataView(await new Response(stream).arrayBuffer())
   const stride = 1 + size * 2
-  if (raw.byteLength !== stride * size) throw new Error(`${file}: unexpected pixel data size`)
-  const out = new Uint16Array(size * size)
-  for (let r = 0; r < size; r++) {
-    // shortcut: only PNG filter 0 is handled (our writer emits nothing else); add unfiltering if another tool writes these
-    if (raw.getUint8(r * stride) !== 0) throw new Error(`${file}: unsupported PNG filter`)
+  if (raw.byteLength !== stride * rows) throw new Error(`${file}: unexpected pixel data size`)
+  const out = new Uint16Array(size * rows)
+  const bytes2 = new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength)
+  for (let r = 0; r < rows; r++) {
+    // only PNG filters 0 (None) and 2 (Up) are handled: our writer emits nothing else (export.write_png16)
+    const f = bytes2[r * stride]
+    if (f === 2 && r > 0) for (let k = 1; k < stride; k++) bytes2[r * stride + k] = (bytes2[r * stride + k] + bytes2[(r - 1) * stride + k]) & 255
+    else if (f !== 0 && f !== 2) throw new Error(`${file}: unsupported PNG filter`)
     for (let c = 0; c < size; c++) out[r * size + c] = raw.getUint16(r * stride + 1 + c * 2)
   }
   return out

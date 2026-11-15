@@ -23,7 +23,7 @@ below (the original build brief, `SUPER_PROMPT.md`, was retired on 2026-11-15).
 ## Commands
 
 `make setup` · `make data-download` · `make data` (real) · `make data-fixtures` (synthetic) ·
-`make data-globe` (whole-Moon hillshade, needs only the LOLA global DEM) · `make data-context` (per-site 20 m context maps, needs only the 20 m DEM) · `make dev-api` (local Worker on 8788 for Gemini and the room; run beside `make dev`) · `make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` ·
+`make data-globe` (whole-Moon hillshade, needs only the LOLA global DEM) · `make data-context` (per-site 20 m context maps, needs only the 20 m DEM) · `make data-relief` (Moon-view elevation grids, needs only the 20 m DEM and the LOLA global DEM) · `make dev-api` (local Worker on 8788 for Gemini and the room; run beside `make dev`) · `make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` ·
 `make e2e-room` (mission room on a local Worker) · `make perf` ·
 `make check` (lint + typecheck + test + parity + e2e + e2e-room) · `make check-changed` (only what the changes since `main` can affect; `PLAN=1` prints the plan) · `make dev` · `make build` ·
 `make deploy` (uploads `web/public/data` to R2, then publishes) · `make e2e-live` (all browser tests, room and Gemini included, against the live site).
@@ -71,6 +71,7 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
   `basemaps/*.png`: 8-bit greyscale hillshade, square, stereographic x/y axes (row 0 = +y, col 0 = −x), centred on the pole or the region's site.
   `context{half_width_m, res_m, format: "jpeg", source, files{region: file}}` (D62; writer `build/scripts/build_context.py`): `basemaps/context/{region}.jpg`, 8-bit greyscale JPEG hillshade from the 20 m DEM, square, ±32 km around the region's site, same axes as the region maps.
   `globe{file, projection: "equirectangular", lon0_deg: 0, row0: "north", source}` (D60; writer `build/scripts/build_globe.py`): `basemaps/globe.png`, 8-bit greyscale hillshade of the whole Moon, 2:1, col 0 = 0°E eastward, row 0 = 90°N, pixel-registered.
+  `relief{globe{file, width_px, offset_m, scale_m, max_m, source}, pole{file, half_width_m, size_px, offset_m, scale_m, max_m, source}, context{half_width_m, size_px, source, files{region: {file, offset_m, scale_m, max_m}}}}` (D67; writer `build/scripts/build_relief.py`): `basemaps/relief/{globe,pole,context/{region}}.png`, 16-bit greyscale heights, metres above R = offset_m + value × scale_m (0.5 m steps), PNG filter 2 (Up) on every row; the globe 2:1 in globe.png's axes, the pole and context grids square in the pole and context maps' axes (±304 km and ±32 km).
 - `constraints.schema.json` (hand-authored): `constraints[]{id, type, unit, min, max, default}`.
 - Room message: `{type: "state", site_id, point_index (grid index or null), utc, constraints{id: value}, sender}` (`shared/fixtures/room_message.json`);
   the room also sends `{type: "presence", count}`. Route `/room/{id}` (WebSocket) → Durable Object `MissionRoom` (`web/worker/room.js`).

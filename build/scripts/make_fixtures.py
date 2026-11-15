@@ -93,6 +93,14 @@ def main() -> None:
         "synthetic fixture",
         synthetic=True,
     )
+    export.write_relief(
+        OUT,
+        rng.normal(0, 500, (64, 128)),
+        rng.normal(0, 500, (128, 128)),
+        {k: rng.normal(0, 100, (64, 64)) for k in regions},
+        {"globe": "synthetic fixture", "polar": "synthetic fixture"},
+        synthetic=True,
+    )
     export.write_json(OUT / "tour.json", {
         "synthetic": True,
         "steps": [{"id": "placeholder", "title": "Placeholder step", "body": "Mock tour text."}],

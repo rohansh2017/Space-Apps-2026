@@ -1,15 +1,15 @@
 import { OrbitControls } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Eye, Pin, PinOff, Target } from 'lucide-react'
+import { Eye, Mountain, Pin, PinOff, Target } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as THREE from 'three'
-import type { Dataset, Point, Site } from './data'
+import type { Dataset, Point, Relief, Site } from './data'
 import { dataUrl, loadHeightmap } from './data'
 import type { Constraints } from './engine/engine'
 import { EPHEM_STRIDE, R_MOON_KM, siteFrame } from './engine/engine'
-import type { GridStats, Verdict } from './moon'
-import { easeInOut, flyPose, latLonToMe, meToThree, pickGrid, siteHillshade, xyToMe } from './moon'
+import type { GridStats, ReliefGrid, Verdict, Vec3 } from './moon'
+import { contourInterval, easeInOut, flyPose, latLonToMe, meToThree, packRG8, pickGrid, reliefAt, siteHillshade, threeToMe, xyToMe } from './moon'
 import { starField } from './starfield'
 import { LABELS } from './presets'
 import { EARTH_RAMP, SUN_RAMP, colour } from './ramp'
@@ -22,8 +22,12 @@ const NEAR_POLE = 0.005
 const NEAR_SITE = 0.0002
 const DROP = 0.1 // the orbit centre sits this share of the height below the middle, clear of the cards along the top
 const GRAB_PX = 18 // a press this close to the landing marker drags it instead of orbiting
-// Display aid: the night side is drawn at a quarter of the day side's brightness so its relief stays readable.
+// Display aid: before the relief loads, the night side is drawn at a quarter of the day side's brightness so its relief stays readable.
 const NIGHT = 0.25
+// Display aids on the real-Sun relief (D67, named in About the data): an exposure curve 1 - exp(-k x reflectance), and
+// ground the Sun does not reach drawn from the fixed-light hillshade at this share, so craters in shadow keep their shape.
+const EXPOSURE = 3
+const SHADOW_FLOOR = 0.14
 const SUN = '#f0b955'
 const EARTH = '#5fa8ff'
 const OK = '#86d3a1'
@@ -85,18 +89,54 @@ function polePose(): Pose {
   return { target: POLE.clone(), up: POLE.clone(), pos: POLE.clone().multiplyScalar(1 + d * Math.cos(tilt)).add(new THREE.Vector3(-d * Math.sin(tilt), 0, 0)) }
 }
 
-/** Above a site, tilted to look across it toward the pole. */
-function sitePose(lat: number, lon: number): Pose {
+/** Above a site, tilted to look across it toward the pole; `lift` is the raised ground's radius there (1 = the sphere). */
+function sitePose(lat: number, lon: number, lift = 1): Pose {
   const f = siteFrame(lat, lon, 0)
   const n = new THREE.Vector3(...meToThree(f.up))
   const north = new THREE.Vector3(...meToThree(f.north))
   const [d, tilt] = [km(17), 42 * RAD]
-  return { target: n.clone(), up: n.clone(), pos: n.clone().multiplyScalar(1 + d * Math.cos(tilt)).add(north.multiplyScalar(d * Math.sin(tilt))) }
+  return { target: n.clone().multiplyScalar(lift), up: n.clone(), pos: n.clone().multiplyScalar(lift + d * Math.cos(tilt)).add(north.multiplyScalar(d * Math.sin(tilt))) }
 }
 
-// Hillshade draped on the exact sphere. Texture coordinates come from the fragment's own position through the
-// stereographic projection (no trigonometry, precise near the pole), so they do not depend on the mesh's UVs.
-// The day/night line is the real Sun direction on a smooth sphere: no terrain shadows at this scale.
+// Terrain draped on the sphere and, once the relief grids arrive (D67), raised by their heights (x exag) and lit by the
+// hour's real Sun with cast shadows. Texture coordinates come from the point's own direction through the stereographic
+// projection (no trigonometry, precise near the pole), so they do not depend on the meshes' UVs.
+// Relief textures are RG8 (high byte, low byte of the 16-bit grid, moon.ts packRG8), the image's row 0 at v = 0.
+const R_M = R_MOON_KM * 1000
+const RELIEF_GLSL = `
+  uniform sampler2D rGlobe; uniform sampler2D rPole; uniform sampler2D rCtx; uniform sampler2D rSite;
+  uniform float hasRGlobe; uniform float hasRPole; uniform float hasRCtx; uniform float hasRSite;
+  uniform vec2 osGlobe; uniform vec2 osPole; uniform vec2 osCtx; uniform vec2 osSite; // offset_m, scale_m
+  uniform vec4 cells; // pixel size in metres: globe, pole, context, site
+  uniform float hwPole; uniform float hwContext; uniform vec2 centre;
+  uniform vec3 siteC; uniform vec3 siteE; uniform vec3 siteN; uniform float sitePx; uniform float siteSpan;
+  float rg(sampler2D t, vec2 uv, vec2 os) { vec2 c = texture2D(t, uv).rg; return os.x + (c.r * 65280.0 + c.g * 255.0) * os.y; }
+  // height in metres above R of a unit MOON_ME direction: the finest loaded grid, blended over its edge; cell = its pixel size
+  float relief(vec3 me, out float cell) {
+    float h = 0.0;
+    cell = cells.x;
+    if (hasRGlobe > 0.5) h = rg(rGlobe, vec2(fract(atan(me.y, me.x) / 6.2831853), 0.5 - asin(clamp(me.z, -1.0, 1.0)) / 3.1415927), osGlobe);
+    if (me.z > -0.5) return h;
+    vec2 st = 2.0 * vec2(me.y, me.x) / (1.0 - me.z);
+    vec2 uv = (st + hwPole) / (2.0 * hwPole);
+    vec2 e = min(uv, 1.0 - uv);
+    float w = hasRPole * smoothstep(0.0, 0.04, min(e.x, e.y));
+    if (w > 0.0) { h = mix(h, rg(rPole, vec2(uv.x, 1.0 - uv.y), osPole), w); cell = mix(cell, cells.y, w); }
+    uv = (st - centre + hwContext) / (2.0 * hwContext);
+    e = min(uv, 1.0 - uv);
+    w = hasRCtx * smoothstep(0.0, 0.03, min(e.x, e.y));
+    if (w > 0.0) { h = mix(h, rg(rCtx, vec2(uv.x, 1.0 - uv.y), osCtx), w); cell = mix(cell, cells.z, w); }
+    if (hasRSite > 0.5) {
+      vec3 d = me - siteC;
+      float c = siteSpan / (sitePx - 1.0);
+      vec2 u3 = vec2((dot(d, siteE) * ${R_M.toFixed(1)} + siteSpan * 0.5) / c + 0.5, (siteSpan * 0.5 - dot(d, siteN) * ${R_M.toFixed(1)}) / c + 0.5) / sitePx;
+      e = min(u3, 1.0 - u3);
+      w = smoothstep(0.0, 0.03, min(e.x, e.y));
+      if (w > 0.0) { h = mix(h, rg(rSite, u3, osSite), w); cell = mix(cell, cells.w, w); }
+    }
+    return h;
+  }`
+
 const globeShader = () => ({
   uniforms: {
     poleMap: { value: null as THREE.Texture | null }, regionMap: { value: null as THREE.Texture | null }, hasPole: { value: 0 }, hasRegion: { value: 0 },
@@ -105,15 +145,54 @@ const globeShader = () => ({
     contextMap: { value: null as THREE.Texture | null }, hasContext: { value: 0 }, hwContext: { value: 1 },
     siteMap: { value: null as THREE.Texture | null }, hasSite: { value: 0 }, siteC: { value: new THREE.Vector3() }, siteE: { value: new THREE.Vector3() },
     siteN: { value: new THREE.Vector3() }, sitePx: { value: 1 }, siteSpan: { value: 1 },
+    rGlobe: { value: null as THREE.Texture | null }, rPole: { value: null as THREE.Texture | null }, rCtx: { value: null as THREE.Texture | null }, rSite: { value: null as THREE.Texture | null },
+    hasRGlobe: { value: 0 }, hasRPole: { value: 0 }, hasRCtx: { value: 0 }, hasRSite: { value: 0 },
+    osGlobe: { value: new THREE.Vector2() }, osPole: { value: new THREE.Vector2() }, osCtx: { value: new THREE.Vector2() }, osSite: { value: new THREE.Vector2() },
+    cells: { value: new THREE.Vector4(10_000, 600, 62.5, 5) },
+    exag: { value: 1 }, steps: { value: 40 }, ctxMesh: { value: 0 },
+    topo: { value: 0 }, contour: { value: 500 }, topoRange: { value: new THREE.Vector2(-8000, 8000) },
   },
-  vertexShader: 'varying vec3 p; void main() { p = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform sampler2D poleMap; uniform sampler2D regionMap; uniform float hasPole; uniform float hasRegion;
-    uniform float hwPole; uniform float hwRegion; uniform vec2 centre; uniform vec3 sunDir; varying vec3 p;
-    uniform sampler2D globeMap; uniform float hasGlobe; uniform sampler2D contextMap; uniform float hasContext; uniform float hwContext;
-    uniform sampler2D siteMap; uniform float hasSite; uniform vec3 siteC; uniform vec3 siteE; uniform vec3 siteN; uniform float sitePx; uniform float siteSpan;
+  vertexShader: `${RELIEF_GLSL}
+    uniform float exag; varying vec3 p; varying vec3 wpos;
+    void main() {
+      vec3 q = normalize(position);
+      float cell;
+      float h = hasRPole + hasRGlobe > 0.0 ? relief(vec3(q.x, -q.z, q.y), cell) : 0.0;
+      p = q;
+      wpos = q * (1.0 + exag * h / ${R_M.toFixed(1)});
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(wpos, 1.0);
+    }`,
+  fragmentShader: `${RELIEF_GLSL}
+    uniform sampler2D poleMap; uniform sampler2D regionMap; uniform float hasPole; uniform float hasRegion;
+    uniform float hwRegion; uniform vec3 sunDir; varying vec3 p; varying vec3 wpos;
+    uniform sampler2D globeMap; uniform float hasGlobe; uniform sampler2D contextMap; uniform float hasContext;
+    uniform sampler2D siteMap; uniform float hasSite;
+    uniform float clip; uniform float ctxMesh; uniform int steps; uniform float topo; uniform float contour; uniform vec2 topoRange;
+    const float R = ${R_M.toFixed(1)};
+    // visible fraction of the Sun's 0.53 degree disk over the terrain toward it (the same disk model as the engine's masks)
+    float sunVisible(vec3 me, float h0, vec3 sun, float alt, float cell) {
+      if (alt < -0.09) return 0.0; // more than 5 degrees below the level horizon: no polar peak sees it
+      vec3 dir = normalize(sun - dot(sun, me) * me);
+      float d = cell;
+      float f = pow(200000.0 / cell, 1.0 / float(max(steps - 1, 1)));
+      float best = -1.0;
+      for (int i = 0; i < 64; i++) {
+        if (i >= steps) break;
+        float c;
+        float hh = relief(normalize(me + dir * (d / R)), c);
+        best = max(best, (hh - h0 - d * d / (2.0 * R)) / d);
+        if (atan(best) > alt + 0.0047) return 0.0;
+        d *= f;
+      }
+      return clamp((alt - atan(best)) / 0.00925 + 0.5, 0.0, 1.0);
+    }
     void main() {
       vec3 q = normalize(p);
       vec3 me = vec3(q.x, -q.z, q.y); // three.js axes to MOON_ME
+      vec2 st = 2.0 * vec2(me.y, me.x) / max(1.0 - me.z, 0.25); // south polar stereographic, units of R
+      // each mesh leaves the inside of the next finer one to it (D67): globe < polar patch < context patch
+      if (clip < 0.5 && me.z < 0.0 && max(abs(st.x), abs(st.y)) < hwPole * 0.97) discard;
+      if (clip > 0.5 && clip < 1.5 && ctxMesh > 0.5 && max(abs(st.x - centre.x), abs(st.y - centre.y)) < hwContext * 0.97) discard;
       // the whole Moon (LOLA LDEM_16, equirectangular): of two longitude seams take the one that does not jump here,
       // so mipmapping draws no line along 0 or 180 degrees (moon.ts globeUV)
       float lon = atan(me.y, me.x) / 6.2831853;
@@ -121,7 +200,6 @@ const globeShader = () => ({
       float u2 = fract(lon + 0.5) - 0.5;
       float gu = fwidth(u1) <= fwidth(u2) + 1e-7 ? u1 : u2;
       float shade = mix(0.11, texture2D(globeMap, vec2(gu, 0.5 + asin(clamp(me.z, -1.0, 1.0)) / 3.1415927)).r, hasGlobe);
-      vec2 st = 2.0 * vec2(me.y, me.x) / max(1.0 - me.z, 0.25); // south polar stereographic, units of R
       vec2 uv = (st + hwPole) / (2.0 * hwPole);
       vec2 edge = min(uv, 1.0 - uv);
       shade = mix(shade, texture2D(poleMap, uv).r, hasPole * smoothstep(0.0, 0.04, min(edge.x, edge.y)) * step(0.0, -me.z));
@@ -131,15 +209,70 @@ const globeShader = () => ({
       shade = mix(shade, texture2D(contextMap, uvc).r, hasContext * smoothstep(0.0, 0.03, min(edgec.x, edgec.y)));
       vec2 uv2 = (st - centre + hwRegion) / (2.0 * hwRegion);
       vec2 edge2 = min(uv2, 1.0 - uv2);
-      shade = mix(shade, texture2D(regionMap, uv2).r, hasRegion * smoothstep(0.0, 0.02, min(edge2.x, edge2.y)));
+      float wRegion = hasRegion * smoothstep(0.0, 0.02, min(edge2.x, edge2.y));
+      shade = mix(shade, texture2D(regionMap, uv2).r, wRegion);
       // the site's own heightmap (5 m where PGDA has a site DEM), shaded in the browser (moon.ts siteUV, siteHillshade)
       vec3 d = me - siteC;
       float cell = siteSpan / (sitePx - 1.0);
-      vec2 uv3 = vec2((dot(d, siteE) * 1737400.0 + siteSpan * 0.5) / cell + 0.5, (siteSpan * 0.5 - dot(d, siteN) * 1737400.0) / cell + 0.5) / sitePx;
+      vec2 uv3 = vec2((dot(d, siteE) * R + siteSpan * 0.5) / cell + 0.5, (siteSpan * 0.5 - dot(d, siteN) * R) / cell + 0.5) / sitePx;
       vec2 edge3 = min(uv3, 1.0 - uv3);
-      shade = mix(shade, texture2D(siteMap, uv3).r, hasSite * smoothstep(0.0, 0.02, min(edge3.x, edge3.y)));
-      float lit = smoothstep(-0.0046, 0.0046, dot(q, sunDir)); // the Sun is a 0.53 degree disk
-      gl_FragColor = vec4(vec3(1.0, 0.985, 0.96) * shade * mix(${NIGHT.toFixed(2)}, 1.0, lit), 1.0);
+      float wSite = hasSite * smoothstep(0.0, 0.02, min(edge3.x, edge3.y));
+      shade = mix(shade, texture2D(siteMap, uv3).r, wSite);
+      vec3 sun = vec3(sunDir.x, -sunDir.z, sunDir.y);
+      vec3 colour;
+      float h0 = 0.0;
+      float hs = 0.0; // h0 smoothed over its 4 neighbours a pixel away, for the Topo layer
+      float hcell = cells.x;
+      if (hasRPole + hasRGlobe < 0.5) {
+        // no relief yet: the fixed-light hillshade, day and night split on the smooth sphere
+        float lit = smoothstep(-0.0046, 0.0046, dot(q, sunDir)); // the Sun is a 0.53 degree disk
+        colour = vec3(1.0, 0.985, 0.96) * shade * mix(${NIGHT.toFixed(2)}, 1.0, lit);
+      } else {
+        // the real Sun on the LOLA relief: Lommel-Seeliger reflectance on the slope, the Sun's disk over the terrain toward it
+        h0 = relief(me, hcell);
+        vec3 t1 = normalize(cross(abs(me.z) < 0.9 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0), me));
+        vec3 t2 = cross(me, t1);
+        float a = hcell / R;
+        float c;
+        float e1 = relief(me + t1 * a, c);
+        float w1 = relief(me - t1 * a, c);
+        float e2 = relief(me + t2 * a, c);
+        float w2 = relief(me - t2 * a, c);
+        float g1 = (e1 - w1) / (2.0 * hcell);
+        float g2 = (e2 - w2) / (2.0 * hcell);
+        hs = (2.0 * h0 + e1 + w1 + e2 + w2) / 6.0;
+        vec3 n = normalize(me - g1 * t1 - g2 * t2);
+        vec3 eye = normalize(vec3(cameraPosition.x, -cameraPosition.z, cameraPosition.y) - vec3(wpos.x, -wpos.z, wpos.y));
+        float mu0 = dot(n, sun);
+        float mu = max(dot(n, eye), 0.05);
+        float alt = asin(clamp(dot(me, sun), -1.0, 1.0));
+        float vis = mu0 > 0.0 ? sunVisible(me, h0 + 2.0, sun, alt, hcell) : 0.0;
+        float ls = mu0 > 0.0 ? mu0 / (mu0 + mu) : 0.0;
+        // display aids (About the data): an exposure curve, and ground out of the Sun drawn dim with the basemaps' fixed
+        // light (from the image's upper left at 35 degrees, relief x3), from these heights, or from the 20 m region map
+        // and the 5 m site heightmap's shading where those are loaded
+        vec3 lh = vec3(0.7071, -0.7071, 0.0) - (0.7071 * me.x - 0.7071 * me.y) * me; // stereographic upper left, along the ground
+        vec3 light = normalize(0.8192 * lh / max(length(lh), 1e-4) + 0.5736 * me);
+        float fixedLit = pow(clamp(dot(normalize(me - 3.0 * (g1 * t1 + g2 * t2)), light), 0.0, 1.0), 2.2); // decoded like the PNGs
+        float floorShade = mix(fixedLit, shade, max(wRegion, wSite));
+        float v = max(1.0 - exp(-${EXPOSURE.toFixed(1)} * ls * vis), ${SHADOW_FLOOR.toFixed(2)} * floorShade);
+        colour = vec3(1.0, 0.985, 0.96) * v;
+      }
+      if (topo > 0.5 && hasRPole + hasRGlobe > 0.5) {
+        // Topo layer (D68): violet bands one contour apart, contour lines, every fifth one heavier
+        float iv = hcell < 30.0 ? contour / 5.0 : contour;
+        float band = clamp((floor(hs / iv) * iv - topoRange.x) / (topoRange.y - topoRange.x), 0.0, 1.0);
+        float lum = clamp(dot(colour, vec3(0.333)), 0.0, 1.0);
+        vec3 ramp = mix(vec3(0.024, 0.012, 0.089), vec3(0.6, 0.54, 0.9), band); // #2b1c54 to #cbc2f3, linear
+        colour = ramp * (0.7 + 0.4 * lum); // the light stays readable under the bands
+        // lines a pixel wide, faded out where they would crowd closer than a few pixels (no speckle)
+        float fw = max(fwidth(hs), 1e-3);
+        float line = (1.0 - smoothstep(0.5, 1.4, abs(fract(hs / iv + 0.5) - 0.5) * iv / fw)) * clamp(iv / (fw * 5.0) - 0.5, 0.0, 1.0);
+        float major = (1.0 - smoothstep(1.0, 2.2, abs(fract(hs / (5.0 * iv) + 0.5) - 0.5) * 5.0 * iv / fw)) * clamp(iv / fw - 0.5, 0.0, 1.0);
+        vec3 ink = band > 0.55 ? vec3(0.02, 0.01, 0.06) : vec3(0.95, 0.92, 1.0); // dark lines on light bands, light on dark
+        colour = mix(colour, ink, max(line * 0.55, major * 0.9));
+      }
+      gl_FragColor = vec4(colour, 1.0);
       #include <colorspace_fragment>
     }`,
 })
@@ -165,37 +298,117 @@ function useHillshade(file: string | undefined, onLoad: (t: THREE.Texture) => vo
   }, [file])
 }
 
-function Globe({ data, hour, region }: { data: Dataset; hour: number; region: Site | null }) {
-  const fine = region !== null
-  const material = useMemo(() => new THREE.ShaderMaterial(globeShader()), [])
-  // Rotated so the mesh's own poles (where its triangles pinch) sit on the lunar equator, not under the view.
-  // 2 degree facets are enough at pole level. At region zoom a cap of 0.5 degree facets (chord sag under about 20 m)
-  // covers 20 degrees around the pole, every site and its view included, and the whole sphere drops 1.7 km below it:
-  // the same detail as a 720 x 360 sphere where it is seen, at 1/40 of the triangles.
+/** A 16-bit relief grid as a linear RG8 texture (no mipmaps: they would round the high byte, moon.ts packRG8). */
+function reliefTexture(values: Uint16Array, w: number, h: number, wrap: boolean): THREE.DataTexture {
+  const t = new THREE.DataTexture(packRG8(values), w, h, THREE.RGFormat, THREE.UnsignedByteType)
+  t.minFilter = THREE.LinearFilter
+  t.magFilter = THREE.LinearFilter
+  t.generateMipmaps = false
+  t.unpackAlignment = 2
+  t.wrapS = wrap ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping
+  t.wrapT = THREE.ClampToEdgeWrapping
+  t.needsUpdate = true
+  return t
+}
+
+/** A relief grid fetched and decoded once `file` is set; a failure leaves the coarser layers (nothing is lost). */
+function useRelief(file: string | undefined, w: number, h: number, onLoad: (values: Uint16Array) => void) {
+  const invalidate = useThree((s) => s.invalidate)
+  useEffect(() => {
+    if (!file) return
+    let live = true
+    loadHeightmap(file, w, h).then((v) => {
+      if (!live) return
+      onLoad(v)
+      invalidate()
+    }, () => undefined)
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file])
+}
+
+/** A square patch of the unit sphere in stereographic x/y (metres) around (cx, cy), n x n quads: dense where it is looked at. */
+function stereoPatch(cx: number, cy: number, half: number, n: number): THREE.BufferGeometry {
+  const g = new THREE.PlaneGeometry(1, 1, n, n)
+  const pos = g.attributes.position as THREE.BufferAttribute
+  for (let k = 0; k < pos.count; k++) pos.setXYZ(k, ...meToThree(xyToMe(cx + pos.getX(k) * 2 * half, cy + pos.getY(k) * 2 * half)))
+  g.deleteAttribute('normal')
+  g.computeBoundingSphere()
+  return g
+}
+
+/** The relief grids loaded so far, coarse to fine, for picking and placing things on the raised terrain. */
+export interface ReliefGrids {
+  globe: ReliefGrid | null
+  pole: ReliefGrid | null
+  context: ReliefGrid | null
+  site: ReliefGrid | null
+}
+
+function Globe({ data, hour, region, exag, topo, grids, onGrids }: {
+  data: Dataset; hour: number; region: Site | null; exag: number; topo: boolean; grids: React.RefObject<ReliefGrids>; onGrids: () => void
+}) {
+  const relief = data.basemap.relief
+  const materials = useMemo(() => {
+    const base = globeShader()
+    // one uniform set, three clip modes: each mesh leaves the inside of the next finer one to it
+    return [0, 1, 2].map((clip) => new THREE.ShaderMaterial({ ...base, uniforms: { ...base.uniforms, clip: { value: clip } }, side: clip ? THREE.DoubleSide : THREE.FrontSide }))
+  }, [])
+  const material = materials[0]
+  // Rotated so the mesh's own poles (where its triangles pinch) sit on the lunar equator, not under the view. 2 degree
+  // facets are enough for the whole Moon; the polar cap and a site's context have their own dense patches (D67).
   const geometry = useMemo(() => new THREE.SphereGeometry(1, 180, 90).rotateX(Math.PI / 2), [])
-  const cap = useMemo(() => new THREE.SphereGeometry(1, 80, 80, 70 * RAD, 40 * RAD, 70 * RAD, 40 * RAD).rotateX(Math.PI / 2), [])
+  // a software renderer (CI, old machines) gets coarser patches and a short shadow march; GPUs get the full detail
+  const gl = useThree((s) => s.gl)
+  const soft = useMemo(() => {
+    const ctx = gl.getContext()
+    const info = ctx.getExtension('WEBGL_debug_renderer_info')
+    return /swiftshader|llvmpipe|software/i.test(String(info ? ctx.getParameter(info.UNMASKED_RENDERER_WEBGL) : ctx.getParameter(ctx.RENDERER)))
+  }, [gl])
+  const segs = soft ? 160 : 512
+  const polePatch = useMemo(() => stereoPatch(0, 0, data.basemap.pole.half_width_m, segs), [data, segs])
+  const ctxPatch = useMemo(() => {
+    if (!region) return null
+    const [x, y] = xyOf(region)
+    return stereoPatch(x, y, data.basemap.context?.half_width_m ?? relief?.context.half_width_m ?? 32_000, segs)
+  }, [region, data, relief, segs])
+  useEffect(() => () => ctxPatch?.dispose(), [ctxPatch])
   useEffect(() => () => {
     geometry.dispose()
-    cap.dispose()
-    material.dispose()
-  }, [geometry, cap, material])
+    polePatch.dispose()
+    materials.forEach((m) => m.dispose())
+  }, [geometry, polePatch, materials])
   const uniforms = useCallback(() => material.uniforms as Uniforms, [material])
   const invalidate = useThree((s) => s.invalidate)
   const [poleReady, setPoleReady] = useState(false)
+  const [poleRelief, setPoleRelief] = useState(false)
   const textures = useRef<THREE.Texture[]>([])
   useEffect(() => {
     const loaded = textures.current
     return () => loaded.forEach((t) => t.dispose())
   }, [])
   useLayoutEffect(() => {
+    uniforms().steps.value = soft ? 6 : 40
+  }, [soft, uniforms])
+  useLayoutEffect(() => {
     const u = uniforms()
-    u.hwPole.value = data.basemap.pole.half_width_m / (R_MOON_KM * 1000)
-    u.hwRegion.value = data.basemap.regions.half_width_m / (R_MOON_KM * 1000)
-    u.hwContext.value = (data.basemap.context?.half_width_m ?? 1) / (R_MOON_KM * 1000)
+    u.hwPole.value = data.basemap.pole.half_width_m / R_M
+    u.hwRegion.value = data.basemap.regions.half_width_m / R_M
+    u.hwContext.value = (data.basemap.context?.half_width_m ?? relief?.context.half_width_m ?? 1) / R_M
     // the ephemeris is already in MOON_ME: only the change of axes is applied
     const i = hour * EPHEM_STRIDE
     u.sunDir.value.set(...meToThree([data.ephemeris[i], data.ephemeris[i + 1], data.ephemeris[i + 2]]))
-  }, [uniforms, data, hour])
+    u.exag.value = exag
+    u.ctxMesh.value = region ? 1 : 0
+    // Topo layer: contours and the colour ramp's range follow the level (D68)
+    u.topo.value = topo ? 1 : 0
+    u.contour.value = contourInterval(region ? 'site' : 'pole')
+    const r = topoRange(relief, region)
+    u.topoRange.value.set(r[0], r[1])
+    invalidate()
+  }, [uniforms, data, hour, exag, topo, region, relief, invalidate])
   useHillshade(data.basemap.pole.file, (t) => {
     const u = uniforms()
     u.poleMap.value = t
@@ -204,25 +417,55 @@ function Globe({ data, hour, region }: { data: Dataset; hour: number; region: Si
     setPoleReady(true)
   })
   // the whole Moon (about 2 MB) only after the polar map: the first frame does not wait for it
-  useHillshade(poleReady ? data.basemap.globe?.file : undefined, (t) => {
+  useHillshade(poleReady && !relief ? data.basemap.globe?.file : undefined, (t) => {
     const u = uniforms()
     t.wrapS = THREE.RepeatWrapping // the shader's second longitude seam runs from -0.5 to 0.5
     u.globeMap.value = t
     textures.current.push(t)
     u.hasGlobe.value = 1
   })
-  // the site's own heightmap (about 2 MB), shaded here like the basemaps, only once the camera comes within about
-  // 8 km of the site: from farther away the 20 m maps already match the screen (D62)
+  // relief (D67): the polar cap's grid after the polar map, the whole Moon's after that
+  useRelief(poleReady ? relief?.pole.file : undefined, relief?.pole.size_px ?? 0, relief?.pole.size_px ?? 0, (v) => {
+    const u = uniforms()
+    const p = relief!.pole
+    const t = reliefTexture(v, p.size_px, p.size_px, false)
+    textures.current.push(t)
+    u.rPole.value = t
+    u.osPole.value.set(p.offset_m, p.scale_m)
+    u.cells.value.y = (2 * p.half_width_m) / p.size_px
+    u.hasRPole.value = 1
+    grids.current.pole = { kind: 'stereo', values: v, n: p.size_px, cx: 0, cy: 0, half: p.half_width_m, offset: p.offset_m, scale: p.scale_m }
+    setPoleRelief(true)
+    onGrids()
+  })
+  const [gw, gh] = relief ? globeSize(relief) : [0, 0]
+  useRelief(poleRelief ? relief?.globe.file : undefined, gw, gh, (v) => {
+    const u = uniforms()
+    const g = relief!.globe
+    const t = reliefTexture(v, gw, gh, true)
+    textures.current.push(t)
+    u.rGlobe.value = t
+    u.osGlobe.value.set(g.offset_m, g.scale_m)
+    u.cells.value.x = (2 * Math.PI * R_M) / gw
+    u.hasRGlobe.value = 1
+    grids.current.globe = { kind: 'globe', values: v, w: gw, h: gh, offset: g.offset_m, scale: g.scale_m }
+    onGrids()
+  })
+  // the site's heightmap (about 2 MB), shaded here like the basemaps and used as the finest relief, only once the
+  // camera comes within about 8 km of the site: from farther away the 20 m maps already match the screen (D62)
   const hm = region?.heightmap ?? null
   const [closeTo, setCloseTo] = useState<string | null>(null)
   const siteVec = useMemo(() => (region ? new THREE.Vector3(...meToThree(latLonToMe(region.lat, region.lon))) : null), [region])
   useFrame(({ camera }) => {
-    if (region && siteVec && closeTo !== region.id && camera.position.distanceTo(siteVec) < 8 / R_MOON_KM) setCloseTo(region.id)
+    // the camera rides higher over raised terrain: the distance allows for the exaggerated height
+    if (region && siteVec && closeTo !== region.id && camera.position.distanceTo(siteVec) < (8 + 3 * exag) / R_MOON_KM) setCloseTo(region.id)
   })
   const near = Boolean(region && closeTo === region.id)
   useEffect(() => {
     const u = uniforms()
     u.hasSite.value = 0
+    u.hasRSite.value = 0
+    grids.current.site = null
     if (!region || !hm || !near) return
     let live = true
     loadHeightmap(hm.file, hm.size_px).then((heights) => {
@@ -239,50 +482,89 @@ function Globe({ data, hour, region }: { data: Dataset; hour: number; region: Si
       t.needsUpdate = true
       const f = siteFrame(region.lat, region.lon, 0)
       ;(u.siteMap.value as THREE.Texture | null)?.dispose()
+      ;(u.rSite.value as THREE.Texture | null)?.dispose()
       u.siteMap.value = t
-      u.siteC.value.set(...latLonToMe(region.lat, region.lon))
+      u.rSite.value = reliefTexture(heights, n, n, false)
+      u.osSite.value.set(hm.offset_m, hm.scale_m)
+      u.cells.value.w = hm.span_m / (n - 1)
+      const c = latLonToMe(region.lat, region.lon)
+      u.siteC.value.set(...c)
       u.siteE.value.set(...f.east)
       u.siteN.value.set(...f.north)
       u.sitePx.value = n
       u.siteSpan.value = hm.span_m
       u.hasSite.value = 1
+      u.hasRSite.value = 1
+      grids.current.site = { kind: 'site', values: heights, n, frame: f, centre: c, span: hm.span_m, offset: hm.offset_m, scale: hm.scale_m }
+      onGrids()
       invalidate()
     }, () => undefined) // without it the 20 m region map stays: nothing is lost
     return () => {
       live = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [region, hm, near, uniforms, invalidate])
-  // a new site: hide the old site's context and region maps until the new ones arrive (they share one centre)
+  // a new site: hide the old site's context and region maps and relief until the new ones arrive (they share one centre)
   const regionId = region?.id
   useLayoutEffect(() => {
     const u = uniforms()
     u.hasContext.value = 0
     u.hasRegion.value = 0
+    u.hasRCtx.value = 0
+    grids.current.context = null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regionId, uniforms])
+  const setCentre = (s: Site) => {
+    const [x, y] = xyOf(s)
+    uniforms().centre.value.set(x / R_M, y / R_M)
+  }
   // the site's context map, fetched when the site is flown to
-  useHillshade(region ? data.basemap.context?.files[region.id] : undefined, (t) => {
+  useHillshade(region && !relief ? data.basemap.context?.files[region.id] : undefined, (t) => {
     const u = uniforms()
-    const [x, y] = xyOf(region!)
+    setCentre(region!)
     u.contextMap.value = t
     textures.current.push(t)
-    u.centre.value.set(x / (R_MOON_KM * 1000), y / (R_MOON_KM * 1000))
     u.hasContext.value = 1
+  })
+  // and its context relief (+-32 km at 62.5 m)
+  const ctxFile = region ? relief?.context.files[region.id] : undefined
+  useRelief(ctxFile?.file, relief?.context.size_px ?? 0, relief?.context.size_px ?? 0, (v) => {
+    const u = uniforms()
+    const c = relief!.context
+    const [x, y] = xyOf(region!)
+    setCentre(region!)
+    ;(u.rCtx.value as THREE.Texture | null)?.dispose()
+    u.rCtx.value = reliefTexture(v, c.size_px, c.size_px, false)
+    u.osCtx.value.set(ctxFile!.offset_m, ctxFile!.scale_m)
+    u.cells.value.z = (2 * c.half_width_m) / c.size_px
+    u.hasRCtx.value = 1
+    grids.current.context = { kind: 'stereo', values: v, n: c.size_px, cx: x, cy: y, half: c.half_width_m, offset: ctxFile!.offset_m, scale: ctxFile!.scale_m }
+    onGrids()
   })
   // one region's hillshade at a time, fetched when its site is first flown to
   useHillshade(region ? data.basemap.regions.files[region.id] : undefined, (t) => {
     const u = uniforms()
-    const [x, y] = xyOf(region!)
+    setCentre(region!)
     u.regionMap.value = t // the previous region's texture is released with the view
     textures.current.push(t)
-    u.centre.value.set(x / (R_MOON_KM * 1000), y / (R_MOON_KM * 1000))
     u.hasRegion.value = 1
   })
   return (
     <>
-      <mesh geometry={geometry} material={material} scale={fine ? 0.999 : 1} />
-      {fine && <mesh geometry={cap} material={material} />}
+      <mesh geometry={geometry} material={materials[0]} frustumCulled={false} />
+      <mesh geometry={polePatch} material={materials[1]} frustumCulled={false} />
+      {ctxPatch && <mesh geometry={ctxPatch} material={materials[2]} frustumCulled={false} />}
     </>
   )
+}
+
+/** The globe relief grid's size: equirectangular, 2:1. */
+const globeSize = (r: Relief): [number, number] => [r.globe.width_px, r.globe.width_px / 2]
+
+/** The Topo ramp's height range: the polar grid's at pole level, the site's context grid's once flown down. */
+function topoRange(relief: Relief | undefined, region: Site | null): [number, number] {
+  const f = region ? relief?.context.files[region.id] : relief?.pole
+  return f ? [f.offset_m, f.max_m] : [-8000, 8000]
 }
 
 /** Stereographic x/y in metres of a site, through the same vector the shader uses. */
@@ -295,7 +577,10 @@ const vecOf = (lat: number, lon: number) => new THREE.Vector3(...meToThree(latLo
 type Controls = { enabled: boolean }
 
 /** Camera: orbit at the current level, and the fly between levels. Controls are rebuilt per level, because they read `camera.up` once. */
-function Rig({ dest, destKey, zoomed, controls }: { dest: Pose; destKey: string; zoomed: boolean; controls: React.RefObject<Controls | null> }) {
+function Rig({ dest, destKey, zoomed, controls, ground }: {
+  dest: Pose; destKey: string; zoomed: boolean; controls: React.RefObject<Controls | null>
+  ground: React.RefObject<(dir: THREE.Vector3) => number> // radius of the raised ground under a direction
+}) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const invalidate = useThree((s) => s.invalidate)
   const size = useThree((s) => s.size)
@@ -337,9 +622,28 @@ function Rig({ dest, destKey, zoomed, controls }: { dest: Pose; destKey: string;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destKey])
 
+  // the raised ground moved under a settled view (the height slider): carry the camera with its target
+  const lastTarget = useRef(dest.target.clone())
+  useLayoutEffect(() => {
+    if (settled === destKey && !flight.current && !lastTarget.current.equals(dest.target)) {
+      camera.position.add(dest.target.clone().sub(lastTarget.current))
+      invalidate()
+    }
+    lastTarget.current.copy(dest.target)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dest])
+
   useFrame(() => {
     const f = flight.current
-    if (!f) return
+    if (!f) {
+      // never below the raised terrain: the camera stays 300 m over the ground under it
+      const floor = ground.current(camera.position.clone().normalize()) + km(0.3)
+      if (camera.position.length() < floor) {
+        camera.position.setLength(floor)
+        invalidate()
+      }
+      return
+    }
     f.t0 ??= performance.now()
     const t = Math.min(1, (performance.now() - f.t0) / FLY_MS)
     const e = easeInOut(t)
@@ -421,6 +725,7 @@ const LABEL_AT: Record<string, [number, number]> = {
   'change7-shackleton-rim': [12, 20], 'peak-near-shackleton': [-12, 20], 'connecting-ridge': [-14, -4], 'faustini-rim-a': [14, 0],
   haworth: [-14, 0], 'malapert-massif': [-12, -12], 'im2-mons-mouton': [12, -14], 'nobile-rim-1': [14, 6], 'nobile-rim-2': [14, 0],
 }
+const km1 = (m: number) => `${(m / 1000).toFixed(1).replace('-', '−')} km`
 const short = (name: string) => name.replace(/ \(.*\)$/, '')
 
 function failing(v: Verdict): string[] {
@@ -457,15 +762,43 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
   const markerAt = useRef<[number, number] | null>(null)
   const dotAt = useRef<(index: number) => readonly [number, number] | null>(() => null)
   const [layer, setLayer] = useState<Layer>('verdict')
+  const [exag, setExag] = useState(3) // relief height exaggeration (D67): geometry only, never a number
+  const [topo, setTopo] = useState(false) // Topo layer (D68)
+  const cursorEl = useRef<HTMLSpanElement>(null)
+  // the relief grids loaded so far (Globe fills them), and a counter that re-places everything when one arrives
+  const grids = useRef<ReliefGrids>({ globe: null, pole: null, context: null, site: null })
+  const [gridsVersion, setGridsVersion] = useState(0)
+  const onGrids = useCallback(() => setGridsVersion((k) => k + 1), [])
+  const raised = gridsVersion > 0 && Boolean(grids.current.pole || grids.current.globe)
+  const lift = raised ? exag : 0 // the exaggeration the meshes are drawn with right now
+  /** Height in metres of the finest loaded grid under a MOON_ME direction. */
+  const heightAt = useCallback((me: Vec3) => {
+    const g = grids.current
+    return reliefAt([g.globe, g.pole, g.context, g.site], me)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridsVersion])
+  /** A unit-sphere point raised onto the drawn terrain, by a known height in metres or the grids' own. */
+  const raise = useCallback(
+    (v: THREE.Vector3, heightM?: number) => v.clone().multiplyScalar(1 + (lift * (heightM ?? heightAt(threeToMe(v.toArray() as Vec3)) ?? 0)) / R_M),
+    [lift, heightAt],
+  )
+  const ground = useRef<(dir: THREE.Vector3) => number>(() => 1)
+  useLayoutEffect(() => {
+    ground.current = (dir) => 1 + (lift * (heightAt(threeToMe(dir.toArray() as Vec3)) ?? 0)) / R_M
+  }, [lift, heightAt])
   const [hover, setHover] = useState<{ index: number; x: number; y: number; up: boolean } | null>(null)
   const [dragging, setDragging] = useState(false)
 
   const [poleVisit, setPoleVisit] = useState(0) // the Pole button at pole level flies back to the home pose after an orbit
-  const dest = useMemo(() => (zoomed ? sitePose(focus.lat, focus.lon) : polePose()), [zoomed, focus])
+  const focusElev = useMemo(
+    () => data.points.find((p) => p.region === focus.id && p.index === data.centreIndex)?.elev_m ?? heightAt(latLonToMe(focus.lat, focus.lon)) ?? 0,
+    [data, focus, heightAt],
+  )
+  const dest = useMemo(() => (zoomed ? sitePose(focus.lat, focus.lon, 1 + (lift * focusElev) / R_M) : polePose()), [zoomed, focus, lift, focusElev])
   const destKey = zoomed ? focus.id : `pole${poleVisit}`
   const toPole = () => (zoomed ? onBack() : setPoleVisit((n) => n + 1))
   const centre = useMemo(() => xyOf(focus), [focus])
-  const pinVecs = useMemo(() => new Map(data.sites.map((s) => [s.id, vecOf(s.lat, s.lon)])), [data])
+  const pinVecs = useMemo(() => new Map(data.sites.map((s) => [s.id, raise(vecOf(s.lat, s.lon))])), [data, raise])
   const n = 2 * data.centreIndex + 1
   const side = Math.sqrt(n)
   /** The focus site's grid points by index, on the unit sphere. */
@@ -475,14 +808,15 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
     const cells: THREE.Vector3[][] = new Array(n)
     const half = 250 // half a grid step: a point's cell
     for (const p of data.points) if (p.region === focus.id) {
-      out[p.index] = new THREE.Vector3(...meToThree(xyToMe(p.x, p.y)))
+      // on the raised terrain, at the point's own LOLA height
+      out[p.index] = raise(new THREE.Vector3(...meToThree(xyToMe(p.x, p.y))), p.elev_m)
       point[p.index] = p
-      cells[p.index] = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => new THREE.Vector3(...meToThree(xyToMe(p.x + sx * half, p.y + sy * half))))
+      cells[p.index] = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => raise(new THREE.Vector3(...meToThree(xyToMe(p.x + sx * half, p.y + sy * half))), p.elev_m))
     }
     return { vec: out, point, cells }
-  }, [data, focus, n])
-  const badgeVecs = useMemo(() => badges.map((b) => vecOf(b.lat, b.lon)), [badges])
-  const rings = useMemo(() => [-85, -88].map((lat) => ({ lat, line: Array.from({ length: 121 }, (_, k) => vecOf(lat, k * 3)) })), [])
+  }, [data, focus, n, raise])
+  const badgeVecs = useMemo(() => badges.map((b) => raise(vecOf(b.lat, b.lon))), [badges, raise])
+  const rings = useMemo(() => [-85, -88].map((lat) => ({ lat, line: Array.from({ length: 121 }, (_, k) => raise(vecOf(lat, k * 3))) })), [raise])
   const stats = zoomed && grid?.region === focus.id ? grid : null
 
   // --- the 2D overlay and the projected DOM elements, redrawn after every camera move
@@ -498,9 +832,9 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
     g.clearRect(0, 0, size.width, size.height)
     const eye = camera.position
     const v = new THREE.Vector3()
-    /** Screen position of a point on the unit sphere, or null behind the limb or the camera. */
+    /** Screen position of a point on the (raised) surface, or null behind the limb or the camera. */
     const at = (p: THREE.Vector3): readonly [number, number] | null => {
-      if (p.dot(eye) < 1) return null
+      if (p.dot(eye) < p.lengthSq()) return null
       v.copy(p).project(camera)
       if (v.z < -1 || v.z > 1) return null
       return [(v.x * 0.5 + 0.5) * size.width, (0.5 - v.y * 0.5) * size.height]
@@ -598,7 +932,7 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
     const bearing = (offset: number, el: HTMLElement | null, stroke: string, below: boolean) => {
       const d = new THREE.Vector3(...meToThree([data.ephemeris[hour * EPHEM_STRIDE + offset], data.ephemeris[hour * EPHEM_STRIDE + offset + 1], data.ephemeris[hour * EPHEM_STRIDE + offset + 2]]))
       d.addScaledVector(origin, -d.dot(origin)).normalize() // the direction along the ground
-      const tip = at(d.multiplyScalar(length).add(origin).normalize())
+      const tip = at(d.multiplyScalar(length).add(origin).setLength(origin.length()))
       if (o && tip) {
         g.setLineDash(below ? [4, 4] : []) // dashed while the body is below the level horizon
         g.lineWidth = 2
@@ -684,11 +1018,20 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
     const box = root.current?.getBoundingClientRect()
     if (!camera || !box) return null
     const far = new THREE.Vector3(((e.clientX - box.left) / box.width) * 2 - 1, 1 - ((e.clientY - box.top) / box.height) * 2, 0.5).unproject(camera)
-    return pickGrid(camera.position.toArray(), far.sub(camera.position).normalize().toArray(), centre[0], centre[1], side)
+    // on the terrain as drawn: the ray meets the raised ground, not the sphere under it (D67)
+    return pickGrid(camera.position.toArray(), far.sub(camera.position).normalize().toArray(), centre[0], centre[1], side, 500, raised ? heightAt : undefined, lift)
   }
-  const live = useRef({ pick, onPick, zoomed, draggable })
+  /** The Topo legend's height under the pointer: LOLA, from the finest loaded grid. */
+  const showHeight = (e: { clientX: number; clientY: number } | null) => {
+    const el = cursorEl.current
+    if (!el) return
+    const p = e && pick(e)
+    const h = p ? heightAt(latLonToMe(p.lat, p.lon)) : null
+    el.textContent = h === null ? 'point at the terrain for its height' : `${Math.round(h).toLocaleString('en-US').replace('-', '−')} m under the pointer`
+  }
+  const live = useRef({ pick, onPick, zoomed, draggable, showHeight })
   useLayoutEffect(() => {
-    live.current = { pick, onPick, zoomed, draggable }
+    live.current = { pick, onPick, zoomed, draggable, showHeight }
   })
 
   useEffect(() => {
@@ -717,7 +1060,8 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
       setHover(null)
     }
     const move = (e: PointerEvent) => {
-      const { zoomed, pick, onPick } = live.current
+      const { zoomed, pick, onPick, showHeight } = live.current
+      if (!e.buttons) showHeight(onCanvas(e.target) ? e : null)
       if (drag) {
         const p = pick(e)
         if (!p || `${p.index}:${p.outside}` === last) return
@@ -743,7 +1087,10 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
       const p = pick(e)
       if (p && !p.outside) onPick(p.lat, p.lon, false)
     }
-    const leave = () => setHover(null)
+    const leave = () => {
+      setHover(null)
+      live.current.showHeight(null)
+    }
     el.addEventListener('pointerdown', down, true)
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', up)
@@ -771,9 +1118,20 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
     }
   }
 
+  const relief = data.basemap.relief
+  const range = topoRange(relief, zoomed ? focus : null)
+  const interval = contourInterval(zoomed ? 'site' : 'pole')
   const foot = (
     <div className="moon-foot">
       <div className="moon-notes">{children}</div>
+      {topo && relief && (
+        <span className="note moon-topo" data-testid="moon-topo-legend">
+          {'Height above 1737.4 km '}
+          <span className="legend" aria-hidden="true">{km1(range[0])} <i className="topo-ramp" /> {km1(range[1])}</span>
+          {` · contours every ${interval} m${zoomed ? ` (${interval / 5} m on the 5 km site patch)` : ''}, heavy every ${(5 * interval).toLocaleString('en-US')} m · `}
+          <span ref={cursorEl} data-testid="moon-topo-height">point at the terrain for its height</span>
+        </span>
+      )}
       <div className="moon-bar" role="group" aria-label="Moon view">
         <button type="button" onClick={toPole} data-testid="moon-back" title={zoomed ? 'Fly back to the pole' : 'Back to the starting view of the pole'}>
           <Target size={15} aria-hidden="true" />Pole
@@ -792,6 +1150,13 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
             </>
           )}
         </span>
+        <button type="button" onClick={() => setTopo((t) => !t)} aria-pressed={topo} disabled={!data.basemap.relief} data-testid="moon-topo"
+          title="Colour the terrain by height and draw contour lines (LOLA)"><Mountain size={15} aria-hidden="true" />Topo</button>
+        <label className="moon-exag" title="Raise the terrain's height for the eye. Every number stays at true height.">
+          Height <input type="range" min={1} max={5} step={0.5} value={exag} onChange={(e) => setExag(Number(e.target.value))}
+            disabled={!data.basemap.relief} data-testid="moon-exag" aria-valuetext={`${exag} times`} />
+          <span className="moon-exag-value" aria-hidden="true">×{exag}</span>
+        </label>
         <button type="button" onClick={onPin} disabled={!canPin} aria-pressed={viewPinned} data-testid="moon-pin-view">
           {viewPinned ? <PinOff size={15} aria-hidden="true" /> : <Pin size={15} aria-hidden="true" />}{viewPinned ? 'Unpin' : 'Pin'}
         </button>
@@ -802,13 +1167,13 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
   const hovered = hover && stats ? { point: dots.point[hover.index], v: stats.verdicts[hover.index] } : null
   const dur = Number(constraints.mission_duration_days)
   return (
-    <div className={`moon${dragging ? ' dragging' : ''}`} ref={root} role="group" aria-label="Moon view: the south polar region and its sites" data-testid="moon-view" data-level={zoomed ? 'site' : 'pole'} data-stars={sky ? sky.stars.length / 5 : 0}>
+    <div className={`moon${dragging ? ' dragging' : ''}`} ref={root} role="group" aria-label="Moon view: the south polar region and its sites" data-testid="moon-view" data-level={zoomed ? 'site' : 'pole'} data-exag={exag} data-relief={raised ? 'loaded' : 'none'} data-topo={topo ? 'on' : 'off'} data-stars={sky ? sky.stars.length / 5 : 0}>
       <Canvas className="scene" frameloop="demand" dpr={[1, 2]} camera={{ fov: 40, near: NEAR_POLE, far: 10, position: [0, -1.5, 0] }}
         onCreated={(s) => { cam.current = s.camera }}>
         <color attach="background" args={['#000']} />
         {sky && <Stars sky={sky} />}
-        <Globe data={data} hour={hour} region={zoomed ? focus : null} />
-        <Rig dest={dest} destKey={destKey} zoomed={zoomed} controls={controls} />
+        <Globe data={data} hour={hour} region={zoomed ? focus : null} exag={exag} topo={topo} grids={grids} onGrids={onGrids} />
+        <Rig dest={dest} destKey={destKey} zoomed={zoomed} controls={controls} ground={ground} />
         <Painter paint={paint} />
       </Canvas>
       <canvas className="moon-overlay" ref={overlay} aria-hidden="true" />

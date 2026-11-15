@@ -41,7 +41,7 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   // 2. Scrub forward to the hour the HUD counts down to: the Sun is gone.
   const sunset = await page.getByTestId('hud-sun-countdown').textContent()
   const [, d, h] = sunset!.match(/^(?:(\d+) d )?(\d+) h$/)!
-  await page.getByRole('slider').fill(String(Number(d ?? 0) * 24 + Number(h)))
+  await page.getByRole('slider', { name: /^Lunar day/ }).fill(String(Number(d ?? 0) * 24 + Number(h)))
   await expect(page.getByTestId('hud-lit')).toHaveText('Dark')
   expect(await hud()).toEqual(expectedHud(await observer()))
   await settle()

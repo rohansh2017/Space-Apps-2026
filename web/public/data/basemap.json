@@ -41,5 +41,85 @@
    "peak-near-shackleton": "basemaps/context/peak-near-shackleton.jpg",
    "faustini-rim-a": "basemaps/context/faustini-rim-a.jpg"
   }
+ },
+ "relief": {
+  "globe": {
+   "file": "basemaps/relief/globe.png",
+   "width_px": 1024,
+   "offset_m": -8477.145263671875,
+   "scale_m": 0.5,
+   "max_m": 10009.325561523438,
+   "source": "LOLA LDEM_16 (LRO-L-LOLA-4-GDR-V1.0, 16 px/deg)"
+  },
+  "pole": {
+   "file": "basemaps/relief/pole.png",
+   "half_width_m": 304000.0,
+   "size_px": 1024,
+   "offset_m": -7238.94482421875,
+   "scale_m": 0.5,
+   "max_m": 7007.287109375,
+   "source": "LOLA 20 m polar DEM (LDEM_80S_20MPP_ADJ), averaged"
+  },
+  "context": {
+   "half_width_m": 32000.0,
+   "size_px": 1024,
+   "source": "LOLA 20 m polar DEM (LDEM_80S_20MPP_ADJ), averaged",
+   "files": {
+    "change7-shackleton-rim": {
+     "file": "basemaps/relief/context/change7-shackleton-rim.png",
+     "offset_m": -2869.646240234375,
+     "scale_m": 0.5,
+     "max_m": 1648.242919921875
+    },
+    "im2-mons-mouton": {
+     "file": "basemaps/relief/context/im2-mons-mouton.png",
+     "offset_m": -240.3798065185547,
+     "scale_m": 0.5,
+     "max_m": 7026.37255859375
+    },
+    "haworth": {
+     "file": "basemaps/relief/context/haworth.png",
+     "offset_m": -4021.177490234375,
+     "scale_m": 0.5,
+     "max_m": 4954.64794921875
+    },
+    "malapert-massif": {
+     "file": "basemaps/relief/context/malapert-massif.png",
+     "offset_m": -2511.3759765625,
+     "scale_m": 0.5,
+     "max_m": 5172.73046875
+    },
+    "nobile-rim-1": {
+     "file": "basemaps/relief/context/nobile-rim-1.png",
+     "offset_m": -1930.094482421875,
+     "scale_m": 0.5,
+     "max_m": 7026.4580078125
+    },
+    "nobile-rim-2": {
+     "file": "basemaps/relief/context/nobile-rim-2.png",
+     "offset_m": -3007.509033203125,
+     "scale_m": 0.5,
+     "max_m": 5854.91259765625
+    },
+    "connecting-ridge": {
+     "file": "basemaps/relief/context/connecting-ridge.png",
+     "offset_m": -2981.048828125,
+     "scale_m": 0.5,
+     "max_m": 1957.9866943359375
+    },
+    "peak-near-shackleton": {
+     "file": "basemaps/relief/context/peak-near-shackleton.png",
+     "offset_m": -2869.956787109375,
+     "scale_m": 0.5,
+     "max_m": 1648.0379638671875
+    },
+    "faustini-rim-a": {
+     "file": "basemaps/relief/context/faustini-rim-a.png",
+     "offset_m": -4247.224609375,
+     "scale_m": 0.5,
+     "max_m": 1407.3665771484375
+    }
+   }
+  }
  }
 }

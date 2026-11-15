@@ -80,6 +80,8 @@ whole time"* proposes the changes, you confirm, and the finder runs.
 | Moon | Drag · wheel | Orbit · zoom |
 | Moon | Pin · 👁 beside a pin | Fly to the site's search grid · stand there in 3D at once |
 | Moon | *Verdict / Sunlight / Earth* | Colour pins (at the pole) and 500 m cells (at a site) by pass/fail, sunlit % or Earth % |
+| Moon | *Topo* | Colour the terrain by height with contour lines (1 km at the pole, 100 m at a site, 20 m on its 5 km patch); the legend gives the LOLA height under the pointer |
+| Moon | *Height* slider | Raise the 3D terrain ×1 to ×5 for the eye (numbers always use the true height) |
 | Moon | Landing marker · dots · arrow keys | Move the landing point; *Stand here* (or Enter) stands on it |
 | Moon / 3D | *Pole* · *Pin* | Back to the pole · pin the view to the Compare tray |
 | 3D | Drag | Look around |
@@ -153,7 +155,8 @@ for legibility, and labelled in the app's *About the data*:
 - the ranges' rock texture and soil texture below the data's resolution (under about 1.5 m);
 - the ground colour, the Sun's glare, Earth's surface and star colours (from each star's B−V index);
 - a faint fill when the Sun is hidden (real lunar shadow is black);
-- the Moon view's day/night line, which is drawn on a smooth sphere with the night side brightened.
+- in the Moon view, the height exaggeration (×1 to ×5), one uniform ground brightness seen through an exposure curve,
+  and ground out of the Sun drawn dimly with a fixed light (the terrain, its real-Sun lighting and shadows are data).
 
 None of it feeds any number. **No synthetic data** is in the deployed app. `make data-fixtures` can generate
 contract-shaped files for development; the app then shows a banner, and such files are never committed.
@@ -183,7 +186,7 @@ Only needed when the pipeline or the site list changes:
 
 ```sh
 make data-download   # ~7.3 GB into data/raw/ (resumable, idempotent)
-make data            # ephemeris, orientation, stars, masks, slopes, heightmaps, basemaps → web/public/data/ (~15 s)
+make data            # ephemeris, orientation, stars, masks, slopes, heightmaps, basemaps, relief → web/public/data/ (~20 s)
 make validate && make check
 ```
 
