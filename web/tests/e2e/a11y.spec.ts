@@ -7,7 +7,7 @@ test('finder: unique button names, announcement, focus on the results', async ({
   await expandPanels(page)
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
   await page.getByRole('button', { name: 'Find alternatives' }).click()
-  await expect(page.getByTestId('result').first()).toBeVisible()
+  await expect(page.getByTestId('result').first()).toBeVisible({ timeout: 15_000 }) // region loads + search, under parallel load
   await expect(page.getByTestId('announcer')).toContainText(/Search finished: \d+ alternatives ranked, \d+ meet every constraint/)
   await expect(page.getByRole('heading', { name: 'Alternatives' })).toBeFocused()
   const names = await page.getByTestId('result').getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))

@@ -58,7 +58,10 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   // 4. Run the finder: ranked alternatives with written differences, in under 3 s.
   await page.getByRole('button', { name: 'Find alternatives' }).click()
   const results = page.getByTestId('result')
-  await expect(results.first()).toBeVisible()
+  // the wait covers loading every region and the search, on a CPU shared with four other software-WebGL browsers;
+  // the search's own speed is the finder-ms assertion below (< 3 s)
+  const SEARCH = { timeout: 15_000 }
+  await expect(results.first()).toBeVisible(SEARCH)
   expect(Number(await page.getByTestId('finder-ms').textContent())).toBeLessThan(3000)
   await expect(results.first().locator('.chip.fail')).toHaveCount(0) // the top result meets every constraint
   await expect(results.first().getByTestId('result-title')).toHaveText(/^#1 · (\d+(\.\d)? km [NESW]{1,2}|Same site) · ([+−][\d.]+ (days?|h)|same date)$/)
@@ -80,10 +83,10 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   await page.getByRole('button', { name: 'Rover' }).click()
   await expect(page.getByLabel('Mission duration')).toHaveValue('14')
   // changing constraints keeps the results but marks them out of date, with a way to run the search again
-  await expect(results.first()).toBeVisible()
+  await expect(results.first()).toBeVisible(SEARCH)
   await expect(page.getByTestId('results-stale')).toContainText('Out of date')
   await page.getByTestId('results-stale').getByRole('button', { name: 'Run again' }).click()
-  await expect(page.getByTestId('results-stale')).toHaveCount(0)
+  await expect(page.getByTestId('results-stale')).toHaveCount(0, SEARCH)
   await expect(page.getByTestId('announcer')).toContainText('Search finished')
   expect(errors).toEqual([])
 })

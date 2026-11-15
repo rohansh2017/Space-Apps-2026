@@ -360,3 +360,8 @@ Team report: Gemini answers were slow (20–96 s on `gemini-4-hydrogen`). Listed
 ## 2026-11-15 — README: `make dev-api` (branch `redesign/new-visual-identity`)
 
 Quick start now says the Gemini buttons and the mission room need the local Worker (`make dev-api` beside `make dev`), and the Test table lists the target. Docs only.
+
+## 2026-11-15 — Deployed D63/D64; `make e2e-live` (branch `redesign/new-visual-identity`)
+
+`make check` passed (27 Python, 76 + 41 TS, 29 browser, room), then `make deploy` (version 80887458; Worker vars `GEMINI_MODEL=gemini-3.5-flash-lite`, `GEMINI_THINKING=minimal`, `GEMINI_FALLBACK_MODEL=gemini-flash-lite-latest`). `make e2e-live`: 32 passed, 1 failed. The failure was the new F26/F27 live spec: its sentence slipped the default Shackleton rim plan, which still met every constraint, so there was no "Why not?" line to press. The app behaved correctly. The spec now moves to Nobile Rim 1 (Earth about 82%, so a 100% requirement must fail); rerun alone against the live site, it passed, and Gemini's rewording was kept by the number check.
+ Then `make check-changed` failed twice on the 5 s wait for finder results (demo path, a11y finder), which passed when run alone. That wait covers loading every region plus the search while five software-WebGL browsers share the CPU. Those waits are now 15 s; the search's own speed is still asserted by finder-ms < 3 s in the demo test.
