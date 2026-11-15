@@ -294,3 +294,15 @@ Worked from all 17 test screenshots. Fixed: tray columns and result rows no long
 ## 2026-11-15 — `/impeccable critique` and its P1 fixes (branch `redesign/new-visual-identity`)
 
 Dual-agent critique against the comparison objective: 25/40, detector clean in source (in-page: placeholder contrast 3.6:1, 11.8 px small text), snapshot in `.impeccable/critique/`. Fixed the three P1s (D50): compare mode for the band so the tray fits a 720p full screen (band 437/437 px, no scroll; 1440×900 392/392 with a 420 px view), the tray as a table with shared rows and the best value per row in bold, and *Make this the plan*. F11 test extended (best marker, adopt, focus). P2s left open: pinning feedback, sticky results header, matrix pass/fail mode. `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — Collapsible panels, resizable band, cinematic full screen (branch `redesign/new-visual-identity`)
+
+Team request (D51): HUD, plan/alternative card and bottom band collapse; the band resizes by drag or keyboard; full screen folds the panels away, fades the chrome when idle, adds a letterbox, and restores the layout on exit. Checked in Chromium at 1440×900 (drag, collapse, full screen idle and awake, exit). New e2e test covers collapse, keyboard resize and the full-screen round trip. `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — Band tab and interface motion (branch `redesign/new-visual-identity`)
+
+Team request (D52): one open/close tab on the band's top edge in the same place open or closed; panel toggles morph via View Transitions; drawers, results, tray columns, prompts and the tour ease in; press feedback on buttons; pin icon pops. Checked in Chromium (tab position identical open and closed, mid-transition frame). `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — Panel transitions, exclusive left panels, minimizable alternatives, benchmark (branch `redesign/new-visual-identity`)
+
+Team request (D53). Fixed the Plan-panel close glitch (blurred box; stretching; double tags), found by filming transitions at 1/20 speed. Plan / Map / Scenario matrix are exclusive and close the same way; the alternatives minimize into their top-right corner and back. New e2e test (exclusive panels, minimize and restore with focus). Benchmark (`make perf`, docs/PERF.md, mains power): finder 856 ms for 5,000 candidates; 3D playback 60 fps, equal to the empty-page cap (same as P6). On battery at 4% both the app and an empty page were capped at 30 fps, and an earlier finder run read 2,614 ms under load; no long animation frames during playback with the band open or collapsed. The snap note is now also shown in the Map drawer (invariant 9), since the map closes the Plan panel; app bundle 1.38 MB after switching to the Latin font subset (was 1.49 MB with all subsets, 1.23 MB before the redesign's font and icons); data sizes unchanged. `make check` passes. Not deployed (redesign branch).

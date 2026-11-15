@@ -19,7 +19,7 @@ echo "## 3D frame rate (target: 30 fps or more on a typical laptop)"
 echo
 GPU=1 npx playwright test p3 -g playback 2>&1 | grep PERF | sed 's/^PERF /- /'
 echo
-echo "Measured during lunar-day playback (shadows on) in Chromium on this machine's GPU."
+echo "Measured during lunar-day playback (shadows on) in Chromium on this machine's GPU. The empty-page figure is the browser's own ceiling on this run (display refresh, power state); the 3D figure cannot exceed it."
 echo
 echo "## Initial load (target: under 10 MB for the demo regions)"
 echo

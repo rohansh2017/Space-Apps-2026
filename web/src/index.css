@@ -1,6 +1,6 @@
 /* Polar light: deep-shadow ground, regolith-grey panels; gold is only sunlight, blue only Earth, red/green only pass/fail. */
 :root {
-  --ground: #050608; --panel: rgb(20 20 22 / 86%); --panel-solid: #141416; --raised: #1d1d20;
+  --ground: #050608; --panel: rgb(20 20 22 / 93%); --panel-solid: #141416; --raised: #1d1d20;
   --line: rgb(224 216 200 / 10%); --line-strong: rgb(224 216 200 / 22%);
   --text: #ece8e1; --dim: #b9b3a8; --mute: #9a948a;
   --sun: #f0b955; --earth: #5fa8ff; --ok: #86d3a1; --bad: #ff8f84; --bad-bg: rgb(255 143 132 / 12%);
@@ -63,8 +63,7 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .rail-button { flex-direction: column; gap: 3px; padding: 7px 2px; background: none; border-color: transparent; color: var(--dim); font-size: 0.7rem; line-height: 1.15; white-space: normal; text-align: center; }
 .rail-button:hover:not(:disabled), .rail-button[aria-expanded='true'] { color: var(--text); background: rgb(224 216 200 / 8%); border-color: transparent; }
 
-.side { grid-area: side; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--line);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.side { grid-area: side; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--line); }
 .side-scroll { flex: 1; min-height: 0; overflow-y: auto; mask-image: linear-gradient(#000 calc(100% - 28px), transparent); /* says the list goes on */
   padding-bottom: 28px; padding: var(--gap); display: grid; gap: var(--gap); align-content: start; }
 .side-scroll > .panel { background: none; border: 0; padding: 0; }
@@ -83,14 +82,16 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .over-stack > * { pointer-events: auto; }
 .has-results .over-stack { width: calc(100% - 360px - 3 * var(--gap)); }
 .status { max-width: 100%; display: grid; gap: 0.45rem;
-  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.8rem; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
 .status:focus { outline: none; }
 .status:focus-visible { outline: 2px solid #fff; }
-.status-title { display: grid; gap: 0.05rem; }
+.status-title { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.05rem 0.4rem; align-items: center; }
+.status-title > span { grid-column: 1 / -1; }
+.status-title .icon-button { padding: 0.15rem; margin: -0.2rem -0.35rem -0.2rem 0; }
 .status-title strong { font-size: 1rem; font-weight: 650; }
 .status-title span { color: var(--dim); font-size: 0.8rem; }
 .floating { position: absolute; top: var(--gap); left: var(--gap); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
-.hud { position: absolute; top: var(--gap); right: var(--gap); background: var(--panel); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+.hud { position: absolute; top: var(--gap); right: var(--gap); background: var(--panel);
   border: 1px solid var(--line); border-radius: var(--radius); padding: 0.7rem 0.9rem; pointer-events: none; }
 /* with results open the HUD shrinks to its two countdowns and heads the results column, so the sky stays clear */
 .has-results .hud { width: 360px; padding: 0.5rem 0.8rem; }
@@ -332,3 +333,123 @@ input[aria-invalid='true'] { border-color: var(--bad); }
   .footline span { white-space: normal; }
   .drawer { top: 8px; bottom: 8px; left: 8px; right: 8px; width: auto; }
 }
+
+/* --- collapsible panels */
+.hud { padding-right: 2.2rem; }
+.hud-toggle { position: absolute; top: 0.35rem; right: 0.35rem; padding: 0.2rem; pointer-events: auto; }
+.hud.collapsed .hud-big { margin: 0; padding: 0; border: 0; }
+.hud dl[hidden] { display: none; }
+.has-results .hud-toggle { display: none; } /* already reduced to its countdowns beside the results */
+.has-results .hud { padding-right: 0.8rem; }
+.band { position: relative; align-content: start; }
+.band.collapsed { grid-template-columns: minmax(0, 1fr); padding-top: 6px; padding-bottom: 6px; }
+/* the band's top edge is a resize grip: a thin bar, a visible handle on hover and focus */
+.band-grip { position: sticky; top: -10px; z-index: 2; grid-column: 1 / -1; height: 12px; margin: -10px 0 -4px; cursor: ns-resize; touch-action: none; }
+/* hovering or focusing the edge lights it across the full width; the tab in the middle opens and closes */
+.band-grip::after { content: ''; position: absolute; left: 0; right: 0; top: 4px; height: 2px; background: transparent; transition: background 0.15s; }
+.band-grip:hover::after, .band-grip:focus-visible::after { background: var(--line-strong); }
+.band-grip:focus-visible { outline: none; }
+
+/* --- full screen: semi-cinematic. The view runs edge to edge under translucent chrome, a soft letterbox
+   frames it, and the header and rail fade away while the pointer rests. The footer statement stays. */
+.app.cinematic .stage { grid-area: 1 / 1 / 4 / -1; }
+.app.cinematic .stage::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(#000 0, rgb(0 0 0 / 0) 11%, rgb(0 0 0 / 0) 84%, #000 100%); }
+.app.cinematic .topbar { background: linear-gradient(rgb(0 0 0 / 70%), rgb(0 0 0 / 0)); border-bottom-color: transparent; }
+.app.cinematic .rail { background: none; border-right-color: transparent; }
+.app.cinematic .band.collapsed { background: rgb(0 0 0 / 70%); border-top-color: transparent; }
+.app.cinematic .footline { background: #000; border-top-color: transparent; }
+.app.cinematic .topbar, .app.cinematic .rail, .app.cinematic .band, .app.cinematic .over { transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.app.cinematic.idle .topbar { opacity: 0; transform: translateY(-6px); }
+.app.cinematic.idle .rail { opacity: 0; transform: translateX(-6px); }
+.app.cinematic.idle .band.collapsed { opacity: 0.35; }
+.app.cinematic.idle .over { opacity: 0.55; }
+/* keyboard focus keeps the chrome visible; a mouse click does not */
+.app.cinematic.idle .topbar:has(:focus-visible), .app.cinematic.idle .rail:has(:focus-visible), .app.cinematic.idle .band:has(:focus-visible) { opacity: 1; transform: none; }
+.app.cinematic.idle { cursor: none; }
+@media (prefers-reduced-motion: reduce) {
+  .app.cinematic .topbar, .app.cinematic .rail, .app.cinematic .band, .app.cinematic .over { transition: none; }
+}
+
+/* --- the band's tab: centred on its top edge, same place open or closed */
+.band-tab { grid-area: band; position: absolute; z-index: 3; top: -13px; left: 50%; width: 52px; height: 22px; margin-left: -26px; padding: 0;
+  justify-content: center; border-radius: 11px; background: var(--panel-solid); border: 1px solid var(--line-strong); color: var(--dim);
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s cubic-bezier(0.22, 1, 0.36, 1); }
+.band-tab:hover:not(:disabled) { color: var(--text); border-color: var(--mute); background: var(--raised); transform: translateY(-1px); }
+.app.cinematic.idle .band-tab { opacity: 0.35; }
+.app.cinematic .band-tab { transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), color 0.15s, transform 0.15s; }
+
+/* --- motion: short, eased out, from an already-visible state; it explains where things went */
+:root { --ease-out: cubic-bezier(0.22, 1, 0.36, 1); }
+/* panel opens and closes morph (View Transitions); each panel moves on its own */
+.band { view-transition-name: band; }
+.band-tab { view-transition-name: band-tab; }
+.hud { view-transition-name: hud; }
+.status { view-transition-name: status; }
+.side { view-transition-name: side; }
+.rail { view-transition-name: rail; }
+::view-transition-group(*) { animation-duration: 220ms; animation-timing-function: var(--ease-out); }
+::view-transition-old(*), ::view-transition-new(*) { animation-duration: 160ms; }
+/* Plan, Map and Scenario matrix share the left edge and leave the same way: a short slide toward the rail */
+.drawer-left, .drawer-wide { view-transition-name: drawer; }
+::view-transition-new(side), ::view-transition-new(drawer) { animation-name: slide-in-left; }
+::view-transition-old(side), ::view-transition-old(drawer) { animation-name: slide-out-left; }
+/* boxes that change size reveal or crop their content instead of stretching it, anchored at their fixed corner */
+::view-transition-image-pair(status), ::view-transition-image-pair(hud), ::view-transition-image-pair(results), ::view-transition-image-pair(band) { overflow: clip; }
+::view-transition-old(status), ::view-transition-new(status), ::view-transition-old(hud), ::view-transition-new(hud),
+::view-transition-old(results), ::view-transition-new(results), ::view-transition-old(band), ::view-transition-new(band) {
+  width: 100%; height: 100%; object-fit: none; }
+::view-transition-old(status), ::view-transition-new(status) { object-position: left top; }
+::view-transition-old(hud), ::view-transition-new(hud), ::view-transition-old(results), ::view-transition-new(results) { object-position: right top; }
+::view-transition-old(band), ::view-transition-new(band) { object-position: center top; }
+.results-panel, .results-chip { view-transition-name: results; }
+/* overlays that move when the left panel opens or closes slide with it instead of cross-fading in two places */
+.stage-notes { view-transition-name: notes; }
+.tour { view-transition-name: tour; }
+::view-transition-old(results) { animation-duration: 110ms; }
+@keyframes slide-in-left { from { opacity: 0; transform: translateX(-12px); } }
+@keyframes slide-out-left { to { opacity: 0; transform: translateX(-12px); } }
+
+/* things that arrive rise into place */
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+@keyframes drop { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes from-left { from { opacity: 0; transform: translateX(-10px); } }
+@keyframes from-right { from { opacity: 0; transform: translateX(10px); } }
+.drawer-right { animation: drop 200ms var(--ease-out); }
+.about[open] { animation: rise 200ms var(--ease-out); }
+.about[open]::backdrop { animation: fade 200ms var(--ease-out); }
+@keyframes fade { from { opacity: 0; } }
+.tray-col { animation: rise 260ms var(--ease-out); }
+.tray-full, .stale, .snap, .suggestion, .band-more[open] > :not(summary) { animation: rise 200ms var(--ease-out); }
+/* a fresh search slides in and its rows rise in order; restoring from the corner is the morph alone */
+.results-panel.fresh { animation: from-right 240ms var(--ease-out); }
+.fresh .results li { animation: rise 240ms var(--ease-out) backwards; }
+.fresh .results li:nth-child(2) { animation-delay: 30ms; } .fresh .results li:nth-child(3) { animation-delay: 60ms; } .fresh .results li:nth-child(4) { animation-delay: 90ms; }
+.fresh .results li:nth-child(n + 5) { animation-delay: 120ms; }
+.tour { animation: rise 220ms var(--ease-out); }
+.hud dl:not([hidden]), .status .chips { animation: fade 200ms var(--ease-out); }
+
+/* presses answer immediately */
+button { transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.09s var(--ease-out); }
+button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
+.band-tab:active:not(:disabled) { transform: scale(0.94); }
+.matrix td button:active { transform: scale(0.9); }
+/* pinning pops the pin, so the click registers even before the tray column rises */
+.result-actions .icon-button[aria-pressed='true'] svg { animation: pop 280ms var(--ease-out); }
+@keyframes pop { 0% { transform: scale(0.6) rotate(-20deg); } 60% { transform: scale(1.18); } 100% { transform: none; } }
+.rail-button svg, .icon-button svg { transition: transform 0.18s var(--ease-out); }
+.rail-button:hover svg { transform: translateY(-1px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0s !important; transition-duration: 0.01ms !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+/* the alternatives fold into their top-right corner and come back from it */
+.results-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+.results-head h2 { margin: 0; }
+.results-head .icon-button { margin: -0.3rem -0.35rem -0.3rem 0; }
+.results-chip { position: absolute; top: calc(var(--gap) + 76px); right: var(--gap); background: var(--panel-solid); border: 1px solid var(--line-strong);
+  border-radius: var(--radius); padding: 0.45rem 0.7rem; color: var(--text); font-size: 0.84rem; }
+.results-chip .count { font-size: 0.72rem; padding: 0 0.45rem; border-radius: 999px; background: var(--raised); color: var(--dim); }
+.results-chip:hover:not(:disabled) { border-color: var(--mute); background: var(--raised); }
