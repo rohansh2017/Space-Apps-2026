@@ -57,7 +57,8 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   await expect(results.first()).toBeVisible()
   expect(Number(await page.getByTestId('finder-ms').textContent())).toBeLessThan(3000)
   await expect(results.first().locator('.chip.fail')).toHaveCount(0) // the top result meets every constraint
-  await expect(results.first().getByTestId('result-diff')).toContainText(/(km [NESW]{1,2}|Same site), .*: [+−]\d+% sun, [+−]\d+ h dark, [+−]\d+% comms/)
+  await expect(results.first().getByTestId('result-title')).toHaveText(/^#1 · (\d+(\.\d)? km [NESW]{1,2}|Same site) · ([+−][\d.]+ (days?|h)|same date)$/)
+  await expect(results.first().getByTestId('result-diff')).toContainText(/^[+−]\d+% sun, [+−]\d+ h dark, [+−]\d+% comms vs the plan$/)
   await page.screenshot({ ...shot('4-finder-results'), fullPage: true })
 
   // 5. Open the top result in 3D: HUD values equal engine values for that point and time.

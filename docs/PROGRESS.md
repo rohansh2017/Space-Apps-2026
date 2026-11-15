@@ -274,3 +274,7 @@ The snap-note and Gemini-proposal callouts lose their yellow left bar (a design-
 - Scrubber and Play: already keyboard-operable (probe); scrubber now has `aria-valuetext`.
 - Tests: new `a11y.spec.ts` (5 tests) and screenshots 16–17 (viewed); demo test updated for the out-of-date behaviour and marked slow. `make check` passes.
 - Not deployed: this branch is the redesign branch, so the live site still runs `build/tranquility-base`.
+
+## 2026-11-15 — `/impeccable clarify` (branch `redesign/new-visual-identity`)
+
+Result titles by difference, site and time below, metrics change once; comparison labels by distance and date; thresholds on every chip (with the search's own values); HUD horizon height toward the Sun and Earth; Shackleton blurb reworded and `make data` rerun (only `sites.json` changed) (D47). Contrast fix: HUD sub-rows use `--dim`, since `--mute` is about 4.3:1 there. Tests: new `diffParts` unit test; demo and F11 tests updated to the new wording. Screenshots 1, 2 and 10 viewed. `make check` passes. Not deployed (redesign branch).

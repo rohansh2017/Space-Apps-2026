@@ -1,7 +1,8 @@
 import type { RefObject } from 'react'
 import Chips from './Chips'
+import type { Constraints } from './engine/engine'
 import type { Candidate, FinderResult } from './engine/finder'
-import { diffText } from './engine/finder'
+import { diffParts } from './engine/finder'
 
 interface Props {
   finder: FinderResult
@@ -13,9 +14,10 @@ interface Props {
   busy: boolean
   onRerun: () => void
   headingRef: RefObject<HTMLHeadingElement | null> // focused when a search finishes
+  constraints: Constraints // the values this search ran with (they may have changed since)
 }
 
-export default function Results({ finder, candidates, opened, date, onOpen, stale, busy, onRerun, headingRef }: Props) {
+export default function Results({ finder, candidates, opened, date, onOpen, stale, busy, onRerun, headingRef, constraints }: Props) {
   const passing = finder.results.filter((r) => r.evaluation.fails === 0).length
   return (
     <section className="panel" aria-labelledby="results-heading">
@@ -33,22 +35,25 @@ export default function Results({ finder, candidates, opened, date, onOpen, stal
       <ol className={stale ? 'results is-stale' : 'results'}>
         {finder.results.map((r, i) => {
           const c = candidates[r.candidate]
-          const diff = diffText(candidates[0], finder.baseline, c, r)
+          const d = diffParts(candidates[0], finder.baseline, c, r)
+          const title = `#${i + 1} · ${d.where} · ${d.shift}`
           // the visible text stays "Open in 3D"; the name adds which result, so a screen reader can tell ten buttons apart
-          const which = `#${i + 1}, ${diff.split(':')[0]}, ${c.label}, ${date(r.start)} UTC`
+          const which = `#${i + 1}, ${d.where}, ${d.shift}, ${c.label}, ${date(r.start)} UTC`
           return (
             <li key={`${c.id}@${r.start}`} className={opened === i ? 'open' : ''} data-testid="result">
               <div className="result-head">
-                <strong>{c.label}</strong>
-                <span>{date(r.start)} UTC</span>
+                <div className="result-title">
+                  <strong data-testid="result-title">{title}</strong>
+                  <span>{c.label} · lands {date(r.start)} UTC</span>
+                </div>
                 <button type="button" aria-label={`${opened === i ? 'Back to plan from' : 'Open in 3D:'} ${which}`}
                   aria-pressed={opened === i} onClick={() => onOpen(opened === i ? null : i)}>
                   {opened === i ? 'Back to plan' : 'Open in 3D'}
                 </button>
               </div>
-              <div data-testid="result-diff">{diff}</div>
+              <div data-testid="result-diff">{d.metrics} <span className="note">vs the plan</span></div>
               <div className="result-foot">
-                <Chips evaluation={r.evaluation} />
+                <Chips evaluation={r.evaluation} constraints={constraints} />
                 <span className="note">
                   sun {r.metrics.sunlitPct.toFixed(0)}% · longest dark {r.metrics.longestDarkH} h · Earth {r.metrics.earthPct.toFixed(0)}% · slope {c.slopeDeg}°
                 </span>

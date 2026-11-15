@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Constraints } from './engine'
 import type { Candidate, Scored } from './finder'
-import { diffText, runFinder } from './finder'
+import { diffParts, diffText, runFinder } from './finder'
 
 const C: Constraints = {
   mission_duration_days: 7, min_continuous_sun_days: 6, max_continuous_dark_hours: 80, min_earth_visible_pct: 40,
@@ -79,5 +79,13 @@ describe('difference text', () => {
     expect(diffText(base, scored(100, 70, 61, 50), base, scored(64, 60, 70, 50))).toBe(
       'Same site, 1.5 days earlier: −10% sun, +9 h dark, +0% comms',
     )
+  })
+  it('gives the short signed shift used in result titles', () => {
+    const cand = { ...base, lat: -88.767, lon: 1.6 }
+    expect(diffParts(base, scored(100, 70, 61, 50), cand, scored(148, 79, 30, 45))).toEqual({
+      where: '1.4 km NE', when: '2 days later', shift: '+2 days', metrics: '+9% sun, −31 h dark, −5% comms',
+    })
+    expect(diffParts(base, scored(100, 70, 61, 50), base, scored(88, 70, 61, 50)).shift).toBe('−12 h')
+    expect(diffParts(base, scored(100, 70, 61, 50), base, scored(100, 70, 61, 50)).shift).toBe('same date')
   })
 })

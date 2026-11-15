@@ -18,7 +18,7 @@ test('F11: an opened alternative is shown side by side with the plan', async ({ 
   await expect(compare).toBeVisible()
   await expect(compare.getByTestId('compare-plan')).toContainText('Plan: Shackleton rim')
   await expect(compare.getByTestId('compare-plan')).toContainText('2026-12-01 00:00 UTC landing')
-  await expect(compare.getByTestId('compare-alt')).toContainText('Alternative:')
+  await expect(compare.getByTestId('compare-alt')).toContainText(/Alternative #1 · (\d+(\.\d)? km [NESW]{1,2}|Same site) · [+−]/)
   await expect(compare.locator('canvas.panorama')).toHaveCount(2)
   await expect(compare.getByTestId('compare-plan').locator('.chip.fail').first()).toBeVisible() // the plan fails
   await expect(compare.getByTestId('compare-alt').locator('.chip.fail')).toHaveCount(0) // the top result passes

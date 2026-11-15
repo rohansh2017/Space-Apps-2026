@@ -4,7 +4,9 @@ import { Guide, sunWords } from './guide'
 
 interface Props {
   sunEl: number
+  sunHorizon: number // terrain elevation at the Sun's azimuth (engine maskAt), degrees
   earthEl: number
+  earthHorizon: number // terrain elevation at Earth's azimuth, degrees
   lit: number // Sun visible fraction 0..1
   link: boolean
   power: number
@@ -15,7 +17,7 @@ interface Props {
 const span = (h: number | null) => (h === null ? '> 30 d' : h >= 24 ? `${Math.floor(h / 24)} d ${h % 24} h` : `${h} h`)
 
 /** Every number here comes from the engine, never from the renderer. */
-export default function Hud({ sunEl, earthEl, lit, link, power, sunChangeH, earthChangeH }: Props) {
+export default function Hud({ sunEl, sunHorizon, earthEl, earthHorizon, lit, link, power, sunChangeH, earthChangeH }: Props) {
   const explorer = useContext(Guide).mode === 'explorer'
   return (
     <div className="hud" data-testid="hud">
@@ -32,8 +34,12 @@ export default function Hud({ sunEl, earthEl, lit, link, power, sunChangeH, eart
       <dl>
         <dt><Term id="Solar elevation">Solar elevation</Term></dt>
         <dd data-testid="hud-sun-el">{sunEl.toFixed(2)}°</dd>
+        <dt className="sub"><Term id="Horizon mask">Horizon toward Sun</Term></dt>
+        <dd className="sub" data-testid="hud-sun-horizon">{sunHorizon.toFixed(2)}°</dd>
         <dt>Earth elevation</dt>
         <dd data-testid="hud-earth-el">{earthEl.toFixed(2)}°</dd>
+        <dt className="sub">Horizon toward Earth</dt>
+        <dd className="sub" data-testid="hud-earth-horizon">{earthHorizon.toFixed(2)}°</dd>
         <dt>Sun</dt>
         <dd data-testid="hud-lit" className={lit > 0 ? 'ok' : 'bad'}>{lit > 0 ? `Lit ${(lit * 100).toFixed(0)}%` : 'Dark'}</dd>
         <dt><Term id="Earth link">Earth link</Term></dt>

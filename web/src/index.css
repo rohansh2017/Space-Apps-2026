@@ -143,3 +143,7 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .results.is-stale li { opacity: 0.55; }
 .tour:focus { outline: none; }
 #results-heading:focus { outline: none; }
+.result-title { display: grid; gap: 0.1rem; margin-right: auto; min-width: 0; }
+.result-title strong { font-variant-numeric: tabular-nums; }
+.result-title span { color: var(--dim); font-size: 0.8rem; }
+.hud dt.sub, .hud dd.sub { font-size: 0.76rem; color: var(--dim); } /* --mute is under 4.5:1 on the HUD */

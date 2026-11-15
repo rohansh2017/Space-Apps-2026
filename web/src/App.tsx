@@ -7,8 +7,9 @@ import { loadDataset, loadRegion } from './data'
 import { horizonFacts } from './describe'
 import HorizonText from './HorizonText'
 import type { Constraints, Metrics } from './engine/engine'
-import { buildSeries, evaluate, nextChange, nudgeNeighbour, siteAngles, siteFrame, skyMatrix, snapToGrid, windowMetrics } from './engine/engine'
+import { buildSeries, evaluate, maskAt, nextChange, nudgeNeighbour, siteAngles, siteFrame, skyMatrix, snapToGrid, windowMetrics } from './engine/engine'
 import type { Candidate, FinderResult } from './engine/finder'
+import { diffParts } from './engine/finder'
 import type { FinderRequest } from './engine/finder.worker'
 import type { Mode } from './guide'
 import { Guide } from './guide'
@@ -46,7 +47,7 @@ export default function App() {
   const [playing, setPlaying] = useState(false)
   const [constraints, setConstraints] = useState<Constraints>({})
   const [regions, setRegions] = useState<Record<string, Region>>({})
-  const [found, setFound] = useState<{ finder: FinderResult; candidates: Candidate[] } | null>(null)
+  const [found, setFound] = useState<{ finder: FinderResult; candidates: Candidate[]; constraints: Constraints } | null>(null)
   const [opened, setOpened] = useState<number | null>(null)
   const [matrix, setMatrix] = useState(false)
   const [nudgeFrom, setNudgeFrom] = useState<Metrics | null>(null) // F14: metrics before the last nudge
@@ -211,6 +212,9 @@ export default function App() {
       sunChangeH: nextChange(series.litLeft, t),
       earthChangeH: nextChange(series.earthLeft, t),
       earthDistKm: data.ephemeris[(viewStart + t) * 7 + 6],
+      // the terrain the Sun and Earth have to clear, read from the same mask the engine uses
+      sunHorizon: day.mask ? maskAt(day.mask, day.track[t].sunAz) : 0,
+      earthHorizon: day.mask ? maskAt(day.mask, day.track[t].earthAz) : 0,
       // real star field for this observer and hour (stars are fixed in ICRF; the Moon turns under them)
       sky: observer ? skyMatrix(data.orientation, viewStart + t, siteFrame(observer.lat, observer.lon, observer.elevM)) : null,
     }
@@ -298,7 +302,7 @@ export default function App() {
       })
       if (!reply.ok) throw new Error(reply.error)
       const result = reply.result!
-      setFound({ finder: result, candidates })
+      setFound({ finder: result, candidates, constraints })
       setOpened(null)
       setStale(false)
       const passing = result.results.filter((r) => r.evaluation.fails === 0).length
@@ -516,7 +520,7 @@ export default function App() {
                 >
                   <strong>{alt ? 'Alternative' : 'Plan'}: {observer.label}</strong>
                   <span>{date(viewStart)} UTC landing</span>
-                  {day.evaluation ? <Chips evaluation={day.evaluation} /> : <span className="note">Mission window runs past 2035</span>}
+                  {day.evaluation ? <Chips evaluation={day.evaluation} constraints={constraints} /> : <span className="note">Mission window runs past 2035</span>}
                 </div>
                 {tour && <Tour steps={data.tour.steps} onStep={tourStep} onClose={() => {
                   setTour(false)
@@ -529,7 +533,8 @@ export default function App() {
                         sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky!} stars={data.stars}
                         ridges={regions[observer.id.split(':')[0]]?.ridges ?? null} />
                     : <p className="note empty">No terrain for this site: it is used to validate Sun and Earth angles only, so the horizon below is flat.</p>}
-                  <Hud sunEl={view.now.sunEl} earthEl={view.now.earthEl} lit={view.lit} link={view.link} power={view.power}
+                  <Hud sunEl={view.now.sunEl} sunHorizon={view.sunHorizon} earthEl={view.now.earthEl} earthHorizon={view.earthHorizon}
+                    lit={view.lit} link={view.link} power={view.power}
                     sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} />
                 </div>
                 {site.heightmap && Math.max(Math.abs(day.east), Math.abs(day.north)) >= site.heightmap.span_m / 2 - 20 && (
@@ -560,7 +565,12 @@ export default function App() {
                   </div>
                 )}
                 {planDay && alt && plan
-                  ? <Compare plan={{ label: plan.label, date: date(planHour), day: planDay }} alt={{ label: observer.label, date: date(viewStart), day }} t={view.t} />
+                  ? (() => {
+                      const d = diffParts(found!.candidates[0], found!.finder.baseline, observer, alt)
+                      return <Compare t={view.t} constraints={constraints}
+                        plan={{ title: `Plan: ${plan.label}`, detail: `${date(planHour)} UTC landing`, day: planDay }}
+                        alt={{ title: `Alternative #${opened! + 1} · ${d.where} · ${d.shift}`, detail: `${observer.label} · ${date(viewStart)} UTC landing`, day }} />
+                    })()
                   : (
                     <>
                       {day.metrics && <Summary metrics={day.metrics} previous={nudgeFrom} />}
@@ -569,7 +579,7 @@ export default function App() {
                     </>
                   )}
                 {found && <Results finder={found.finder} candidates={found.candidates} opened={opened} date={date} stale={stale}
-                  headingRef={resultsHeading} onRerun={runFinder} busy={busy}
+                  headingRef={resultsHeading} onRerun={runFinder} busy={busy} constraints={found.constraints}
                   onOpen={(i) => { setOpened(i); setOffset(0); setPlaying(false) }} />}
                 {matrix && allLoaded
                   ? <Matrix data={data} regions={regions} start={planHour} constraints={constraints} selected={site.id} onOpen={openCell} />
