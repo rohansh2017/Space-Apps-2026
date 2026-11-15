@@ -8,8 +8,8 @@ everything offline; the browser does all live work.
 **Resume protocol:** read this file → `docs/PROGRESS.md` (last 3 entries) → `docs/PLAN.md` →
 `docs/TRACEABILITY.md`, then continue from the first unchecked item.
 
-Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC.md`. How we work:
-`SUPER_PROMPT.md`.
+Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC.md`. How we work: *Conventions*
+below (the original build brief, `SUPER_PROMPT.md`, was retired on 2026-11-15).
 
 ## Repo map
 
