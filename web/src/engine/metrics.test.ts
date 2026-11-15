@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import fixture from '../../../shared/fixtures/metrics_cases.json'
 import type { Constraints } from './engine'
-import { evaluate, latLonToXY, nextChange, prepare, snapToGrid, windowMetrics } from './engine'
+import { evaluate, latLonToXY, nextChange, nudgeNeighbour, prepare, snapToGrid, windowMetrics } from './engine'
 
 // Parity with horizonwalk.engine: integer metrics and pass/fail identical, floats to 1e-9.
 describe('metrics parity with horizonwalk.engine', () => {
@@ -60,5 +60,21 @@ describe('grid snapping', () => {
     expect(distanceM).toBeGreaterThan(55) // 0.002 deg of latitude is about 61 m
     expect(distanceM).toBeLessThan(65)
     expect(snapToGrid(points, -88.8, 123.4).distanceM).toBeLessThan(1e-6)
+  })
+})
+
+describe('nudge neighbour', () => {
+  // 3 x 3 grid at a polar site: row 0 is the northern (equatorward) edge, column 2 the eastern edge
+  const grid = Array.from({ length: 9 }, (_, index) => ({
+    index, region: 'r', lat: -88.8 + 0.01 * (1 - Math.floor(index / 3)), lon: 123.4 + 0.1 * ((index % 3) - 1),
+  }))
+  it('picks the neighbour in each compass direction and stops at the edge', () => {
+    const centre = grid[4]
+    expect(nudgeNeighbour(grid, centre, 'N', 3)?.index).toBe(1)
+    expect(nudgeNeighbour(grid, centre, 'E', 3)?.index).toBe(5)
+    expect(nudgeNeighbour(grid, centre, 'S', 3)?.index).toBe(7)
+    expect(nudgeNeighbour(grid, centre, 'W', 3)?.index).toBe(3)
+    expect(nudgeNeighbour(grid, grid[1], 'N', 3)).toBeNull()
+    expect(nudgeNeighbour(grid, grid[5], 'E', 3)).toBeNull()
   })
 })

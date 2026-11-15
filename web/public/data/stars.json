@@ -1,0 +1,15 @@
+{
+ "synthetic": false,
+ "source": "Yale Bright Star Catalogue, 5th ed. (BSC5, Hoffleit & Warren 1991)",
+ "file": "stars.bin",
+ "count": 9096,
+ "frame": "ICRF (J2000)",
+ "dtype": "float32-le",
+ "fields": [
+  "x",
+  "y",
+  "z",
+  "vmag",
+  "b_v"
+ ]
+}

@@ -31,7 +31,11 @@ def mock_year() -> np.ndarray:
 def main() -> None:
     src = json.loads((ROOT / "build" / "sites_src.json").read_text())
     rng = np.random.default_rng(0)
-    export.write_ephemeris(OUT, {2026: mock_year()}, synthetic=True)
+    year = mock_year()
+    identity = np.tile([1.0, 0.0, 0.0, 0.0], (len(year), 1))  # sky fixed to the Moon
+    export.write_ephemeris(OUT, {2026: year}, {2026: identity}, synthetic=True)
+    mock_stars = np.array([[0, 0, -1, 0.5, 0.0], [1, 0, 0, 2.0, 1.2], [0, 1, 0, 5.5, np.nan]])
+    export.write_stars(OUT, mock_stars, "synthetic fixture", synthetic=True)
     sites, points = [], []
     az = np.arange(360)
     yy, xx = np.mgrid[0 : export.HM_N, 0 : export.HM_N] / (export.HM_N - 1)
@@ -49,7 +53,17 @@ def main() -> None:
             + 3 * np.exp(-(((az - 30 - i) % 360 - 180) ** 2) / 200)
         )
         entry, pts = export.write_region(
-            OUT, s, lat, lon, x, y, np.zeros(x.size), masks, rng.integers(0, 25, x.size), heights
+            OUT,
+            s,
+            lat,
+            lon,
+            x,
+            y,
+            np.zeros(x.size),
+            masks,
+            rng.integers(0, 25, x.size),
+            heights,
+            "synthetic fixture",
         )
         sites.append(entry)
         points += pts
@@ -68,7 +82,7 @@ def main() -> None:
         "glossary": [{"term": "Horizon mask", "definition": "Mock glossary entry."}],
     })  # fmt: skip
     export.write_json(ROOT / "shared" / "fixtures" / "room_message.json", {
-        "type": "state", "site_id": src["sites"][0]["id"], "utc": "2026-11-20T00:00:00Z",
+        "type": "state", "site_id": src["sites"][0]["id"], "point_index": None, "utc": "2026-11-20T00:00:00Z",
         "constraints": {"mission_duration_days": 7, "max_continuous_dark_hours": 80},
         "sender": "client-1234",
     })  # fmt: skip

@@ -265,3 +265,54 @@ export function snapToGrid<P extends { lat: number; lon: number; x: number; y: n
   const [a, b] = [siteFrame(latDeg, lonDeg, 0).pos, siteFrame(best.lat, best.lon, 0).pos]
   return { point: best, distanceM: Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) * 1000 }
 }
+
+/** The grid point one step from `current` toward a local compass direction, or null at the grid edge. */
+export function nudgeNeighbour<P extends { lat: number; lon: number; index: number; region: string }>(
+  points: readonly P[], current: P, dir: 'N' | 'E' | 'S' | 'W', n = 21,
+): P | null {
+  const f = siteFrame(current.lat, current.lon, 0)
+  const want = dir === 'N' ? [0, 1] : dir === 'S' ? [0, -1] : dir === 'E' ? [1, 0] : [-1, 0]
+  const [row, col] = [Math.floor(current.index / n), current.index % n]
+  let best: P | null = null
+  let bestCos = 0
+  for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    const [r, c] = [row + dr, col + dc]
+    if (r < 0 || c < 0 || r >= n || c >= n) continue
+    const p = points.find((q) => q.region === current.region && q.index === r * n + c)
+    if (!p) continue
+    const pos = siteFrame(p.lat, p.lon, 0).pos
+    const d = [pos[0] - f.pos[0], pos[1] - f.pos[1], pos[2] - f.pos[2]]
+    const e = f.east[0] * d[0] + f.east[1] * d[1] + f.east[2] * d[2]
+    const no = f.north[0] * d[0] + f.north[1] * d[1] + f.north[2] * d[2]
+    // the grid is square in stereographic x/y, so the best neighbour is at least cos 45 deg toward the wanted direction
+    const cos = (e * want[0] + no * want[1]) / Math.hypot(e, no)
+    if (cos > bestCos) [best, bestCos] = [p, cos]
+  }
+  return best
+}
+
+/** Rotate v by the unit quaternion q = (w, x, y, z) stored at q[offset..offset+3]. */
+export function quatRotate(q: ArrayLike<number>, offset: number, v: readonly [number, number, number]): [number, number, number] {
+  const [w, x, y, z] = [q[offset], q[offset + 1], q[offset + 2], q[offset + 3]]
+  // v' = v + 2w(u × v) + 2u × (u × v), u = (x, y, z)
+  const tx = 2 * (y * v[2] - z * v[1])
+  const ty = 2 * (z * v[0] - x * v[2])
+  const tz = 2 * (x * v[1] - y * v[0])
+  return [v[0] + w * tx + (y * tz - z * ty), v[1] + w * ty + (z * tx - x * tz), v[2] + w * tz + (x * ty - y * tx)]
+}
+
+/**
+ * Row-major 3 x 3 matrix taking an ICRF (J2000) direction to the site's local east/north/up axes at one hour:
+ * the hour's ICRF -> MOON_ME rotation (orientation table, 4 floats per hour) followed by the site frame.
+ * Stars are infinitely far, so no parallax and no site position.
+ */
+export function skyMatrix(orientation: ArrayLike<number>, hour: number, f: SiteFrame): number[] {
+  const cols = ([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const).map((e) => quatRotate(orientation, hour * 4, e))
+  return [f.east, f.north, f.up].flatMap((axis) => cols.map((c) => axis[0] * c[0] + axis[1] * c[1] + axis[2] * c[2]))
+}
+
+/** Azimuth/elevation (degrees) of an ICRF direction through a sky matrix. */
+export function skyAzEl(m: readonly number[], v: readonly [number, number, number]): [number, number] {
+  const [e, n, u] = [0, 3, 6].map((r) => m[r] * v[0] + m[r + 1] * v[1] + m[r + 2] * v[2])
+  return [((Math.atan2(e, n) / RAD) % 360 + 360) % 360, Math.atan2(u, Math.sqrt(e * e + n * n)) / RAD]
+}

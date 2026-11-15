@@ -1,6 +1,7 @@
 {
  "type": "state",
  "site_id": "change7-shackleton-rim",
+ "point_index": null,
  "utc": "2026-11-20T00:00:00Z",
  "constraints": {
   "mission_duration_days": 7,

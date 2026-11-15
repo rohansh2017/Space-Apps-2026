@@ -7,6 +7,7 @@ import { loadHeightmap } from './data'
 import type { Angles } from './engine/engine'
 import { SUN_RADIUS_DEG, maskAt } from './engine/engine'
 import { regolith } from './regolith'
+import { sceneMatrix, starField } from './starfield'
 
 const RAD = Math.PI / 180
 const EYE_M = 2
@@ -16,7 +17,11 @@ const EARTH_M = 9000
 const TRAIL_M = 9500
 const STAR_M = 20000
 const EARTH_RADIUS_KM = 6371
-const DETAIL_TILE_M = 12 // one repeat of the illustrative regolith texture
+// One repeat of the illustrative regolith texture. Its largest bump or crater is about 1.5 m across, below what even
+// the 5 m DEM resolves, so it adds texture under the real relief and never invents a feature the data would show.
+const DETAIL_TILE_M = 12
+const MESH_N = 384 // terrain mesh quads per side
+const WARP_A = 0.25 // share of linear spacing in the mesh warp: smaller = finer near the observer
 
 /** Unit vector for an azimuth/elevation in scene axes: x east, y up, -z north. */
 const direction = (az: number, el: number) =>
@@ -31,6 +36,8 @@ interface Props {
   t: number // current hour within the track
   sunFraction: number // from the engine; the renderer never decides visibility
   earthDistKm: number
+  sky: number[] // ICRF -> local east/north/up at this hour (engine skyMatrix)
+  stars: Float32Array // catalogue rows: ICRF unit vector, V magnitude, B-V
 }
 
 function Camera({ eye, look }: { eye: THREE.Vector3; look: THREE.Vector3 }) {
@@ -42,19 +49,6 @@ function Camera({ eye, look }: { eye: THREE.Vector3; look: THREE.Vector3 }) {
   // orbiting a target 1 cm ahead of the eye is a look-around; negative speed makes drag feel natural
   return <OrbitControls target={look} enableZoom={false} enablePan={false} rotateSpeed={-0.4} />
 }
-
-/** Illustrative star field: random points, not a real catalogue. Terrain and the horizon ring hide the lower half. */
-const stars = (() => {
-  const v: number[] = []
-  let seed = 11
-  const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
-  for (let i = 0; i < 2600; i++) {
-    const [z, a] = [rand() * 2 - 1, rand() * 2 * Math.PI]
-    const r = Math.sqrt(1 - z * z)
-    v.push(STAR_M * r * Math.cos(a), STAR_M * z, STAR_M * r * Math.sin(a))
-  }
-  return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(v, 3))
-})()
 
 /** Soft glare around the Sun (a camera effect; the Moon has no sky glow). */
 const glare = (() => {
@@ -100,7 +94,7 @@ function useTrail(track: Angles[], pick: (a: Angles) => [number, number], colour
 }
 
 /** First-person view from 2 m above the terrain, in local metric coordinates centred on the site. */
-function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm }: Props) {
+function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, sky, stars }: Props) {
   const hm = site.heightmap!
   const [loaded, setLoaded] = useState<{ file: string; heights: Uint16Array } | null>(null)
   useEffect(() => {
@@ -116,15 +110,38 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm }
   const cell = hm.span_m / (n - 1)
   const onPatch = Math.max(Math.abs(east), Math.abs(north)) < hm.span_m / 2 - cell
 
+  // Terrain mesh: MESH_N x MESH_N quads whose spacing grows away from the observer, sampled bilinearly from
+  // the heightmap. About 3 m spacing where you stand and about 30 m at the patch edge, at ~150k vertices,
+  // so a 1024 px (5 m) heightmap does not need a million-vertex mesh. Rebuilt when the observer moves.
   const geometry = useMemo(() => {
     if (!heights) return null
-    const g = new THREE.PlaneGeometry(hm.span_m, hm.span_m, n - 1, n - 1)
-    const pos = g.attributes.position
-    // plane rows run north to south like the heightmap; z becomes "up" after the mesh rotation
-    for (let i = 0; i < pos.count; i++) pos.setZ(i, heights[i] * hm.scale_m)
+    const half = hm.span_m / 2
+    const at = (x: number, y: number) => {
+      const col = Math.min(n - 1.001, Math.max(0, (x + half) / cell))
+      const row = Math.min(n - 1.001, Math.max(0, (half - y) / cell))
+      const [c0, r0] = [Math.floor(col), Math.floor(row)]
+      const [fc, fr] = [col - c0, row - r0]
+      const h = (r: number, c: number) => heights[r * n + c] * hm.scale_m
+      return (h(r0, c0) * (1 - fc) + h(r0, c0 + 1) * fc) * (1 - fr) + (h(r0 + 1, c0) * (1 - fc) + h(r0 + 1, c0 + 1) * fc) * fr
+    }
+    // u in [-1, 1] -> coordinate in [-half, half], with u = 0 at the observer and fine steps near it
+    const warp = (u: number, c: number) => {
+      const g = (s: number) => WARP_A * s + (1 - WARP_A) * s * s * s
+      return u >= 0 ? c + (half - c) * g(u) : c - (half + c) * g(-u)
+    }
+    const [ce, cn] = [Math.max(-half, Math.min(half, east)), Math.max(-half, Math.min(half, north))]
+    const g = new THREE.PlaneGeometry(hm.span_m, hm.span_m, MESH_N, MESH_N)
+    const [pos, uv] = [g.attributes.position, g.attributes.uv]
+    for (let i = 0; i < pos.count; i++) {
+      const x = warp(pos.getX(i) / half, ce)
+      const y = warp(pos.getY(i) / half, cn)
+      // plane x = east, plane y = north (rows run north to south like the heightmap); z becomes up after the rotation
+      pos.setXYZ(i, x, y, at(x, y))
+      uv.setXY(i, x / hm.span_m + 0.5, y / hm.span_m + 0.5) // soil detail keeps its size on the warped grid
+    }
     g.computeVertexNormals()
     return g
-  }, [heights, hm.span_m, hm.scale_m, n])
+  }, [heights, hm.span_m, hm.scale_m, n, cell, east, north])
 
   // ground height under the observer, bilinear on the mesh grid (same units as the mesh z)
   const ground = useMemo(() => {
@@ -156,6 +173,10 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm }
     g.setIndex(idx)
     return g
   }, [mask])
+
+  const starGroup = useMemo(() => starField(stars, STAR_M), [stars])
+  sceneMatrix(sky, starGroup.matrix)
+  starGroup.matrixWorldNeedsUpdate = true
 
   const soil = useMemo(() => {
     const { normalMap, map } = regolith()
@@ -196,8 +217,10 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm }
   const earthTrail = useTrail(track, (a) => [a.earthAz, a.earthEl], '#6da7ec')
   sunTrail.geometry.setDrawRange(0, t + 1)
   earthTrail.geometry.setDrawRange(0, t + 1)
-  // Display exposure, not photometry: scale the light so level ground stays readable at grazing Sun angles.
-  const exposure = Math.min(30, 0.42 / Math.sin(Math.max(now.sunEl, 0.5) * RAD))
+  // Display exposure, not photometry. At the pole a slope facing the Sun gets ~10x the light of flat ground, so no
+  // linear exposure shows both: flat ground lands at ~15-25% grey and the ACES tone curve rolls sunward slopes off
+  // instead of clipping them to white.
+  const exposure = 0.6 / Math.sin((Math.max(now.sunEl, 0.5) + 3) * RAD)
   return (
     <Canvas className="scene" shadows camera={{ near: 0.5, far: 30000, fov: 60 }}>
       <color attach="background" args={['#000']} />
@@ -219,9 +242,7 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm }
         shadow-camera-far={10000}
       />
       <group position={eye}>
-        <points geometry={stars}>
-          <pointsMaterial color="#cfd6e6" size={1.6} sizeAttenuation={false} transparent opacity={0.8} />
-        </points>
+        <primitive object={starGroup} />
         <primitive object={sunTrail} />
         <primitive object={earthTrail} />
         <mesh geometry={ring}>

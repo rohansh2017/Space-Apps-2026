@@ -32,3 +32,31 @@ def test_earth_parallax_is_about_a_quarter_degree():
     # body on the site's horizon plane direction, at Earth's distance: finite distance lowers it
     el = az_el([0, 0, 384_400.0], 0, 0)[1]
     assert -0.27 < el < -0.25
+
+
+def test_quaternion_round_trip_including_half_turns():
+    from horizonwalk.geo import matrix_to_quaternion, quaternion_to_matrix
+
+    rng = np.random.default_rng(1)
+    q = rng.normal(size=(200, 4))
+    q /= np.linalg.norm(q, axis=1, keepdims=True)
+    q[:3] = [[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]  # 180 deg turns: w = 0
+    m = quaternion_to_matrix(q)
+    assert np.allclose(m @ np.swapaxes(m, -1, -2), np.eye(3), atol=1e-12)
+    back = matrix_to_quaternion(m)
+    assert np.allclose(np.abs(np.sum(back * q, axis=1)), 1, atol=1e-12)  # same rotation (q and -q)
+    assert np.allclose(quaternion_to_matrix(back), m, atol=1e-12)
+
+
+def test_bsc5_line_parser_reads_sirius():
+    from horizonwalk.stars import parse_line
+
+    sirius = ("2491  9Alp CMaBD-16 1591  48915151881 257I   5423           064044.6-163444064508.9-164258227.22-08.88-1.46"
+              "   0.00 -0.05 -0.03   A1Vm               -0.553-1.205 +.375-008SBO    13 10.3  11.2AB   4*")  # fmt: skip
+    x, y, z, vmag, bv = parse_line(sirius)
+    ra = np.degrees(np.arctan2(y, x)) % 360
+    dec = np.degrees(np.arcsin(z))
+    assert abs(ra - (6 + 45 / 60 + 8.9 / 3600) * 15) < 1e-9
+    assert abs(dec - -(16 + 42 / 60 + 58 / 3600)) < 1e-9
+    assert (vmag, bv) == (-1.46, 0.0)
+    assert parse_line(" 182" + " " * 190) is None  # retired entries have no position

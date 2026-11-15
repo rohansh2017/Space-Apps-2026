@@ -36,36 +36,56 @@ Exit (M2): a slipped-date scenario returns ranked alternatives in under 3 s and 
 
 ## P3 Complete demo
 
-Exit (M3, cut line): all seven objectives shown in the deployed app. **Not met yet: built and tested locally, not deployed** (see PROGRESS.md, 2026-11-14 15:30).
+Exit (M3, cut line): all seven objectives shown in the deployed app. **Met 2026-11-14 17:30** (`make deploy` run, `make e2e-live` passes 5/5 against the live URL with `x-data-source: r2`; PROGRESS.md).
 
 - [ ] A: lit/dark validation against Quickmap and PGDA; numbers for the validation slide
   - [x] PGDA, scripted: nine sites, Pearson r 0.95 to 0.99 (VALIDATION.md); Horizons extended to six sites
   - [ ] Quickmap, by hand, for the judges' Q&A (needs a person)
-- [ ] B: custom-coordinate snapping in the UI; slope grid ready; data files uploaded to R2 and loaded by region
+- [x] B: custom-coordinate snapping in the UI; slope grid ready; data files uploaded to R2 and loaded by region
   - [x] Custom coordinates and map clicks snap to the grid and show the snap distance
   - [x] Slope grid ready (in the finder since P2; the check against the LOLA slope map is F16, P4)
   - [x] Worker serves `/data/*` from R2 with the bundled copy as fallback (checked with `wrangler dev --local`)
-  - [ ] Data files uploaded to R2 (`make deploy` does it; not run yet)
+  - [x] Data files uploaded to R2 (`make deploy`, 2026-11-14 17:20; 58 objects under the contract paths)
 - [x] C: playback with trails; performance pass to 30 fps (60 fps on an M1 Pro, PERF.md)
-- [ ] D: Planner/Explorer modes and labels, basic scenario matrix, deploy to Cloudflare with data served from R2
+- [x] D: Planner/Explorer modes and labels, basic scenario matrix, deploy to Cloudflare with data served from R2
   - [x] Planner/Explorer modes, labels and glossary tooltips; scenario matrix
-  - [ ] Deploy (`make deploy`), then check `x-data-source: r2` on the live URL
+  - [x] Deploy (`make deploy`), then check `x-data-source: r2` on the live URL (`make e2e-live`)
 
 ## P4 Should-haves (in this order)
 
 Exit: someone outside the team completes the tour unaided.
 
-- [ ] Side-by-side compare (F11), nudge control (F14), guided tour (F13)
-- [ ] Mission room (F24): Durable Object with WebSocket sync of site, date and constraints; two browsers stay in step
+- [x] Side-by-side compare (F11), nudge control (F14), guided tour (F13) — built and tested 2026-11-14 18:10 (`web/tests/e2e/p4.spec.ts`, screenshots 10–12). The phase exit (an outsider completes the tour unaided) still needs a person.
+- [x] Mission room (F24): Durable Object with WebSocket sync of site, date and constraints; two browsers stay in step — 2026-11-14 18:50, `web/tests/e2e/room.spec.ts` (three browsers, late joiner, leave) via `make e2e-room` and `make e2e-live`
 - [ ] Gemini sentence entry (F21), then the horizon description (F22) if time remains
-- [ ] Illumination map (F15), slope screening (F16), shareable URL (F17)
+  - [x] F21: Worker route `/api/constraints` with the schema as Gemini's response format; browser validates, user applies, finder never auto-runs (2026-11-14 19:30; `p4.spec.ts` mocked, `gemini.spec.ts` live)
+  - [x] F22 horizon description: `/api/describe` from engine facts, number check, template fallback (2026-11-14 21:10; `p4.spec.ts` mocked, `gemini.spec.ts` live)
+- [x] Illumination map (F15), slope screening (F16), shareable URL (F17) — 2026-11-14 20:10: sunlit % per grid cell on the region map (`p4.spec.ts` F15); slopes checked against the LOLA slope map in `make validate` (r ≥ 0.994, mean abs diff ≤ 0.33°); `?site&point&t&c&mode` links with Copy link (`p4.spec.ts` F17)
+
+P4 items done except the exit test itself (an outsider completing the tour unaided) and F22 (could-have, cut-list item 1).
 
 ## P5 Submission
 
 Exit: two full demo runs under 3 minutes, backup video recorded.
 
-- [ ] One-page summary with a 3D screenshot; README with data credits and the non-goals
+- [x] One-page summary with a 3D screenshot (`docs/ONE_PAGER.md`); README rewritten with data credits, architecture, validation and the non-goals (2026-11-14 20:40)
 - [ ] Prize slides (Cloudflare products used; how Gemini is used); confirm each prize's submission steps
+  - [x] Slide content in `docs/PRIZE_SLIDES.md`
+  - [ ] Submission steps confirmed on the Space Apps NYC page (needs a person)
 - [ ] Rehearse the script twice; record the backup video; bug bash on the deployed URL
+  - [x] Script mapped to the UI in `docs/DEMO_SCRIPT.md`; `make e2e-live` is the automated bug bash (13 tests pass on the deployed URL)
+  - [ ] Two rehearsals under 3 minutes and the recording (needs people)
 
 Cut list: see SPEC.md, "Cut list".
+
+## P6 Visual fidelity (team request, 2026-11-14, after P5)
+
+Goal: replace illustrative 3D assets with real data where a source exists. Exit: the footer lists only what is still illustrative, `make check` passes, frame rate still ≥ 30 fps on our machines, and the new raw files are in R2.
+
+- [x] Download the PGDA 78 5 m site DEMs (8 files, ~530 MB) and the Yale Bright Star Catalogue (BSC5, Harvard TDC copy of VizieR V/50); hashes in DATA.md; raw copies in R2 under `raw/`
+- [x] Heightmaps from the 5 m DEMs (1024 × 1024 over 5 × 5 km, ~4.9 m per cell) where a 5 m file covers the patch; 20 m elsewhere (IM-2 Mons Mouton); `source` and `res_m` recorded per site
+- [x] Remove the procedural soil relief on 5 m patches (real relief replaces it); keep it on 20 m patches and on the level-ground fallback, labelled
+  - Reversed 2026-11-15 (D43): the 5 m ground looked unrealistically smooth; the sub-1.5 m texture is back on every patch, under the real relief
+- [x] Real stars: BSC5 positions, magnitudes and B−V colours, oriented for the site and hour from an hourly ICRF→MOON_ME orientation table (new contract file); validated by rotating the Sun's ICRF direction onto the stored ephemeris vector
+- [x] Footer, README, DECISIONS updated; screenshots viewed; `make perf` re-run (2026-11-14 23:30; D40, D41)
+

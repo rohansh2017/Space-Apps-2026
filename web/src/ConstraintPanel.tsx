@@ -1,6 +1,7 @@
 import type { ConstraintDef } from './data'
 import type { Constraints } from './engine/engine'
 import { LABELS, PRESETS, defaults } from './presets'
+import SentenceEntry from './SentenceEntry'
 
 interface Props {
   defs: ConstraintDef[]
@@ -44,6 +45,7 @@ export default function ConstraintPanel({ defs, value, onChange }: Props) {
         ),
       )}
       <p className="note">Defaults are editable placeholders, not NASA requirements.</p>
+      <SentenceEntry defs={defs} onApply={(v) => onChange({ ...value, ...v })} />
     </section>
   )
 }

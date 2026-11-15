@@ -15,10 +15,12 @@
    "links": [],
    "heightmap": {
     "file": "heightmaps/change7-shackleton-rim.png",
-    "offset_m": 651.4811442910839,
-    "scale_m": 0.015214752171523462,
-    "size_px": 256,
-    "span_m": 5000.0
+    "offset_m": 649.6347942846628,
+    "scale_m": 0.015243577991213002,
+    "size_px": 1024,
+    "span_m": 5000.0,
+    "res_m": 4.88,
+    "source": "LOLA 5 m site DEM, PGDA product 78 (Site07)"
    }
   },
   {
@@ -38,7 +40,9 @@
     "offset_m": 5027.593735095625,
     "scale_m": 0.005045698451746127,
     "size_px": 256,
-    "span_m": 5000.0
+    "span_m": 5000.0,
+    "res_m": 19.53,
+    "source": "LOLA 20 m polar DEM (LDEM_80S_20MPP_ADJ)"
    }
   },
   {
@@ -57,10 +61,12 @@
    ],
    "heightmap": {
     "file": "heightmaps/haworth.png",
-    "offset_m": 1316.2609384421303,
-    "scale_m": 0.007754841853221276,
-    "size_px": 256,
-    "span_m": 5000.0
+    "offset_m": 1314.3769089970767,
+    "scale_m": 0.007788777418340423,
+    "size_px": 1024,
+    "span_m": 5000.0,
+    "res_m": 4.88,
+    "source": "LOLA 5 m site DEM, PGDA product 78 (Haworth)"
    }
   },
   {
@@ -79,10 +85,12 @@
    ],
    "heightmap": {
     "file": "heightmaps/malapert-massif.png",
-    "offset_m": 4072.1271209436736,
-    "scale_m": 0.013034684458371045,
-    "size_px": 256,
-    "span_m": 5000.0
+    "offset_m": 4069.0944522859636,
+    "scale_m": 0.013102585294608426,
+    "size_px": 1024,
+    "span_m": 5000.0,
+    "res_m": 4.88,
+    "source": "LOLA 5 m site DEM, PGDA product 78 (Site23)"
    }
   },
   {
@@ -101,10 +109,12 @@
    ],
    "heightmap": {
     "file": "heightmaps/nobile-rim-1.png",
-    "offset_m": 5200.104488530527,
-    "scale_m": 0.018309371578122145,
-    "size_px": 256,
-    "span_m": 5000.0
+    "offset_m": 5195.168840169606,
+    "scale_m": 0.018418217762704234,
+    "size_px": 1024,
+    "span_m": 5000.0,
+    "res_m": 4.88,
+    "source": "LOLA 5 m site DEM, PGDA product 78 (Site06)"
    }
   },
   {
@@ -123,10 +133,12 @@
    ],
    "heightmap": {
     "file": "heightmaps/nobile-rim-2.png",
-    "offset_m": 823.9529207013464,
-    "scale_m": 0.008786586639172528,
-    "size_px": 256,
-    "span_m": 5000.0
+    "offset_m": 823.171277659862,
+    "scale_m": 0.008807799505935627,
+    "size_px": 1024,
+    "span_m": 5000.0,
+    "res_m": 4.88,
+    "source": "LOLA 5 m site DEM, PGDA product 78 (DM2)"
    }
   },
   {
@@ -145,10 +157,12 @@
    ],
    "heightmap": {
     "file": "heightmaps/connecting-ridge.png",
-    "offset_m": 1084.594948459908,
-    "scale_m": 0.01334211864364127,
-    "size_px": 256,
-    "span_m": 5000.0
+    "offset_m": 1081.376806915969,
+    "scale_m": 0.013395385998403241,
+    "size_px": 1024,
+    "span_m": 5000.0,
+    "res_m": 4.88,
+    "source": "LOLA 5 m site DEM, PGDA product 78 (Site01)"
    }
   },
   {
@@ -167,10 +181,12 @@
    ],
    "heightmap": {
     "file": "heightmaps/peak-near-shackleton.png",
-    "offset_m": 699.3068812995424,
-    "scale_m": 0.014484969100790576,
-    "size_px": 256,
-    "span_m": 5000.0
+    "offset_m": 696.6642958683905,
+    "scale_m": 0.01452611335005313,
+    "size_px": 1024,
+    "span_m": 5000.0,
+    "res_m": 4.88,
+    "source": "LOLA 5 m site DEM, PGDA product 78 (Site07)"
    }
   },
   {
@@ -189,10 +205,12 @@
    ],
    "heightmap": {
     "file": "heightmaps/faustini-rim-a.png",
-    "offset_m": -534.7541201784103,
-    "scale_m": 0.011992219189943839,
-    "size_px": 256,
-    "span_m": 5000.0
+    "offset_m": -537.614802941809,
+    "scale_m": 0.012056457272773323,
+    "size_px": 1024,
+    "span_m": 5000.0,
+    "res_m": 4.88,
+    "source": "LOLA 5 m site DEM, PGDA product 78 (LM7)"
    }
   },
   {

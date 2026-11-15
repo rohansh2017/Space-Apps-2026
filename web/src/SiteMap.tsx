@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import type { Dataset, Point, Site } from './data'
 import { dataUrl } from './data'
 import { latLonToXY, xyToLatLon } from './engine/engine'
+import { RAMP, colour } from './ramp'
 
 const PX = 560 // canvas pixels; CSS scales it to the panel width
 
@@ -63,11 +64,12 @@ interface Props {
   data: Dataset
   site: Site
   point: Point | null // the plan's grid point; null for sites without terrain
+  illumination: Float32Array | null // F15: sunlit % per grid point (indexed by point index) over the mission window
   onPick: (lat: number, lon: number) => void
 }
 
 /** F1 map click: the whole south polar cap with every curated site, and the selected site's search grid. */
-function SiteMap({ data, site, point, onPick }: Props) {
+function SiteMap({ data, site, point, illumination, onPick }: Props) {
   const pole = useImage(data.basemap.pole.file)
   const region = useImage(site.terrain ? data.basemap.regions.files[site.id] : undefined)
   const centre = site.terrain ? latLonToXY(site.lat, site.lon) : null
@@ -101,10 +103,22 @@ function SiteMap({ data, site, point, onPick }: Props) {
   }
 
   const drawRegion = (g: CanvasRenderingContext2D, px: (x: number, y: number) => [number, number]) => {
-    g.fillStyle = 'rgb(255 255 255 / 45%)'
-    for (const p of gridPoints) {
-      const [x, y] = px(p.x, p.y)
-      g.fillRect(x - 1.5, y - 1.5, 3, 3)
+    if (illumination) {
+      // one 500 m cell per grid point, hillshade showing through; a 2 px gap keeps cells apart
+      const cell = (500 / (2 * data.basemap.regions.half_width_m)) * PX
+      g.globalAlpha = 0.78
+      for (const p of gridPoints) {
+        const [x, y] = px(p.x, p.y)
+        g.fillStyle = colour(illumination[p.index], 100)
+        g.fillRect(x - cell / 2 + 1, y - cell / 2 + 1, cell - 2, cell - 2)
+      }
+      g.globalAlpha = 1
+    } else {
+      g.fillStyle = 'rgb(255 255 255 / 45%)'
+      for (const p of gridPoints) {
+        const [x, y] = px(p.x, p.y)
+        g.fillRect(x - 1.5, y - 1.5, 3, 3)
+      }
     }
     if (point) {
       const [x, y] = px(point.x, point.y)
@@ -136,8 +150,13 @@ function SiteMap({ data, site, point, onPick }: Props) {
       <MapCanvas label="South polar cap, 80–90°S: click to pick a point" testid="map-pole" image={pole} cx={0} cy={0}
         half={data.basemap.pole.half_width_m} draw={drawPole} onPick={onPick} />
       {centre && (
-        <MapCanvas label={`${site.name}: 500 m search grid`} testid="map-region" image={region} cx={centre[0]} cy={centre[1]}
-          half={data.basemap.regions.half_width_m} draw={drawRegion} onPick={onPick} />
+        <MapCanvas label={illumination ? `${site.name}: sunlit % per grid point over the mission window` : `${site.name}: 500 m search grid`}
+          testid="map-region" image={region} cx={centre[0]} cy={centre[1]} half={data.basemap.regions.half_width_m} draw={drawRegion} onPick={onPick} />
+      )}
+      {centre && illumination && (
+        <p className="note legend-row" data-testid="illumination-legend">
+          Sunlit <span className="legend" aria-hidden="true">0% <i style={{ background: `linear-gradient(90deg, ${RAMP.join(',')})` }} /> 100%</span> of the mission window, per 500 m cell
+        </p>
       )}
       <p className="note">LOLA hillshade with illustrative lighting. Clicks snap to the nearest precomputed grid point.</p>
     </section>

@@ -11,7 +11,8 @@ GRID_N, GRID_STEP_M = (
     21,
     500.0,
 )  # 21 x 21 search grid, row-major from (-5 km, -5 km); site = index 220
-HM_N, HM_SPAN_M = 256, 5000.0
+HM_N, HM_SPAN_M = 256, 5000.0  # 256 px from the 20 m DEM
+HM_N_5M = 1024  # from a 5 m site DEM where one covers the patch: about 4.9 m per cell
 POLE_HALF_M = 304_000.0  # the 80 m DEM covers +-304 km around the pole
 REGION_HALF_M = 5_250.0  # the 21 x 21 grid reaches +-5 km; a quarter-kilometre margin
 EPHEM_FIELDS = ["sun_x", "sun_y", "sun_z", "earth_x", "earth_y", "earth_z", "earth_dist_km"]
@@ -46,22 +47,38 @@ def write_png16(path: Path, img: np.ndarray, depth: int = 16) -> None:
     )
 
 
-def write_ephemeris(out: Path, tables: dict[int, np.ndarray], synthetic: bool) -> None:
-    """tables: year -> (hours, 7) rows starting at Jan 1 00:00 UTC of that year."""
-    years = {}
+def write_ephemeris(
+    out: Path, tables: dict[int, np.ndarray], orientation: dict[int, np.ndarray], synthetic: bool
+) -> None:
+    """tables: year -> (hours, 7) rows starting at Jan 1 00:00 UTC of that year.
+    orientation: year -> (hours, 4) ICRF -> frame quaternions (w, x, y, z) for the same hours."""
+    years, rot = {}, {}
     for year, table in tables.items():
-        assert table.shape[1] == 7
+        assert table.shape[1] == 7 and orientation[year].shape == (len(table), 4)
         write_bin(out / "ephemeris" / f"{year}.bin", table, "<f4")
+        write_bin(out / "orientation" / f"{year}.bin", orientation[year], "<f4")
         years[str(year)] = {"file": f"ephemeris/{year}.bin", "hours": len(table)}
+        rot[str(year)] = {"file": f"orientation/{year}.bin", "hours": len(table)}
     write_json(out / "ephemeris.json", {
         "synthetic": synthetic, "frame": "MOON_ME_DE440_ME421",
         "start_utc": f"{min(tables)}-01-01T00:00:00Z", "step_seconds": 3600,
         "dtype": "float32-le", "fields": EPHEM_FIELDS, "years": years,
+        "orientation": {"from": "ICRF", "to": "MOON_ME_DE440_ME421", "fields": ["qw", "qx", "qy", "qz"], "years": rot},
+    })  # fmt: skip
+
+
+def write_stars(out: Path, stars: np.ndarray, source: str, synthetic: bool) -> None:
+    """stars: (N, 5) rows of ICRF unit vector x, y, z, V magnitude, B-V (NaN when unknown)."""
+    assert stars.shape[1] == 5
+    write_bin(out / "stars.bin", stars, "<f4")
+    write_json(out / "stars.json", {
+        "synthetic": synthetic, "source": source, "file": "stars.bin", "count": len(stars),
+        "frame": "ICRF (J2000)", "dtype": "float32-le", "fields": ["x", "y", "z", "vmag", "b_v"],
     })  # fmt: skip
 
 
 def write_region(
-    out: Path, site: dict, lat, lon, x, y, elev, masks_deg, slopes_deg, heights_m
+    out: Path, site: dict, lat, lon, x, y, elev, masks_deg, slopes_deg, heights_m, hm_source: str
 ) -> tuple[dict, list]:
     """Write one site's masks, slopes and heightmap. Returns (site entry, points entries)."""
     sid = site["id"]
@@ -73,7 +90,8 @@ def write_region(
     scale = (hi - lo) / 65535 or 1.0
     write_png16(out / "heightmaps" / f"{sid}.png", np.round((heights_m - lo) / scale))
     entry = dict(site, heightmap={
-        "file": f"heightmaps/{sid}.png", "offset_m": lo, "scale_m": scale, "size_px": HM_N, "span_m": HM_SPAN_M,
+        "file": f"heightmaps/{sid}.png", "offset_m": lo, "scale_m": scale, "size_px": heights_m.shape[0],
+        "span_m": HM_SPAN_M, "res_m": round(HM_SPAN_M / heights_m.shape[0], 2), "source": hm_source,
     })  # fmt: skip
     points = [
         {

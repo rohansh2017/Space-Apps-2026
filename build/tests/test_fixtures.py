@@ -28,6 +28,29 @@ def test_ephemeris_is_float32_x7_unit_vectors():
         assert 350_000 < t[:, 6].min() and t[:, 6].max() < 410_000
 
 
+def test_orientation_is_unit_quaternions_for_every_hour():
+    meta = load("ephemeris.json")
+    rot = meta["orientation"]
+    assert (
+        rot["from"] == "ICRF"
+        and rot["to"] == meta["frame"]
+        and rot["fields"] == ["qw", "qx", "qy", "qz"]
+    )
+    assert set(rot["years"]) == set(meta["years"])
+    for y, year in rot["years"].items():
+        q = np.fromfile(DATA / year["file"], "<f4").reshape(-1, 4)
+        assert len(q) == year["hours"] == meta["years"][y]["hours"]
+        assert np.allclose(np.linalg.norm(q, axis=1), 1, atol=1e-5)
+
+
+def test_stars_are_unit_vectors_with_magnitudes():
+    meta = load("stars.json")
+    s = np.fromfile(DATA / meta["file"], "<f4").reshape(-1, 5)
+    assert len(s) == meta["count"] > 0 and meta["fields"] == ["x", "y", "z", "vmag", "b_v"]
+    assert np.allclose(np.linalg.norm(s[:, :3], axis=1), 1, atol=1e-5)
+    assert -2 < s[:, 3].min() and s[:, 3].max() < 9
+
+
 def test_masks_slopes_and_points_line_up():
     meta = load("points.json")
     n = meta["grid"]["n"] ** 2
@@ -61,9 +84,12 @@ def test_sites_and_heightmaps():
         ):
             assert key in s, (s["id"], key)
         if s["terrain"]:
-            png = (DATA / s["heightmap"]["file"]).read_bytes()
+            hm = s["heightmap"]
+            png = (DATA / hm["file"]).read_bytes()
             w, h, depth, colour = struct.unpack(">IIBB", png[16:26])
-            assert (w, h, depth, colour) == (256, 256, 16, 0)
+            assert (w, h, depth, colour) == (hm["size_px"], hm["size_px"], 16, 0)
+            assert hm["size_px"] in (256, 1024) and hm["source"]
+            assert abs(hm["res_m"] - hm["span_m"] / hm["size_px"]) < 0.01
         else:
             assert s["heightmap"] is None
 

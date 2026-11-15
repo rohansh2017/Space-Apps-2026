@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Chips from './Chips'
+import Compare from './Compare'
 import ConstraintPanel from './ConstraintPanel'
 import type { Dataset, Region } from './data'
 import { loadDataset, loadRegion } from './data'
-import type { Constraints } from './engine/engine'
-import { buildSeries, evaluate, nextChange, siteAngles, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
+import { horizonFacts } from './describe'
+import HorizonText from './HorizonText'
+import type { Constraints, Metrics } from './engine/engine'
+import { buildSeries, evaluate, nextChange, nudgeNeighbour, siteAngles, siteFrame, skyMatrix, snapToGrid, windowMetrics } from './engine/engine'
 import type { Candidate, FinderResult } from './engine/finder'
 import type { FinderRequest } from './engine/finder.worker'
 import type { Mode } from './guide'
@@ -14,9 +17,13 @@ import Matrix from './Matrix'
 import Panorama from './Panorama'
 import { defaults } from './presets'
 import Results from './Results'
+import type { Room, RoomState } from './room'
+import { connectRoom, newRoomId, roomIdFromUrl, roomLink, stateKey, validConstraints } from './room'
 import Scene3D from './Scene3D'
+import { decodeShare, encodeShare } from './share'
 import SiteMap from './SiteMap'
 import Summary from './Summary'
+import Tour from './Tour'
 
 const LUNAR_DAY_H = 708
 const LOOKAHEAD_H = 720 // countdowns look this far past the scrubbed lunar day
@@ -42,14 +49,27 @@ export default function App() {
   const [found, setFound] = useState<{ finder: FinderResult; candidates: Candidate[] } | null>(null)
   const [opened, setOpened] = useState<number | null>(null)
   const [matrix, setMatrix] = useState(false)
+  const [nudgeFrom, setNudgeFrom] = useState<Metrics | null>(null) // F14: metrics before the last nudge
+  const [tour, setTour] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [roomId, setRoomId] = useState<string | null>(roomIdFromUrl)
+  const [roomCount, setRoomCount] = useState(0)
+  const room = useRef<Room | null>(null)
+  const lastRoomKey = useRef('') // the state most recently sent or received, so nothing echoes
   const worker = useRef<Worker | null>(null)
 
   useEffect(() => {
     loadDataset().then((d) => {
       setData(d)
-      setSiteId(d.sites[0].id)
-      setConstraints(defaults(d.constraintDefs))
+      // F17: a shared link restores site, point, landing time, changed constraints and mode
+      const s = decodeShare(new URLSearchParams(window.location.search))
+      const site = d.sites.find((x) => x.id === s.site) ?? d.sites[0]
+      setSiteId(site.id)
+      if (s.point !== undefined && s.point !== d.centreIndex && d.points.some((p) => p.region === site.id && p.index === s.point)) setPointIndex(s.point)
+      const h = s.utc ? Math.round((Date.parse(s.utc) - d.startMs) / HOUR_MS) : NaN
+      if (h >= 0 && h < d.hours) setPlanHour(h)
+      setConstraints(validConstraints(d.constraintDefs, { ...defaults(d.constraintDefs), ...s.constraints }))
+      if (s.mode) setMode(s.mode)
     }, (e) => setError(String(e)))
     return () => worker.current?.terminate()
   }, [])
@@ -68,6 +88,7 @@ export default function App() {
     setFound(null)
     setOpened(null)
     setPlaying(false)
+    setNudgeFrom(null)
   }, [])
 
   const selectSite = useCallback((id: string, index: number | null = null) => {
@@ -115,15 +136,15 @@ export default function App() {
   const observer = alt ? found!.candidates[alt.candidate] : plan
   const viewStart = alt ? alt.start : planHour
 
-  /** Everything about the observer's lunar day that does not depend on the scrubber position. */
-  const day = useMemo(() => {
-    if (!data || !site || !observer || !plan || constraints.mission_duration_days === undefined) return null
-    const frame = siteFrame(observer.lat, observer.lon, observer.elevM)
-    const mask = site.terrain ? observer.mask : null
-    const n = Math.min(LUNAR_DAY_H + LOOKAHEAD_H, data.hours - viewStart)
-    const series = buildSeries(data.ephemeris, viewStart, n, frame, mask, Number(constraints.min_earth_elevation_deg))
+  /** Everything about one observer's lunar day from a landing hour that does not depend on the scrubber position. */
+  const dayOf = useCallback((obs: Candidate, start: number) => {
+    if (!data || !site || !plan || constraints.mission_duration_days === undefined) return null
+    const frame = siteFrame(obs.lat, obs.lon, obs.elevM)
+    const mask = site.terrain ? obs.mask : null
+    const n = Math.min(LUNAR_DAY_H + LOOKAHEAD_H, data.hours - start)
+    const series = buildSeries(data.ephemeris, start, n, frame, mask, Number(constraints.min_earth_elevation_deg))
     const track = []
-    for (let h = 0; h <= Math.min(LUNAR_DAY_H, n - 1); h++) track.push(siteAngles(data.ephemeris, viewStart + h, frame))
+    for (let h = 0; h <= Math.min(LUNAR_DAY_H, n - 1); h++) track.push(siteAngles(data.ephemeris, start + h, frame))
     const dur = Math.round(Number(constraints.mission_duration_days) * 24)
     const metrics = dur <= n ? windowMetrics(series, 0, dur) : null
     // observer offset from the site centre in the site's east/north axes, metres
@@ -131,8 +152,32 @@ export default function App() {
     const home = siteFrame(site.lat, site.lon, centre?.elev_m ?? 0)
     const d = frame.pos.map((v, i) => (v - home.pos[i]) * 1000)
     const dot = (a: number[]) => a[0] * d[0] + a[1] * d[1] + a[2] * d[2]
-    return { mask, series, track, metrics, evaluation: metrics && evaluate(metrics, observer.slopeDeg, constraints), east: dot(home.east), north: dot(home.north) }
-  }, [data, site, observer, plan, viewStart, constraints])
+    return { mask, series, track, metrics, evaluation: metrics && evaluate(metrics, obs.slopeDeg, constraints), east: dot(home.east), north: dot(home.north) }
+  }, [data, site, plan, constraints])
+  const day = useMemo(() => (observer ? dayOf(observer, viewStart) : null), [dayOf, observer, viewStart])
+  /** F11: the plan's own day, kept alongside while an alternative is open. */
+  const planDay = useMemo(() => (alt && plan ? dayOf(plan, planHour) : null), [dayOf, alt, plan, planHour])
+
+  /** F15: sunlit % at every grid point of the selected region over the mission window from the landing hour. */
+  const illumination = useMemo(() => {
+    if (!data || !site?.terrain || !regions[site.id] || constraints.mission_duration_days === undefined) return null
+    const r = regions[site.id]
+    const dur = Math.round(Number(constraints.mission_duration_days) * 24)
+    if (planHour + dur > data.hours) return null
+    const out = new Float32Array(2 * data.centreIndex + 1) // n x n grid with the site at the middle index
+    for (const p of data.points) {
+      if (p.region !== site.id) continue
+      const s = buildSeries(data.ephemeris, planHour, dur, siteFrame(p.lat, p.lon, p.elev_m), r.masks.subarray(p.index * 360, (p.index + 1) * 360), Number(constraints.min_earth_elevation_deg))
+      out[p.index] = (s.cumFrac[dur] / dur) * 100
+    }
+    return out
+  }, [data, site, regions, planHour, constraints])
+
+  /** F14: the grid neighbours one 500 m step away in each compass direction (null at the grid edge). */
+  const neighbours = useMemo(
+    () => data && planPoint ? Object.fromEntries((['N', 'E', 'S', 'W'] as const).map((d) => [d, nudgeNeighbour(data.points, planPoint, d)])) : null,
+    [data, planPoint],
+  )
 
   const view = useMemo(() => {
     if (!data || !day) return null
@@ -146,8 +191,10 @@ export default function App() {
       sunChangeH: nextChange(series.litLeft, t),
       earthChangeH: nextChange(series.earthLeft, t),
       earthDistKm: data.ephemeris[(viewStart + t) * 7 + 6],
+      // real star field for this observer and hour (stars are fixed in ICRF; the Moon turns under them)
+      sky: observer ? skyMatrix(data.orientation, viewStart + t, siteFrame(observer.lat, observer.lon, observer.elevM)) : null,
     }
-  }, [data, day, viewStart, offset])
+  }, [data, day, viewStart, offset, observer])
 
   // F12 playback: one lunar day in about 20 s, driven by the clock so the speed does not depend on frame rate
   const last = (day?.track.length ?? 1) - 1
@@ -167,6 +214,34 @@ export default function App() {
   const togglePlay = () => {
     playFrom.current = offset >= last ? 0 : offset
     setPlaying(!playing)
+  }
+
+  /** F14 nudge: move the plan one grid step (500 m) or one day; the summary tiles then show what changed. */
+  const nudge = (dir: 'N' | 'E' | 'S' | 'W' | 'earlier' | 'later') => {
+    if (!data || !planPoint || !day?.metrics) return
+    const from = day.metrics
+    if (dir === 'earlier' || dir === 'later') {
+      const h = planHour + (dir === 'later' ? 24 : -24)
+      if (h < 0 || h >= data.hours) return
+      setPlanHour(h)
+      setOffset(0)
+      clearResults()
+    } else {
+      const next = neighbours?.[dir]
+      if (!next) return
+      selectSite(next.region, next.index === data.centreIndex ? null : next.index)
+    }
+    setSnapNote('')
+    setNudgeFrom(from) // after clearResults, so this write wins
+  }
+
+  /** F13: what the app does as the tour reaches each step (step ids come from tour.json). */
+  const tourStep = (id: string) => {
+    if (id === 'pole-sun' && site?.terrain) {
+      playFrom.current = 0
+      setOffset(0)
+      setPlaying(true)
+    } else setPlaying(false)
   }
 
   const terrain = useMemo(() => data?.sites.filter((s) => s.terrain) ?? [], [data])
@@ -209,6 +284,66 @@ export default function App() {
     }
   }
 
+  // F17: keep the address bar shareable (the room id from F24 is kept)
+  useEffect(() => {
+    if (!data || !siteId) return
+    const params = encodeShare(new URLSearchParams(window.location.search), {
+      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode,
+    })
+    window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
+  }, [data, siteId, pointIndex, planHour, constraints, mode])
+  const [copied, setCopied] = useState(false)
+  const copyLink = () => {
+    navigator.clipboard?.writeText(window.location.href).catch(() => undefined)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 2000)
+  }
+
+  // F24 mission room: join when a room id is set; apply what arrives, send what changes here
+  useEffect(() => {
+    if (!data || !roomId) return
+    const apply = (s: RoomState) => {
+      const h = Math.round((Date.parse(s.utc) - data.startMs) / HOUR_MS)
+      if (!data.sites.some((x) => x.id === s.site_id) || !(h >= 0 && h < data.hours)) return
+      const point = s.point_index !== null && data.points.some((p) => p.region === s.site_id && p.index === s.point_index) ? s.point_index : null
+      const constraints = validConstraints(data.constraintDefs, s.constraints)
+      lastRoomKey.current = stateKey({ site_id: s.site_id, point_index: point, utc: s.utc, constraints })
+      setSiteId(s.site_id)
+      setPointIndex(point)
+      setPlanHour(h)
+      setConstraints(constraints)
+      setSnapNote('')
+      setFound(null)
+      setOpened(null)
+    }
+    const r = connectRoom(roomId, apply, setRoomCount)
+    room.current = r
+    return () => {
+      r.close()
+      room.current = null
+      setRoomCount(0)
+    }
+  }, [data, roomId])
+  useEffect(() => {
+    if (!data || !room.current || !siteId) return
+    const state: RoomState = { site_id: siteId, point_index: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints }
+    const key = stateKey(state)
+    if (key === lastRoomKey.current) return
+    lastRoomKey.current = key
+    room.current.send(state)
+  }, [data, roomId, siteId, pointIndex, planHour, constraints])
+  const startRoom = () => {
+    const id = newRoomId()
+    window.history.replaceState(null, '', roomLink(id))
+    setRoomId(id)
+  }
+  const leaveRoom = () => {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('room')
+    window.history.replaceState(null, '', url.toString())
+    setRoomId(null)
+  }
+
   const openCell = useCallback((id: string, hour: number) => {
     selectSite(id)
     setPlanHour(hour)
@@ -240,10 +375,13 @@ export default function App() {
           <div>
             <h1>Tranquility Base</h1>
             <p className="note">Lunar south-pole landing site navigator</p>
+            {mode === 'explorer' && <button type="button" disabled={tour} onClick={() => setTour(true)}>Start tour</button>}
+            <button type="button" onClick={copyLink}>Copy link</button>
+            {copied && <span className="note" role="status">Link copied</span>}
           </div>
           <div className="modes" role="group" aria-label="Mode">
             {(['planner', 'explorer'] as const).map((m) => (
-              <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>{m === 'planner' ? 'Planner' : 'Explorer'}</button>
+              <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); if (m === 'planner') setTour(false) }}>{m === 'planner' ? 'Planner' : 'Explorer'}</button>
             ))}
           </div>
         </header>
@@ -293,7 +431,25 @@ export default function App() {
               {busy ? 'Searching…' : 'Find alternatives'}
             </button>
             {!site.terrain && <p className="note">This site has no terrain (angle validation only), so the finder is off.</p>}
-            <SiteMap data={data} site={site} point={planPoint} onPick={locate} />
+            <SiteMap data={data} site={site} point={planPoint} illumination={illumination} onPick={locate} />
+            <section className="panel room" aria-label="Mission room">
+              <h2>Mission room</h2>
+              {roomId ? (
+                <>
+                  <div className="room-row">
+                    <span className={roomCount > 1 ? 'ok' : ''} data-testid="room-count">{roomCount} connected</span>
+                    <button type="button" onClick={leaveRoom}>Leave room</button>
+                  </div>
+                  <input readOnly value={roomLink(roomId)} aria-label="Room link" data-testid="room-link" onFocus={(e) => e.target.select()} />
+                  <span>Share the link: everyone in the room sees the same site, date and constraints. Each browser still runs the engine itself.</span>
+                </>
+              ) : (
+                <>
+                  <button type="button" onClick={startRoom}>Start mission room</button>
+                  <span>Share one plan with teammates in real time.</span>
+                </>
+              )}
+            </section>
           </aside>
           <div className="stage">
             {!view || !day || !observer ? <p>Loading terrain…</p> : (
@@ -313,10 +469,11 @@ export default function App() {
                   <span>{date(viewStart)} UTC landing</span>
                   {day.evaluation ? <Chips evaluation={day.evaluation} /> : <span className="note">Mission window runs past 2035</span>}
                 </div>
+                {tour && <Tour steps={data.tour.steps} onStep={tourStep} onClose={() => { setTour(false); setPlaying(false) }} />}
                 <div className="viewport">
                   {site.terrain
                     ? <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
-                        sunFraction={view.lit} earthDistKm={view.earthDistKm} />
+                        sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky!} stars={data.stars} />
                     : <p className="note empty">No terrain for this site: it is used to validate Sun and Earth angles only, so the horizon below is flat.</p>}
                   <Hud sunEl={view.now.sunEl} earthEl={view.now.earthEl} lit={view.lit} link={view.link} power={view.power}
                     sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} />
@@ -336,8 +493,26 @@ export default function App() {
                     <input type="range" min={0} max={last} value={view.t} onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
                   </label>
                 </div>
-                {day.metrics && <Summary metrics={day.metrics} />}
-                <Panorama mask={day.mask} track={day.track} t={view.t} />
+                {!alt && site.terrain && (
+                  <div className="nudge" role="group" aria-label="Nudge the plan">
+                    <span className="note">Nudge:</span>
+                    {(['N', 'E', 'S', 'W'] as const).map((d) => (
+                      <button key={d} type="button" disabled={!neighbours?.[d]} onClick={() => nudge(d)}>500 m {d}</button>
+                    ))}
+                    <button type="button" disabled={planHour < 24} onClick={() => nudge('earlier')}>1 day earlier</button>
+                    <button type="button" disabled={planHour + 24 >= data.hours} onClick={() => nudge('later')}>1 day later</button>
+                    {nudgeFrom && <span className="note" data-testid="nudge-note">Tiles show the change since the last nudge.</span>}
+                  </div>
+                )}
+                {planDay && alt && plan
+                  ? <Compare plan={{ label: plan.label, date: date(planHour), day: planDay }} alt={{ label: observer.label, date: date(viewStart), day }} t={view.t} />
+                  : (
+                    <>
+                      {day.metrics && <Summary metrics={day.metrics} previous={nudgeFrom} />}
+                      <Panorama mask={day.mask} track={day.track} t={view.t} />
+                      <HorizonText facts={horizonFacts(day.mask, day.series, day.track, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
+                    </>
+                  )}
                 {found && <Results finder={found.finder} candidates={found.candidates} opened={opened} date={date}
                   onOpen={(i) => { setOpened(i); setOffset(0); setPlaying(false) }} />}
                 {matrix && allLoaded
@@ -353,9 +528,12 @@ export default function App() {
         </div>
         <footer>
           Screening-grade results: 500 m search grid, 20 m terrain within 10 km and 80 m beyond. Not a
-          mission design, hazard, power, thermal or link-budget tool. In the 3D view, ground detail finer
-          than the 20 m terrain, the stars, the Sun's glare and Earth's surface are illustrative; every
-          number comes from the engine. Data: NASA/JPL DE440, LRO LOLA (NASA GSFC PGDA).
+          mission design, hazard, power, thermal or link-budget tool. 3D view: terrain relief is LOLA data
+          (5 m where PGDA has a site DEM, otherwise 20 m); soil texture finer than that (bumps and craters
+          under 1.5 m), the ground colour, the Sun's glare and Earth's surface are illustrative; stars are
+          from the Yale Bright Star Catalogue at their real positions for this site and hour, with colours
+          approximated from B−V.
+          Every number comes from the engine. Data: NASA/JPL DE440, LRO LOLA (NASA GSFC PGDA), BSC5.
         </footer>
       </main>
     </Guide.Provider>

@@ -23,7 +23,7 @@ Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC
 ## Commands
 
 `make setup` · `make data-download` · `make data` (real) · `make data-fixtures` (synthetic) ·
-`make test` · `make parity` · `make validate` (Horizons + PGDA illumination) · `make e2e` · `make perf` ·
+`make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` · `make perf` ·
 `make check` (lint + typecheck + test + parity + e2e) · `make dev` · `make build` ·
 `make deploy` (uploads `web/public/data` to R2, then publishes).
 
@@ -60,17 +60,21 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
 - `slopes/{region}.bin`: Uint8 degrees per point, same order.
 - `sites.json`: `sites[]{id, name, lat, lon, coord_source, approximate, terrain, mission, agency, blurb, links, heightmap}`;
   `heightmap` is null for no-terrain sites, else `{file, offset_m, scale_m, size_px, span_m}`.
-- `heightmaps/{site}.png`: 16-bit greyscale, 256 × 256 over 5 × 5 km in local east/north axes, row 0 = north, col 0 = west; height m = offset_m + value × scale_m.
+- `heightmaps/{site}.png`: 16-bit greyscale over 5 × 5 km in local east/north axes, row 0 = north, col 0 = west; height m = offset_m + value × scale_m.
+  1024 × 1024 from a PGDA 78 5 m site DEM where one covers the patch, else 256 × 256 from the 20 m DEM; `sites.json` heightmap has `size_px`, `res_m`, `source`.
+- `ephemeris.json` `orientation`: `{from: "ICRF", to: frame, fields: [qw, qx, qy, qz], years{year: {file, hours}}}`; `orientation/{year}.bin`: Float32 × 4 per hour, the unit quaternion of the ICRF → frame rotation (same hours as the ephemeris).
+- `stars.json`: `{source, file, count, frame: "ICRF (J2000)", fields}`; `stars.bin`: Float32 × 5 per star: ICRF unit vector x, y, z, V magnitude, B−V (NaN if unknown).
 - `tour.json`: `credit`, `steps[]{id, title, body}`, `glossary[]{term, definition}` (source: `build/tour_src.json`).
 - `basemap.json`: `pole{file, half_width_m}`, `regions{half_width_m, files{region: file}}`.
   `basemaps/*.png`: 8-bit greyscale hillshade, square, stereographic x/y axes (row 0 = +y, col 0 = −x), centred on the pole or the region's site.
 - `constraints.schema.json` (hand-authored): `constraints[]{id, type, unit, min, max, default}`.
-- Room message: `{type: "state", site_id, utc, constraints{id: value}, sender}` (`shared/fixtures/room_message.json`).
+- Room message: `{type: "state", site_id, point_index (grid index or null), utc, constraints{id: value}, sender}` (`shared/fixtures/room_message.json`);
+  the room also sends `{type: "presence", count}`. Route `/room/{id}` (WebSocket) → Durable Object `MissionRoom` (`web/worker/room.js`).
 - Any file made from synthetic data carries `"synthetic": true` in its JSON.
 
 ## Conventions
 
 - Smallest change that meets the spec. No speculative features or abstraction layers.
 - Never present synthetic data as real; `docs/VALIDATION.md` holds only command output.
-- 3D decoration (soil detail, stars, Sun glare, Earth's surface) is illustrative and must stay labelled so; no number may come from the renderer.
+- 3D decoration that is not data (procedural soil texture below 1.5 m on every patch, the ground colour, Sun glare, Earth's surface, star colours from B−V) must stay labelled and must stay below the DEM's resolution; no number may come from the renderer. Star positions and LOLA relief are data.
 - Branch `build/tranquility-base`; conventional commits; never commit `data/raw/` or files > 50 MB.

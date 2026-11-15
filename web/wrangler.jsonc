@@ -3,8 +3,10 @@
   "compatibility_date": "2026-11-01",
   "main": "worker/index.js",
   "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "single-page-application",
-    // the Worker answers /data/* itself (R2 first, bundled copy as the fallback)
-    "run_worker_first": ["/data/*"] },
-  "r2_buckets": [{ "binding": "DATA", "bucket_name": "tranquility-base-data" }]
+    // the Worker answers /data/* itself (R2 first, bundled copy as the fallback), /room/* (mission room) and /api/* (Gemini)
+    "run_worker_first": ["/data/*", "/room/*", "/api/*"] },
+  "r2_buckets": [{ "binding": "DATA", "bucket_name": "tranquility-base-data" }],
+  "durable_objects": { "bindings": [{ "name": "ROOM", "class_name": "MissionRoom" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MissionRoom"] }]
   // Secret: GEMINI_API_KEY (set with `wrangler secret put`, never in the repo).
 }
