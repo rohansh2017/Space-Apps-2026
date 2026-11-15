@@ -18,14 +18,15 @@ Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC
 - `web/public/data/` generated contract files (real output of `make data`)
 - `shared/fixtures/` small JSON fixtures used by both engines
 - `data/raw/` downloaded DEMs and kernels (gitignored)
-- `docs/` PLAN, PROGRESS, DECISIONS, DATA, VALIDATION, TRACEABILITY, spec/SPEC.md
+- `docs/` PLAN, PROGRESS, DECISIONS, DATA, VALIDATION, PERF, TRACEABILITY, spec/SPEC.md; submission material in ONE_PAGER, DEMO_SCRIPT, PRIZE_SLIDES
 
 ## Commands
 
 `make setup` · `make data-download` · `make data` (real) · `make data-fixtures` (synthetic) ·
-`make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` · `make perf` ·
-`make check` (lint + typecheck + test + parity + e2e) · `make dev` · `make build` ·
-`make deploy` (uploads `web/public/data` to R2, then publishes).
+`make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` ·
+`make e2e-room` (mission room on a local Worker) · `make perf` ·
+`make check` (lint + typecheck + test + parity + e2e + e2e-room) · `make dev` · `make build` ·
+`make deploy` (uploads `web/public/data` to R2, then publishes) · `make e2e-live` (all browser tests, room and Gemini included, against the live site).
 
 Secrets live in `.env` (gitignored): Cloudflare R2 S3 keys and `GEMINI_API_KEY`. The Worker has
 `GEMINI_API_KEY` as a secret and the R2 bucket `tranquility-base-data` bound as `DATA`.
@@ -79,3 +80,5 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
 - Never present synthetic data as real; `docs/VALIDATION.md` holds only command output.
 - 3D decoration that is not data (procedural soil texture below 1.5 m on every patch, the horizon ring's rock texture (its lighting is data), the ground colour, Sun glare, Earth's surface, star colours from B−V) must stay labelled and must stay below the DEM's resolution; no number may come from the renderer. Star positions and LOLA relief are data.
 - Branch `build/tranquility-base`; conventional commits; never commit `data/raw/` or files > 50 MB.
+- Push every commit straight to `origin/build/tranquility-base` once `make check` passes (team decision 2026-11-15; overrides the brief's "do not push"). Never force-push; `main` changes only through pull requests the team merges. After a push that changes the app, `make deploy` then `make e2e-live`.
+- After every change, update the docs it affects in the same commit: PLAN (tick), PROGRESS (append), DECISIONS (any choice or deviation), TRACEABILITY, DATA (new or derived files), README/footer (anything user-visible).

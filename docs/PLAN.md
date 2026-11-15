@@ -89,4 +89,5 @@ Goal: replace illustrative 3D assets with real data where a source exists. Exit:
   - Reversed 2026-11-15 (D43): the 5 m ground looked unrealistically smooth; the sub-1.5 m texture is back on every patch, under the real relief
 - [x] Real stars: BSC5 positions, magnitudes and B−V colours, oriented for the site and hour from an hourly ICRF→MOON_ME orientation table (new contract file); validated by rotating the Sun's ICRF direction onto the stored ephemeris vector
 - [x] Footer, README, DECISIONS updated; screenshots viewed; `make perf` re-run (2026-11-14 23:30; D40, D41)
+- [x] Distant ranges lit from LOLA crest slopes and the real Sun, with illustrative rock texture (2026-11-15, D45); Apollo sites removed from the app (D44)
 

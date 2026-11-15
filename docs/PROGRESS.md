@@ -251,3 +251,7 @@ Team feedback: the 5 m ground looked smooth and unrealistic. Cause: the 5 m DEM 
 
 - Apollo 11/15/17 removed from the app (team decision, D44); still in `make validate`.
 - Distant ranges: per-azimuth crest normals from the DEM (`crest_normals`, unit-tested on a synthetic ridge and a flat sphere, and asserted against each site's mask in `make data`) light the horizon ring from the real Sun (D45); illustrative rock texture on it. Checked on the GPU at Shackleton rim (lit), Shackleton in shadow, Connecting Ridge, Nobile Rim 1; screenshots viewed.
+
+## 2026-11-15 — Docs audit; push rule
+
+Audit of every doc against the repo. Fixed: CLAUDE.md commands (e2e-room, e2e-live; check includes the room test) and doc map; web/CLAUDE.md (Gemini routes, `/api/*`, star field, ridge lighting); DATA.md derived files (ridges, nine sites); perf.sh per-region size now counts ridges, PERF.md regenerated; PLAN P6 lists the ring lighting and the Apollo removal. New standing rules in CLAUDE.md: push every commit to `build/tranquility-base` after `make check` (team decision), and update affected docs in the same commit.
