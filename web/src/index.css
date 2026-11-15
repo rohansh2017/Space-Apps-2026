@@ -138,6 +138,19 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .band { grid-area: band; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--gap); padding: 10px var(--gap);
   max-height: 42vh; overflow-y: auto; background: var(--panel-solid); border-top: 1px solid var(--line); }
 .band-time { display: grid; gap: 0.5rem; align-content: start; min-width: 0; }
+/* compare mode: the tray takes the band; the timeline is one strip above it */
+.band.comparing { grid-template-columns: minmax(0, 1fr); gap: 8px; max-height: 62vh; } /* comparing is the task: the tray may take more of the window */
+.band.comparing { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.band.comparing .band-time { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+/* the tray's heading joins the timeline strip, and its table spans the band */
+.band.comparing .tray { display: contents; }
+.band.comparing .tray-head { grid-area: 1 / 2; }
+.band.comparing .tray-full, .band.comparing .tray-cols { grid-column: 1 / -1; }
+.band-more { font-size: 0.8rem; color: var(--dim); }
+.band-more summary { cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; white-space: nowrap; }
+.band-more summary:hover { color: var(--text); background: rgb(224 216 200 / 6%); }
+.band-more[open] { grid-column: 1 / -1; display: grid; gap: 0.5rem; }
+.band-more[open] summary { justify-self: end; }
 .scrub { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: center; font-size: 0.8rem; color: var(--dim); }
 .scrub label { display: grid; gap: 0.15rem; }
 .scrub em { font-style: normal; color: var(--mute); margin-left: 0.4rem; }
@@ -153,27 +166,42 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .tray-head h2 { margin: 0; }
 .tray-head button { margin-left: auto; }
 .tray-full { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 0.45rem 0.6rem; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--raised); font-size: 0.82rem; }
-.tray-cols { display: grid; gap: 8px; }
-.tray-col { display: grid; gap: 0.4rem; align-content: start; min-width: 0; padding: 0.5rem; border: 1px solid var(--line); border-radius: 7px; background: rgb(224 216 200 / 3%); }
+/* the tray is a table: a label column plus one column per scenario, all sharing ten rows
+   (head, chips, six metrics, skyline, actions), so the same metric reads straight across */
+.tray-cols { display: grid; gap: 0 8px; }
+.tray-labels, .tray-col { display: grid; grid-row: span 10; grid-template-rows: subgrid; min-width: 0; }
+.tray-labels { padding: 0.5rem 0; font-size: 0.74rem; color: var(--dim); }
+.tray-labels > span { display: flex; align-items: center; padding: 0.08rem 0; line-height: 1.3; border-bottom: 1px solid transparent; }
+.tray-labels > span:nth-child(n + 3):nth-child(-n + 8) { border-bottom-color: var(--line); }
+.tray-labels .span6 { grid-row: span 6; }
+.tray-col { padding: 0.5rem; border: 1px solid var(--line); border-radius: 7px; background: rgb(224 216 200 / 3%); }
 .tray-col.viewing { border-color: var(--line-strong); background: rgb(224 216 200 / 7%); }
-.tray-col > header { display: grid; gap: 0.05rem; min-width: 0; }
-.tray-col > header strong { font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tray-col > header span { font-size: 0.74rem; color: var(--dim); }
-.tray-col > footer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem; }
+.tray-col > header { display: grid; gap: 0; min-width: 0; padding-bottom: 0.15rem; }
+.tray-col-title strong { font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tray-col > header > span { display: flex; gap: 0.3em; font-size: 0.74rem; color: var(--dim); min-width: 0; white-space: nowrap; }
+.tray-col > header .site { overflow: hidden; text-overflow: ellipsis; }
+.tray-col > footer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem; padding-top: 0.2rem; }
+.tray-col-title { display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; min-width: 0; }
+.tray-col-title .icon-button { padding: 0.15rem; margin: -0.15rem -0.15rem -0.15rem 0; }
 .tray-col > footer button { font-size: 0.76rem; padding: 0.2rem 0.4rem; }
-/* tray metrics: one line each (label left, value right), so four columns stay short */
-.tray-col .summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 0 0.75rem; }
-.tray-col .summary > * { display: flex; justify-content: space-between; align-items: baseline; gap: 0.4rem; padding: 0.12rem 0; min-width: 0;
-  background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
-.tray-col .summary dt { font-size: 0.74rem; text-transform: none; letter-spacing: 0; line-height: 1.25; }
-.tray-col .summary dd { white-space: nowrap; }
-.tray-col .summary dd { font-size: 0.82rem; }
-.tray-empty { margin: 0; align-self: center; font-size: 0.82rem; color: var(--dim); }
+.tray-row { min-width: 0; padding: 0.2rem 0; }
+/* metrics: each value is its own row of the shared grid; the label stays in the markup for screen readers */
+.tray-col .summary:not(.words), .tray-col .summary:not(.words) > div { display: contents; }
+.tray-col .summary:not(.words) dt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tray-col .summary:not(.words) dd { margin: 0; padding: 0.08rem 0; font-size: 0.84rem; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--line); }
+.tray-col .summary.words { grid-row: span 6; display: grid; gap: 0.2rem; align-content: start; }
+.tray-col .summary.words > li { background: none; border: 0; padding: 0; font-size: 0.8rem; }
+.tray-metrics-empty { grid-row: span 6; }
+.tray-col .chip { font-size: 0.68rem; padding: 0 0.4rem 0 0.3rem; }
+.tray-col .chips { gap: 0.2rem; }
+.tray-empty { grid-row: span 10; margin: 0; align-self: center; font-size: 0.82rem; color: var(--dim); }
 .tray-empty svg { vertical-align: -2px; }
+.summary .best { font-weight: 700; color: #fff; }
 .tray-col.pin .delta { animation: none; color: var(--dim); } /* against the plan: a steady difference, not a change */
 
 /* short windows (720p projectors): give the 3D view more of the height */
 @media (max-height: 800px) and (min-width: 861px) {
+  .tray-col .panorama.compact { height: 44px; } /* a flatter skyline on short screens; no labels to distort */
   .band { max-height: 38vh; padding-top: 8px; padding-bottom: 8px; }
   .band-time { grid-template-columns: minmax(0, 1fr); gap: 0.35rem; }
   .horizon-text { font-size: 0.78rem; }

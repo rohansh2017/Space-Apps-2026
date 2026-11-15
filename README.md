@@ -35,7 +35,9 @@ The 3D view fills the window; press *Full screen* for a projector. Choose a site
 the Plan panel on the left, drag the lunar-day scrubber or press Play, drag inside the 3D view to look
 around. Slip the date and press *Find alternatives*. Open a result: it is pinned to the *Compare* tray
 at the bottom, beside the plan, and every column follows the same scrubber. Pin up to three (the pin
-on each result, or *Pin this view*); pins travel in the copied link. Nudge the plan 500 m or a day and
+on each result, or *Pin this view*); pins travel in the copied link. The tray reads like a table: one row
+per metric, the best value in each row in bold, differences against the plan beside each pin. *Make this
+the plan* on a pin swaps it with the plan. Nudge the plan 500 m or a day and
 watch the plan's tiles change. Type a custom coordinate, or open *Map* on the left rail and click
 either map; the region map colours each 500 m cell by its sunlit % for the mission window. Open
 *Scenario matrix* and click a cell. Switch to Explorer mode and press *Start tour*. *Copy link* gives

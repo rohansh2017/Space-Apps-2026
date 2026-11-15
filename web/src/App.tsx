@@ -475,6 +475,19 @@ export default function App() {
     else document.documentElement.requestFullscreen().catch(() => undefined)
   }
   const closeDrawer = useCallback(() => setDrawer(null), [])
+  /** Make a pinned scenario the plan: it takes the plan's place, and the old plan takes its column in the tray. */
+  const adoptPin = (key: string) => {
+    const ref = pins.find((p) => refKey(p) === key)
+    if (!data || !plan || !ref) return
+    const [region, index] = [ref.point.split(':')[0], Number(ref.point.split(':')[1])]
+    const old: ScenarioRef = { point: plan.id, hour: planHour }
+    selectSite(region, index === data.centreIndex ? null : index) // also clears results, which described the old plan
+    setPlanHour(ref.hour)
+    setSnapNote('')
+    setPins(pins.map((p) => (refKey(p) === key ? old : p)))
+    setAnnounce('The pinned scenario is now the plan; the previous plan is pinned in its place.')
+    focusView.current = true
+  }
   const openMatrix = () => {
     setDrawer(drawer === 'matrix' ? null : 'matrix')
     if (!matrix) {
@@ -709,7 +722,7 @@ export default function App() {
         </div>
 
         {view && day && (
-          <section className="band" aria-label="Timeline and comparison">
+          <section className={pins.length ? 'band comparing' : 'band'} aria-label="Timeline and comparison">
             <div className="band-time">
               <div className="scrub">
                 <button type="button" onClick={togglePlay} aria-pressed={playing} data-testid="play">
@@ -722,6 +735,10 @@ export default function App() {
                     onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
                 </label>
               </div>
+              {/* with pins, the tray needs the band: the plan's own skyline is in its column, the rest folds away */}
+              {(() => {
+                const detail = (
+                  <>
               {!viewed && site.terrain && (
                 <div className="nudge" role="group" aria-label="Nudge the plan">
                   <span className="note">Nudge the plan</span>
@@ -735,10 +752,15 @@ export default function App() {
               )}
               <Panorama mask={day.mask} track={day.track} t={view.t} width={1080} height={210} />
               <HorizonText facts={horizonFacts(day.mask, day.series, day.track, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
+                  </>
+                )
+                return pins.length ? <details className="band-more"><summary>Nudge, skyline and horizon description</summary>{detail}</details> : detail
+              })()}
             </div>
             <Tray plan={trayPlan} pinned={trayPins} t={view.t} constraints={constraints} previous={nudgeFrom}
               pending={pendingPin ? { title: (() => { const c = candidateOf(pendingPin.point); return c ? differenceOf(c, pendingPin.hour, null) : 'this scenario' })() } : null}
               onView={(key) => showScenario(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
+              onAdopt={adoptPin}
               onUnpin={(key) => { setPins(pins.filter((p) => refKey(p) !== key)); if (viewing && refKey(viewing) === key) showScenario(null) }}
               onReplace={(key) => { if (pendingPin) setPins(pins.map((p) => (refKey(p) === key ? pendingPin : p))); setPendingPin(null) }}
               onCancelPending={() => setPendingPin(null)}

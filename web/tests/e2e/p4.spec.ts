@@ -39,6 +39,14 @@ test('F11: opened alternatives are pinned to the compare tray beside the plan', 
   await page.getByRole('button', { name: 'Back to plan' }).click()
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
   await expect(tray.getByTestId('tray-pin')).toHaveCount(1)
+  // the best value in a row is marked, in words for screen readers too
+  await expect(tray.getByTestId('tray-pin').locator('dd.best').first()).toContainText('(best in the tray)')
+  // a pin can become the plan: the old plan takes its column
+  await page.getByRole('button', { name: /^Make .* the plan$/ }).click()
+  await expect(page.getByTestId('view')).toBeFocused()
+  await expect(tray.getByTestId('tray-plan').locator('.chip.fail')).toHaveCount(0)
+  await expect(tray.getByTestId('tray-pin').locator('.chip.fail').first()).toBeVisible()
+  await expect(tray.getByTestId('tray-pin')).toContainText('2026-12-01 00:00 UTC')
 })
 
 test('F14: nudging the plan by one grid step or one day marks what changed', async ({ page }) => {

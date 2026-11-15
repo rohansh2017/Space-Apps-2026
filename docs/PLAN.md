@@ -100,4 +100,4 @@ Goal: rapid, intuitive comparison of several scenarios, in full screen. Run thro
 - [x] Shape + layout: full-screen layout, compare tray of plan + 3 pins in the share link, drawers, one-line footer with *About the data*, polar-light palette (D49)
 - [ ] Adapt (phones)
 - [x] Polish from the test screenshots (2026-11-15)
-- [ ] Critique
+- [x] Critique against the comparison objective (25/40); its three P1s fixed: tray fits a 720p full screen, tray reads as a table, *Make this the plan* (D50)

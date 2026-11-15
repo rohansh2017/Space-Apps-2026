@@ -290,3 +290,7 @@ Full-screen comparison-first redesign (D49): window-filling 3D view, left rail a
 ## 2026-11-15 — `/impeccable polish` (branch `redesign/new-visual-identity`)
 
 Worked from all 17 test screenshots. Fixed: tray columns and result rows no longer cut or split landing dates (dates kept on one line; tray detail split into site and time); result rows put title and actions on one line with the site and date full width below; the tour stacks under the status card instead of covering its chips; the Map drawer shows both maps side by side, so the illumination map and its legend are visible without scrolling; panorama elevation labels are outlined so they read over the terrain; the Plan panel fades at its foot to show it scrolls. No behaviour or copy changes. Detector clean; `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — `/impeccable critique` and its P1 fixes (branch `redesign/new-visual-identity`)
+
+Dual-agent critique against the comparison objective: 25/40, detector clean in source (in-page: placeholder contrast 3.6:1, 11.8 px small text), snapshot in `.impeccable/critique/`. Fixed the three P1s (D50): compare mode for the band so the tray fits a 720p full screen (band 437/437 px, no scroll; 1440×900 392/392 with a 420 px view), the tray as a table with shared rows and the best value per row in bold, and *Make this the plan*. F11 test extended (best marker, adopt, focus). P2s left open: pinning feedback, sticky results header, matrix pass/fail mode. `make check` passes. Not deployed (redesign branch).

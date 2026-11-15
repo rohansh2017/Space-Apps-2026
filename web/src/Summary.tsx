@@ -7,10 +7,14 @@ interface Props {
   metrics: Metrics
   previous?: Metrics | null // F14: when set, each tile shows how it changed since the last nudge
   testId?: string // only the plan's column carries the test id, so tests find one
+  best?: Set<string> // compare tray: metrics where this column is the best of the tray
 }
 
 /** Mission-window metrics: exact numbers in Planner mode, plain-English labels in Explorer mode. */
-export default function Summary({ metrics, previous = null, testId }: Props) {
+export default function Summary({ metrics, previous = null, testId, best }: Props) {
+  // weight, not colour, marks the best value in a row; the words say it for screen readers
+  const mark = (k: string) => (best?.has(k) ? { className: 'best' } : {})
+  const tag = (k: string) => best?.has(k) && <span className="sr-only"> (best in the tray)</span>
   const explorer = useContext(Guide).mode === 'explorer'
   const delta = (k: 'sunlitPct' | 'longestLitH' | 'longestDarkH' | 'earthPct' | 'powerIndex' | 'meanElLit', digits: number, unit = '') => {
     const [now, before] = [metrics[k], previous?.[k]]
@@ -23,9 +27,9 @@ export default function Summary({ metrics, previous = null, testId }: Props) {
   if (explorer)
     return (
       <ul className="summary words" data-testid={testId}>
-        <li><Term id="Sunlit %">Sunny {metrics.sunlitPct.toFixed(0)}% of the mission</Term>{delta('sunlitPct', 0, '%')}</li>
-        <li><Term id="Longest dark run">{metrics.longestDarkH ? `Must survive ${metrics.longestDarkH} h of darkness` : 'Never fully dark'}</Term>{delta('longestDarkH', 0, ' h')}</li>
-        <li><Term id="Earth link">Can call home {metrics.earthPct.toFixed(0)}% of the time</Term>{delta('earthPct', 0, '%')}</li>
+        <li {...mark('sunlitPct')}><Term id="Sunlit %">Sunny {metrics.sunlitPct.toFixed(0)}% of the mission</Term>{delta('sunlitPct', 0, '%')}</li>
+        <li {...mark('longestDarkH')}><Term id="Longest dark run">{metrics.longestDarkH ? `Must survive ${metrics.longestDarkH} h of darkness` : 'Never fully dark'}</Term>{delta('longestDarkH', 0, ' h')}</li>
+        <li {...mark('earthPct')}><Term id="Earth link">Can call home {metrics.earthPct.toFixed(0)}% of the time</Term>{delta('earthPct', 0, '%')}</li>
         <li>
           <Term id="Power index">Power</Term>{' '}
           <span className="battery" role="img" aria-label={`Power index ${metrics.powerIndex.toFixed(2)}`}>
@@ -37,12 +41,12 @@ export default function Summary({ metrics, previous = null, testId }: Props) {
     )
   return (
     <dl className="summary" data-testid={testId}>
-      <div><dt>Sunlit</dt><dd>{metrics.sunlitPct.toFixed(1)}%{delta('sunlitPct', 1, '%')}</dd></div>
-      <div><dt>Longest lit</dt><dd>{metrics.longestLitH} h{delta('longestLitH', 0, ' h')}</dd></div>
-      <div><dt>Longest dark</dt><dd>{metrics.longestDarkH} h{delta('longestDarkH', 0, ' h')}</dd></div>
-      <div><dt>Earth visible</dt><dd>{metrics.earthPct.toFixed(1)}%{delta('earthPct', 1, '%')}</dd></div>
-      <div><dt>Power index</dt><dd>{metrics.powerIndex.toFixed(2)}{delta('powerIndex', 2)}</dd></div>
-      <div><dt>Mean elevation while lit</dt><dd>{metrics.meanElLit === null ? 'n/a' : `${metrics.meanElLit.toFixed(2)}°`}{delta('meanElLit', 2, '°')}</dd></div>
+      <div><dt>Sunlit</dt><dd {...mark('sunlitPct')}>{metrics.sunlitPct.toFixed(1)}%{tag('sunlitPct')}{delta('sunlitPct', 1, '%')}</dd></div>
+      <div><dt>Longest lit</dt><dd {...mark('longestLitH')}>{metrics.longestLitH} h{tag('longestLitH')}{delta('longestLitH', 0, ' h')}</dd></div>
+      <div><dt>Longest dark</dt><dd {...mark('longestDarkH')}>{metrics.longestDarkH} h{tag('longestDarkH')}{delta('longestDarkH', 0, ' h')}</dd></div>
+      <div><dt>Earth visible</dt><dd {...mark('earthPct')}>{metrics.earthPct.toFixed(1)}%{tag('earthPct')}{delta('earthPct', 1, '%')}</dd></div>
+      <div><dt>Power index</dt><dd {...mark('powerIndex')}>{metrics.powerIndex.toFixed(2)}{tag('powerIndex')}{delta('powerIndex', 2)}</dd></div>
+      <div><dt>Mean elevation while lit</dt><dd {...mark('meanElLit')}>{metrics.meanElLit === null ? 'n/a' : `${metrics.meanElLit.toFixed(2)}°`}{tag('meanElLit')}{delta('meanElLit', 2, '°')}</dd></div>
     </dl>
   )
 }
