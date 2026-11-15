@@ -207,9 +207,6 @@ input[aria-invalid='true'] { border-color: var(--bad); }
   border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 16px 48px rgb(0 0 0 / 55%); }
 .drawer:focus { outline: none; }
 .drawer-left { left: 64px; width: min(1000px, calc(100vw - 80px)); bottom: auto; max-height: calc(100vh - 104px); }
-/* the two maps side by side, so the region map is not below the fold */
-.drawer-left section[aria-label='Site map'] { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 var(--gap); align-items: start; }
-.drawer-left section[aria-label='Site map'] > p { grid-column: 1 / -1; }
 .drawer-right { right: var(--gap); width: min(380px, calc(100vw - 24px)); bottom: auto; }
 .drawer-wide { left: 64px; right: var(--gap); bottom: auto; max-height: calc(100vh - 104px); }
 .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 0.6rem 0.55rem 0.9rem; border-bottom: 1px solid var(--line); }
@@ -257,10 +254,6 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .term { text-decoration: underline dotted var(--dim); text-underline-offset: 3px; cursor: help; position: relative; pointer-events: auto; }
 .term:hover::after, .term:focus::after { content: attr(data-tip); position: absolute; left: 0; top: calc(100% + 6px); z-index: 5; width: 16rem; padding: 0.5rem 0.6rem;
   background: #232326; color: var(--text); border: 1px solid var(--line-strong); border-radius: 6px; font-size: 0.78rem; font-weight: 400; text-align: left; white-space: normal; box-shadow: 0 6px 20px rgb(0 0 0 / 50%); }
-.map { margin: 0 0 0.7rem; }
-.map canvas { width: 100%; height: auto; display: block; border-radius: 6px; border: 1px solid var(--line); cursor: crosshair; }
-.map figcaption { margin-top: 0.3rem; }
-.map-hover { color: var(--text); }
 .matrix-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem; margin-bottom: 0.6rem; font-size: 0.8rem; color: var(--dim); }
 .matrix-head select { width: auto; }
 .legend { display: inline-flex; align-items: center; gap: 0.4rem; }
@@ -463,10 +456,17 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
 :is(.moon, .moon-foot) i.fail { border-color: var(--bad); }
 :is(.moon, .moon-foot) i.pending { border: 1px dashed var(--mute); }
 /* pins: the label is the button; a leader on the canvas joins it to the site's true position */
-.moon-pin { position: absolute; left: 0; top: 0; translate: 0 -50%; gap: 0.35rem; padding: 0.1rem 0.5rem 0.1rem 0.4rem; border-radius: 999px; font-size: 0.74rem;
+.moon-pin { position: relative; gap: 0.35rem; padding: 0.1rem 0.5rem 0.1rem 0.4rem; border-radius: 999px; font-size: 0.74rem;
   background: rgb(5 6 8 / 80%); border-color: var(--line-strong); color: var(--text); }
 .moon-pin.selected { border-color: var(--text); font-weight: 650; }
-.moon-pin:hover, .moon-pin:focus-visible { z-index: 2; }
+.moon-pin-wrap:hover, .moon-pin-wrap:focus-within { z-index: 2; }
+/* a pin and its one-click "stand here in 3D" button; the label is placed by the overlay painter */
+.moon-pin-wrap { position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 3px; }
+.moon-pin-wrap.left { flex-direction: row-reverse; }
+.moon-pin-stand { padding: 0.18rem; border-radius: 999px; background: rgb(5 6 8 / 80%); border-color: var(--line-strong); color: var(--text); opacity: 0; transition: opacity 0.12s; }
+.moon-pin-wrap:hover .moon-pin-stand, .moon-pin-wrap:focus-within .moon-pin-stand, .moon-pin-stand:focus-visible { opacity: 1; }
+@media (hover: none) { .moon-pin-stand { opacity: 1; } }
+:is(.moon, .moon-foot) i.tinted { display: inline-block; width: 0.66rem; height: 0.66rem; border-radius: 50%; border: 1px solid rgb(236 232 225 / 55%); vertical-align: -1px; flex: none; }
 .moon-tip { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 3; gap: 0.15rem; width: max-content; max-width: 19rem; padding: 0.45rem 0.6rem; text-align: left; white-space: normal;
   background: #232326; color: var(--text); border: 1px solid var(--line-strong); border-radius: 6px; font-size: 0.76rem; font-weight: 400; box-shadow: 0 6px 20px rgb(0 0 0 / 50%); pointer-events: none; }
 .moon-pin:hover .moon-tip, .moon-pin:focus-visible .moon-tip, .moon-tip.dot { display: grid; }
@@ -513,3 +513,8 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
 .tray-head .pin-view:hover:not(:disabled) { background: #fff; border-color: #fff; }
 .band-summary .summary { gap: 0.3rem; }
 .band-summary .summary > * { padding: 0.25rem 0.5rem; }
+
+/* --- D61: one-click actions over the ground view, and the folded card's tally */
+.stage-actions { display: flex; gap: 0.4rem; pointer-events: auto; }
+.stage-actions button { background: var(--panel); border-color: var(--line-strong); }
+.status-title > .tally { grid-column: 1 / -1; justify-self: start; font-size: 0.78rem; }

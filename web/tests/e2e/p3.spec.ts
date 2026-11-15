@@ -36,20 +36,8 @@ test('custom coordinates and map clicks snap to the grid and show the snap dista
   await expect(page.getByTestId('snap-note')).toContainText('outside the precomputed regions')
   expect((await observer(page)).point).toBe(o.point)
 
-  // a click on the region map picks another grid point
-  await page.getByRole('button', { name: 'Map', exact: true }).click()
-  await page.getByTestId('map-region').click({ position: { x: 60, y: 200 } })
-  await expect(page.getByTestId('snap-note')).toContainText('Snapped')
-  const clicked = await observer(page)
-  expect(clicked.point).not.toBe(o.point)
-  expect(await hudOf(page)).toEqual(expectedHud(clicked))
-
-  // a click on a site marker of the polar map switches site (Connecting Ridge is 60 km from the pole)
-  const box = (await page.getByTestId('map-pole').boundingBox())!
-  const half = 304000
-  const r = 2 * 1737400 * Math.tan(((90 - 89.463) * Math.PI) / 360)
-  const [x, y] = [r * Math.sin((-137.49 * Math.PI) / 180), r * Math.cos((-137.49 * Math.PI) / 180)]
-  await page.getByTestId('map-pole').click({ position: { x: (x / (2 * half) + 0.5) * box.width, y: (0.5 - y / (2 * half)) * box.height } })
+  // map clicks (F1) are Moon view clicks since D61: a site pin switches site (grid clicks: moon.spec.ts)
+  await page.getByTestId('moon-pin-connecting-ridge').click()
   await expect(view).toContainText('Connecting Ridge')
   await page.waitForTimeout(1200)
   await page.screenshot({ ...shot('6-map-and-custom-point'), fullPage: true })

@@ -86,6 +86,13 @@ def main() -> None:
         "synthetic fixture",
         synthetic=True,
     )
+    export.write_context(
+        OUT,
+        {k: export.hillshade(rng.normal(0, 30, (64, 64)), 40.0) for k in regions},
+        40.0,
+        "synthetic fixture",
+        synthetic=True,
+    )
     export.write_json(OUT / "tour.json", {
         "synthetic": True,
         "steps": [{"id": "placeholder", "title": "Placeholder step", "body": "Mock tour text."}],

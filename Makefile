@@ -13,7 +13,7 @@ RAW_URLS := $(PGDA)/LDEM_80S_20MPP_ADJ.TIF $(PGDA)/LDEM_80S_80MPP_ADJ.TIF \
   $(NAIF)/fk/satellites/a_old_versions/moon_de440_220930.tf \
   $(ILLUM)/AVGVISIB_85S_060M_201608.TIF $(ILLUM)/AVGVISIB_75S_120M_201608.TIF $(PGDA)/LDSM_80S_20MPP_ADJ.TIF
 
-.PHONY: setup data-download data data-globe data-fixtures test parity validate e2e e2e-live e2e-room perf check check-changed dev build deploy
+.PHONY: setup data-download data data-globe data-context data-fixtures test parity validate e2e e2e-live e2e-room perf check check-changed dev build deploy
 
 setup:
 	cd build && uv sync
@@ -36,7 +36,11 @@ LOLA_GDR := https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xx
 
 # Real ephemeris, orientation, stars, masks, slopes and heightmaps into web/public/data/ (about 15 s).
 data:
-	cd build && uv run python scripts/build_data.py && uv run python scripts/build_globe.py
+	cd build && uv run python scripts/build_data.py && uv run python scripts/build_globe.py && uv run python scripts/build_context.py 1
+
+# Only the per-site context hillshades (basemaps/context/*.jpg), from the 20 m polar DEM (about 15 s, D62).
+data-context:
+	cd build && uv run python scripts/build_context.py 1
 
 # Only the whole-Moon hillshade (basemaps/globe.png), from data/raw/globe/ldem_16.img (a few seconds).
 data-globe:

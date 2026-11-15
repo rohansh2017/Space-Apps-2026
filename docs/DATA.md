@@ -56,3 +56,7 @@ The PGDA 78 files are 5 m/px GeoTIFFs in the same south polar stereographic proj
 - `ldem_16.lbl` SHA-256 `9aef29463ccc6ed3a3fbe0df3ecd830a99c69e16b564f455507dee2697096579`
 
 `basemaps/globe.png` (`make data-globe`, `build/scripts/build_globe.py`): hillshade on the sphere (east-west pixel size × cos latitude, the polar map's light and ×4 relief), resampled bilinearly to 2048 × 1024 (about 5.3 km per pixel at the equator), 1.96 MB. 4096 × 2048 was 7.7 MB and PNG filters saved under 10 %, so 2048 was kept. The browser fetches it after the polar map, so the first frame does not wait for it. The site layer of the Moon view reuses the shipped heightmaps (no new file).
+
+## Per-site context maps (D62)
+
+`basemaps/context/{site}.jpg` (`make data-context`, `build/scripts/build_context.py`): for each of the 9 terrain sites, a window of ±32 km around the site (south polar stereographic, centred on its x/y) read from `LDEM_80S_20MPP_ADJ.TIF` (the same file as above; SHA-256 re-checked on 2026-11-15 after a fresh download on a second machine), shaded with `export.hillshade` at the full 20 m (3200 × 3200 px, the region maps' light and relief), written as 8-bit greyscale JPEG at quality 85 with Pillow: 1.37–1.58 MB each, 13.5 MB for all nine. They load one at a time, when the Moon view flies to a site. Same axes as the region maps (row 0 = +y, col 0 = −x).

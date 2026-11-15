@@ -24,5 +24,22 @@
   "lon0_deg": 0.0,
   "row0": "north",
   "source": "LOLA LDEM_16 (LRO-L-LOLA-4-GDR-V1.0, 16 px/deg)"
+ },
+ "context": {
+  "half_width_m": 32000.0,
+  "res_m": 20.0,
+  "format": "jpeg",
+  "source": "LOLA 20 m polar DEM (LDEM_80S_20MPP_ADJ)",
+  "files": {
+   "change7-shackleton-rim": "basemaps/context/change7-shackleton-rim.jpg",
+   "im2-mons-mouton": "basemaps/context/im2-mons-mouton.jpg",
+   "haworth": "basemaps/context/haworth.jpg",
+   "malapert-massif": "basemaps/context/malapert-massif.jpg",
+   "nobile-rim-1": "basemaps/context/nobile-rim-1.jpg",
+   "nobile-rim-2": "basemaps/context/nobile-rim-2.jpg",
+   "connecting-ridge": "basemaps/context/connecting-ridge.jpg",
+   "peak-near-shackleton": "basemaps/context/peak-near-shackleton.jpg",
+   "faustini-rim-a": "basemaps/context/faustini-rim-a.jpg"
+  }
  }
 }

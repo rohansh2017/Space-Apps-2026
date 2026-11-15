@@ -185,15 +185,40 @@ def write_basemap(
     for sid, img in regions.items():
         write_png16(out / "basemaps" / f"{sid}.png", img, depth=8)
     old = out / "basemap.json"
-    globe = (
-        json.loads(old.read_text()).get("globe") if old.exists() else None
-    )  # written by build_globe.py
+    kept = json.loads(old.read_text()) if old.exists() else {}
     write_json(out / "basemap.json", {
         "synthetic": synthetic,
         "pole": {"file": "basemaps/pole.png", "half_width_m": POLE_HALF_M},
         "regions": {"half_width_m": REGION_HALF_M, "files": {s: f"basemaps/{s}.png" for s in regions}},
-        **({"globe": globe} if globe else {}),
+        # written by build_globe.py and build_context.py
+        **{k: kept[k] for k in ("globe", "context") if k in kept},
     })  # fmt: skip
+
+
+CONTEXT_HALF_M = 32_000.0  # per-site context hillshade reach (D62)
+
+
+def write_context(
+    out: Path, maps: dict[str, np.ndarray], res_m: float, source: str, synthetic: bool
+) -> None:
+    """Per-site context hillshades (D62): 8-bit greyscale JPEG, square, same axes as the region maps
+    (stereographic x/y, row 0 = +y, col 0 = -x, centred on the site), loaded when a site is flown to."""
+    from PIL import Image  # only the context step needs Pillow
+
+    for sid, img in maps.items():
+        path = out / "basemaps" / "context" / f"{sid}.jpg"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.fromarray(img.astype(np.uint8), mode="L").save(path, quality=85, optimize=True)
+    meta = json.loads((out / "basemap.json").read_text())
+    meta["context"] = {
+        "half_width_m": CONTEXT_HALF_M,
+        "res_m": res_m,
+        "format": "jpeg",
+        "source": source,
+        "files": {sid: f"basemaps/context/{sid}.jpg" for sid in maps},
+    }
+    meta["synthetic"] = bool(meta.get("synthetic")) or synthetic
+    write_json(out / "basemap.json", meta)
 
 
 def write_index(out: Path, sites: list, points: list, synthetic: bool) -> None:

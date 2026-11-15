@@ -1,7 +1,7 @@
 // Geometry for the Moon view (unit sphere, R = 1). Pure: no DOM, no three.js. The renderer takes positions from
 // here; every number shown to the user still comes from engine.ts.
 import type { Constraints, Evaluation, Metrics, SiteFrame } from './engine/engine'
-import { R_MOON_KM, buildSeries, evaluate, windowMetrics } from './engine/engine'
+import { R_MOON_KM, buildSeries, evaluate, quatRotate, windowMetrics } from './engine/engine'
 
 export type Vec3 = [number, number, number]
 const R_M = R_MOON_KM * 1000
@@ -150,4 +150,10 @@ export function siteHillshade(heights: ArrayLike<number>, n: number, cellM: numb
       out[r * n + c] = Math.round(Math.max(0, Math.min(1, s)) * 255)
     }
   return out
+}
+
+/** Row-major 3 x 3 matrix taking an ICRF (J2000) direction to the Moon view's three.js axes at one hour: the hour's ICRF -> MOON_ME rotation (orientation table), then `meToThree`. */
+export function icrfToThree(orientation: ArrayLike<number>, hour: number): number[] {
+  const cols = ([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const).map((e) => meToThree(quatRotate(orientation, hour * 4, e)))
+  return [0, 1, 2].flatMap((r) => cols.map((c) => c[r]))
 }

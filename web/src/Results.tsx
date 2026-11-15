@@ -1,4 +1,4 @@
-import { Minimize2, Pin, PinOff } from 'lucide-react'
+import { Globe, Minimize2, Pin, PinOff } from 'lucide-react'
 import type { RefObject } from 'react'
 import Chips from './Chips'
 import type { Constraints } from './engine/engine'
@@ -11,6 +11,7 @@ interface Props {
   opened: number | null
   date: (hour: number) => string
   onOpen: (i: number | null) => void
+  onMoon: (i: number) => void // show the result on the Moon view, down on its site's grid
   stale: boolean // constraints changed after this search
   busy: boolean
   onRerun: () => void
@@ -22,7 +23,7 @@ interface Props {
   fresh: boolean // just searched: play the entrance
 }
 
-export default function Results({ finder, candidates, opened, date, onOpen, stale, busy, onRerun, headingRef, constraints, pinned, onPin, onMinimize, fresh }: Props) {
+export default function Results({ finder, candidates, opened, date, onOpen, onMoon, stale, busy, onRerun, headingRef, constraints, pinned, onPin, onMinimize, fresh }: Props) {
   const passing = finder.results.filter((r) => r.evaluation.fails === 0).length
   return (
     <section className={fresh ? 'results-panel fresh' : 'results-panel'} aria-labelledby="results-heading">
@@ -60,6 +61,9 @@ export default function Results({ finder, candidates, opened, date, onOpen, stal
                   <button type="button" className="icon-button" aria-label={`${pinned.has(`${c.id}@${r.start}`) ? 'Unpin' : 'Pin'} #${i + 1} ${pinned.has(`${c.id}@${r.start}`) ? 'from' : 'to'} the compare tray`}
                     aria-pressed={pinned.has(`${c.id}@${r.start}`)} onClick={() => onPin(i)}>
                     {pinned.has(`${c.id}@${r.start}`) ? <PinOff size={15} aria-hidden="true" /> : <Pin size={15} aria-hidden="true" />}
+                  </button>
+                  <button type="button" className="icon-button" aria-label={`Show on the Moon: ${which}`} title="Show on the Moon" onClick={() => onMoon(i)}>
+                    <Globe size={15} aria-hidden="true" />
                   </button>
                   <button type="button" aria-label={`${opened === i ? 'Back to plan from' : 'Open in 3D:'} ${which}`}
                     aria-pressed={opened === i} onClick={() => onOpen(opened === i ? null : i)}>

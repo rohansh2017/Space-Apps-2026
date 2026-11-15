@@ -34,7 +34,7 @@ test('Moon view: pins with engine verdicts, fly-down, drag the landing point, st
   await expect(page.locator('.stage canvas[data-engine]')).toHaveCount(1) // one WebGL context
 
   // every curated site is a pin; solid or hollow is the engine's verdict for the planned landing hour
-  await expect(page.locator('[data-testid^="moon-pin-"]')).toHaveCount(9)
+  await expect(page.locator('button.moon-pin')).toHaveCount(9)
   const rim = page.getByTestId('moon-pin-change7-shackleton-rim')
   await expect(rim).toHaveAttribute('data-verdict', 'pass') // the plan's own site: the status card shows no failing chip
   await expect(view.locator('.chip.fail')).toHaveCount(0)
@@ -67,7 +67,7 @@ test('Moon view: pins with engine verdicts, fly-down, drag the landing point, st
   await settled(page)
   // once zoomed in, the bearings start at the landing point and read what the HUD reads
   await expect(page.getByTestId('moon-sun')).toHaveText(`Sun ${await page.getByTestId('hud-sun-el').textContent()}`)
-  await expect(page.getByTestId('moon-legend')).toContainText('Sunlit')
+  await expect(page.getByTestId('moon-legend')).toContainText('meets every constraint') // Verdict is the default layer
   await page.screenshot(shot('19-moon-region'))
 
   // hovering a grid dot shows that point's engine numbers
@@ -149,10 +149,34 @@ test('Moon view: the whole Moon is textured from LOLA, fetched only after the po
   await expect(page.getByTestId('moon-view')).toBeVisible()
   await expect.poll(() => order.includes('globe.png')).toBe(true)
   expect(order.indexOf('pole.png')).toBeLessThan(order.indexOf('globe.png'))
-  // flying to a site adds its 5 m (or 20 m) heightmap as a texture layer
-  const heightmap = page.waitForRequest((r) => r.url().includes('/data/heightmaps/connecting-ridge.png'))
+  // the BSC5 stars, turned for the hour, behind the Moon at both levels (D61)
+  await expect(page.getByTestId('moon-view')).toHaveAttribute('data-stars', /^9\d{3}$/)
+  // the Pole button at pole level brings the camera home after an orbit
+  const at = async () => { const b = (await page.getByTestId('moon-pin-haworth').boundingBox())!; return [b.x, b.y] }
+  await expect(page.getByTestId('moon-pin-haworth')).toBeVisible()
+  const home = await at()
+  const box = (await page.getByTestId('moon-view').boundingBox())!
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.8)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.6, { steps: 8 })
+  await page.mouse.up()
+  await expect.poll(async () => Math.hypot(...(await at()).map((v, i) => v - home[i]))).toBeGreaterThan(30)
+  await page.getByTestId('moon-back').click()
+  await expect.poll(async () => Math.hypot(...(await at()).map((v, i) => v - home[i])), { timeout: 5000 }).toBeLessThan(2)
+  // flying to a site fetches its 20 m context map (D62); its 5 m heightmap waits until the camera comes close
+  const fetched: string[] = []
+  page.on('request', (r) => fetched.push(r.url()))
+  const context = page.waitForRequest((r) => r.url().includes('/data/basemaps/context/connecting-ridge.jpg'))
   await page.getByTestId('moon-pin-connecting-ridge').click()
+  await context
+  await page.waitForTimeout(1500)
+  expect(fetched.some((u) => u.includes('/data/heightmaps/connecting-ridge.png'))).toBe(false)
+  const heightmap = page.waitForRequest((r) => r.url().includes('/data/heightmaps/connecting-ridge.png'))
+  const view = (await page.getByTestId('moon-view').boundingBox())!
+  await page.mouse.move(view.x + view.width / 2, view.y + view.height / 3)
+  for (let i = 0; i < 30; i++) await page.mouse.wheel(0, -300)
   await heightmap
+  await expect(page.getByTestId('moon-view')).toHaveAttribute('data-stars', /^9\d{3}$/) // the stars stay
 })
 
 test('Moon view: reduced motion jumps instead of flying; a link to an exact point opens on the ground', async ({ page }) => {

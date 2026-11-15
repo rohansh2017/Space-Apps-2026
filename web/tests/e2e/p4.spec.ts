@@ -175,16 +175,20 @@ test('F17: the URL carries site, point, date, constraints and mode, and reopens 
   expect(await hudOf(again)).toEqual(expectedHud(await observer(again)))
 })
 
-test('F15: the region map shows sunlit % per grid point for the mission window', async ({ page }) => {
+test('F15: the Moon view colours each 500 m cell by its sunlit % for the mission window, and the pins at the pole', async ({ page }) => {
   await page.goto('/')
   await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
-  await page.getByRole('button', { name: 'Map', exact: true }).click()
-  await expect(page.getByTestId('illumination-legend')).toContainText('Sunlit')
-  await expect(page.getByTestId('map-region')).toHaveAttribute('aria-label', /sunlit % per grid point/)
-  // the sunlight ramp is on the canvas; both dark (low) and light (high) ends appear around the Shackleton rim
-  // the overlay is drawn after the drawer opens, so poll the pixels rather than read them once
-  const ends = () => page.getByTestId('map-region').evaluate((c: HTMLCanvasElement) => {
+  // at the pole, Sunlight tints each site pin by its own sunlit % (engine)
+  await page.getByRole('button', { name: 'Sunlight', exact: true }).click()
+  await expect(page.getByTestId('moon-legend')).toContainText('at each site')
+  await expect(page.getByTestId('moon-pin-haworth').locator('i.tinted')).toHaveCount(1)
+  await expect(page.getByTestId('moon-pin-haworth')).toHaveAttribute('aria-label', /sunlit \d+%, Earth \d+%/)
+  // at the site: a heat map of filled cells over the terrain
+  await page.getByTestId('moon-pin-change7-shackleton-rim').click()
+  await expect(page.getByTestId('moon-legend')).toContainText('per 500 m cell')
+  // the sunlight ramp is on the overlay; both dark (low) and light (high) ends appear around the Shackleton rim
+  const ends = () => page.locator('canvas.moon-overlay').evaluate((c: HTMLCanvasElement) => {
     const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data
     let dark = 0
     let light = 0
@@ -262,18 +266,16 @@ test('panels collapse, the band resizes, and full screen goes cinematic then res
   await expect(page.getByRole('complementary', { name: 'Plan and constraints' })).toBeVisible()
 })
 
-test('Plan, Map and Scenario matrix open one at a time; the alternatives fold into their corner and back', async ({ page }) => {
+test('Plan and Scenario matrix open one at a time; the alternatives fold into their corner and back', async ({ page }) => {
   await page.goto('/')
   await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
   const side = page.getByRole('complementary', { name: 'Plan and constraints' })
   await expect(side).toBeVisible()
-  await page.getByRole('button', { name: 'Map', exact: true }).click()
-  await expect(page.getByTestId('drawer-map')).toBeVisible()
-  await expect(side).toHaveCount(0) // opening Map closed Plan
+  await expect(page.getByRole('button', { name: 'Map', exact: true })).toHaveCount(0) // the Map drawer is gone (D61)
   await page.getByRole('button', { name: 'Scenario matrix' }).click()
   await expect(page.getByTestId('drawer-matrix')).toBeVisible()
-  await expect(page.getByTestId('drawer-map')).toHaveCount(0)
+  await expect(side).toHaveCount(0) // opening the matrix closed Plan
   await page.getByRole('button', { name: 'Plan', exact: true }).click()
   await expect(side).toBeVisible()
   await expect(page.locator('.drawer')).toHaveCount(0)
@@ -407,4 +409,31 @@ test('a link from before D59 with the live plan column opens with a snapshot of 
   await expect(tray.getByTestId('tray-pin').first().getByTestId('baseline')).toBeVisible()
   await expect(page).toHaveURL(/pins=haworth%3A220%408016%2Cim2-mons-mouton%3A220%408016/)
   await expect(page).toHaveURL(/ref=haworth%3A220%408016/)
+})
+
+test('fewer clicks (D61): the folded card shows the tally, Pin and Pole are one click from either view, results go straight to the Moon', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  await expect(page.getByTestId('card-tally')).toHaveText('5 of 5 constraints met') // folded card, no click
+  // pin from the Moon bar with the band folded: the band opens on the new column
+  await expect(page.getByTestId('tray')).toHaveCount(0)
+  await page.getByTestId('moon-pin-view').click()
+  await expect(page.getByTestId('tray-pin')).toHaveCount(1)
+  await expect(page.getByTestId('moon-pin-view')).toHaveAttribute('aria-pressed', 'true')
+  // a pin's own 3D button stands on that site in one click
+  await page.getByTestId('moon-pin-haworth').hover()
+  await page.getByTestId('moon-stand-haworth').click()
+  await expect(page.getByTestId('moon-view')).toHaveCount(0)
+  await expect(page.getByTestId('view')).toContainText('Plan: Haworth')
+  // from the ground: Pin and Pole
+  await page.getByTestId('stage-pin').click()
+  await expect(page.getByTestId('tray-pin')).toHaveCount(2)
+  await page.getByTestId('stage-pole').click()
+  await expect(page.getByTestId('moon-view')).toHaveAttribute('data-level', 'pole')
+  // a finder result shows on the Moon in one click
+  await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  await page.getByRole('button', { name: 'Find alternatives' }).click()
+  await page.getByRole('button', { name: /^Show on the Moon: #1,/ }).click()
+  await expect(page.getByTestId('moon-view')).toHaveAttribute('data-level', 'site')
+  await expect(page.getByTestId('view')).toContainText('Alternative:')
 })

@@ -1,6 +1,6 @@
 import { OrbitControls } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { ArrowLeft, Eye } from 'lucide-react'
+import { Eye, Pin, PinOff, Target } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as THREE from 'three'
@@ -10,6 +10,7 @@ import type { Constraints } from './engine/engine'
 import { EPHEM_STRIDE, R_MOON_KM, siteFrame } from './engine/engine'
 import type { GridStats, Verdict } from './moon'
 import { easeInOut, flyPose, latLonToMe, meToThree, pickGrid, siteHillshade, xyToMe } from './moon'
+import { starField } from './starfield'
 import { LABELS } from './presets'
 import { EARTH_RAMP, SUN_RAMP, colour } from './ramp'
 
@@ -63,6 +64,11 @@ interface Props {
   onPick: (lat: number, lon: number, outside: boolean) => void
   onNudge: (dir: Dir) => void
   onStand: () => void
+  onStandAt: (siteId: string) => void // a pin's own 3D button: stand on that site's point in one click
+  onPin: () => void // pin (or unpin) what is in view
+  viewPinned: boolean
+  canPin: boolean
+  sky: { matrix: number[]; stars: Float32Array } | null // ICRF -> three.js axes at this hour (engine orientation), and the BSC5 catalogue
   host: HTMLElement | null // the overlay layer the view's bar is drawn in, above the status card
   children?: React.ReactNode // notes shown above the view's bar
 }
@@ -96,13 +102,14 @@ const globeShader = () => ({
     poleMap: { value: null as THREE.Texture | null }, regionMap: { value: null as THREE.Texture | null }, hasPole: { value: 0 }, hasRegion: { value: 0 },
     hwPole: { value: 1 }, hwRegion: { value: 1 }, centre: { value: new THREE.Vector2() }, sunDir: { value: new THREE.Vector3(1, 0, 0) },
     globeMap: { value: null as THREE.Texture | null }, hasGlobe: { value: 0 },
+    contextMap: { value: null as THREE.Texture | null }, hasContext: { value: 0 }, hwContext: { value: 1 },
     siteMap: { value: null as THREE.Texture | null }, hasSite: { value: 0 }, siteC: { value: new THREE.Vector3() }, siteE: { value: new THREE.Vector3() },
     siteN: { value: new THREE.Vector3() }, sitePx: { value: 1 }, siteSpan: { value: 1 },
   },
   vertexShader: 'varying vec3 p; void main() { p = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `uniform sampler2D poleMap; uniform sampler2D regionMap; uniform float hasPole; uniform float hasRegion;
     uniform float hwPole; uniform float hwRegion; uniform vec2 centre; uniform vec3 sunDir; varying vec3 p;
-    uniform sampler2D globeMap; uniform float hasGlobe;
+    uniform sampler2D globeMap; uniform float hasGlobe; uniform sampler2D contextMap; uniform float hasContext; uniform float hwContext;
     uniform sampler2D siteMap; uniform float hasSite; uniform vec3 siteC; uniform vec3 siteE; uniform vec3 siteN; uniform float sitePx; uniform float siteSpan;
     void main() {
       vec3 q = normalize(p);
@@ -118,6 +125,10 @@ const globeShader = () => ({
       vec2 uv = (st + hwPole) / (2.0 * hwPole);
       vec2 edge = min(uv, 1.0 - uv);
       shade = mix(shade, texture2D(poleMap, uv).r, hasPole * smoothstep(0.0, 0.04, min(edge.x, edge.y)) * step(0.0, -me.z));
+      // the site's context (20 m DEM, +-32 km), then its 10 km region map: same centre, same axes
+      vec2 uvc = (st - centre + hwContext) / (2.0 * hwContext);
+      vec2 edgec = min(uvc, 1.0 - uvc);
+      shade = mix(shade, texture2D(contextMap, uvc).r, hasContext * smoothstep(0.0, 0.03, min(edgec.x, edgec.y)));
       vec2 uv2 = (st - centre + hwRegion) / (2.0 * hwRegion);
       vec2 edge2 = min(uv2, 1.0 - uv2);
       shade = mix(shade, texture2D(regionMap, uv2).r, hasRegion * smoothstep(0.0, 0.02, min(edge2.x, edge2.y)));
@@ -180,6 +191,7 @@ function Globe({ data, hour, region }: { data: Dataset; hour: number; region: Si
     const u = uniforms()
     u.hwPole.value = data.basemap.pole.half_width_m / (R_MOON_KM * 1000)
     u.hwRegion.value = data.basemap.regions.half_width_m / (R_MOON_KM * 1000)
+    u.hwContext.value = (data.basemap.context?.half_width_m ?? 1) / (R_MOON_KM * 1000)
     // the ephemeris is already in MOON_ME: only the change of axes is applied
     const i = hour * EPHEM_STRIDE
     u.sunDir.value.set(...meToThree([data.ephemeris[i], data.ephemeris[i + 1], data.ephemeris[i + 2]]))
@@ -199,12 +211,19 @@ function Globe({ data, hour, region }: { data: Dataset; hour: number; region: Si
     textures.current.push(t)
     u.hasGlobe.value = 1
   })
-  // the site's own heightmap, shaded here like the basemaps, once its site is flown to
+  // the site's own heightmap (about 2 MB), shaded here like the basemaps, only once the camera comes within about
+  // 8 km of the site: from farther away the 20 m maps already match the screen (D62)
   const hm = region?.heightmap ?? null
+  const [closeTo, setCloseTo] = useState<string | null>(null)
+  const siteVec = useMemo(() => (region ? new THREE.Vector3(...meToThree(latLonToMe(region.lat, region.lon))) : null), [region])
+  useFrame(({ camera }) => {
+    if (region && siteVec && closeTo !== region.id && camera.position.distanceTo(siteVec) < 8 / R_MOON_KM) setCloseTo(region.id)
+  })
+  const near = Boolean(region && closeTo === region.id)
   useEffect(() => {
     const u = uniforms()
     u.hasSite.value = 0
-    if (!region || !hm) return
+    if (!region || !hm || !near) return
     let live = true
     loadHeightmap(hm.file, hm.size_px).then((heights) => {
       if (!live) return
@@ -232,7 +251,23 @@ function Globe({ data, hour, region }: { data: Dataset; hour: number; region: Si
     return () => {
       live = false
     }
-  }, [region, hm, uniforms, invalidate])
+  }, [region, hm, near, uniforms, invalidate])
+  // a new site: hide the old site's context and region maps until the new ones arrive (they share one centre)
+  const regionId = region?.id
+  useLayoutEffect(() => {
+    const u = uniforms()
+    u.hasContext.value = 0
+    u.hasRegion.value = 0
+  }, [regionId, uniforms])
+  // the site's context map, fetched when the site is flown to
+  useHillshade(region ? data.basemap.context?.files[region.id] : undefined, (t) => {
+    const u = uniforms()
+    const [x, y] = xyOf(region!)
+    u.contextMap.value = t
+    textures.current.push(t)
+    u.centre.value.set(x / (R_MOON_KM * 1000), y / (R_MOON_KM * 1000))
+    u.hasContext.value = 1
+  })
   // one region's hillshade at a time, fetched when its site is first flown to
   useHillshade(region ? data.basemap.regions.files[region.id] : undefined, (t) => {
     const u = uniforms()
@@ -330,6 +365,43 @@ function Rig({ dest, destKey, zoomed, controls }: { dest: Pose; destKey: string;
   )
 }
 
+/**
+ * The BSC5 star field around the camera, turned into the Moon's axes for the hour (positions and brightness are
+ * data; colours approximate, as in the ground view). Drawn first without depth, so the Moon covers it like a sky.
+ */
+function Stars({ sky }: { sky: { matrix: number[]; stars: Float32Array } }) {
+  const group = useMemo(() => {
+    const g = starField(sky.stars, 5)
+    g.renderOrder = -1
+    g.traverse((o) => {
+      const m = (o as THREE.Points).material as THREE.PointsMaterial | undefined
+      if (m) {
+        m.depthTest = false
+        m.depthWrite = false
+      }
+      o.renderOrder = -1
+    })
+    return g
+  }, [sky.stars])
+  useEffect(() => () => group.traverse((o) => {
+    const p = o as THREE.Points
+    p.geometry?.dispose()
+    ;(p.material as THREE.Material | undefined)?.dispose()
+  }), [group])
+  const invalidate = useThree((s) => s.invalidate)
+  const m = sky.matrix
+  const rotation = useMemo(() => new THREE.Matrix4().set(m[0], m[1], m[2], 0, m[3], m[4], m[5], 0, m[6], m[7], m[8], 0, 0, 0, 0, 1), [m])
+  useEffect(() => invalidate(), [rotation, invalidate])
+  const live = useRef<THREE.Group>(null)
+  useFrame(({ camera }) => {
+    const g = live.current
+    if (!g) return
+    g.matrix.copy(rotation).setPosition(camera.position) // stars are infinitely far: they move with the eye
+    g.matrixWorldNeedsUpdate = true
+  }, -1)
+  return <primitive ref={live} object={group} />
+}
+
 type Paint = (camera: THREE.Camera, size: { width: number; height: number }) => void
 
 /** Runs the 2D overlay after the camera has moved, and asks for a frame whenever the view's props change. */
@@ -371,25 +443,27 @@ function Numbers({ v }: { v: Verdict }) {
  * and the landing point is dragged on the grid. The renderer supplies positions only; colours, labels and numbers
  * come from the engine through the props.
  */
-function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, grid, badges, constraints, sunEl, earthEl, onSite, onBack, onPick, onNudge, onStand, host, children }: Props) {
+function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, grid, badges, constraints, sunEl, earthEl, onSite, onBack, onPick, onNudge, onStand, onStandAt, onPin, viewPinned, canPin, sky, host, children }: Props) {
   const id = useId()
   const root = useRef<HTMLDivElement>(null)
   const overlay = useRef<HTMLCanvasElement>(null)
   const markerEl = useRef<HTMLButtonElement>(null)
   const sunLabel = useRef<HTMLSpanElement>(null)
   const earthLabel = useRef<HTMLSpanElement>(null)
-  const pinEls = useRef<Record<string, HTMLButtonElement | null>>({})
+  const pinEls = useRef<Record<string, HTMLElement | null>>({})
   const cam = useRef<THREE.Camera | null>(null)
   const controls = useRef<Controls | null>(null)
   const paint = useRef<Paint | null>(null)
   const markerAt = useRef<[number, number] | null>(null)
   const dotAt = useRef<(index: number) => readonly [number, number] | null>(() => null)
-  const [layer, setLayer] = useState<Layer>('sun')
+  const [layer, setLayer] = useState<Layer>('verdict')
   const [hover, setHover] = useState<{ index: number; x: number; y: number; up: boolean } | null>(null)
   const [dragging, setDragging] = useState(false)
 
+  const [poleVisit, setPoleVisit] = useState(0) // the Pole button at pole level flies back to the home pose after an orbit
   const dest = useMemo(() => (zoomed ? sitePose(focus.lat, focus.lon) : polePose()), [zoomed, focus])
-  const destKey = zoomed ? focus.id : 'pole'
+  const destKey = zoomed ? focus.id : `pole${poleVisit}`
+  const toPole = () => (zoomed ? onBack() : setPoleVisit((n) => n + 1))
   const centre = useMemo(() => xyOf(focus), [focus])
   const pinVecs = useMemo(() => new Map(data.sites.map((s) => [s.id, vecOf(s.lat, s.lon)])), [data])
   const n = 2 * data.centreIndex + 1
@@ -398,11 +472,14 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
   const dots = useMemo(() => {
     const out: (THREE.Vector3 | null)[] = new Array(n).fill(null)
     const point: Point[] = new Array(n)
+    const cells: THREE.Vector3[][] = new Array(n)
+    const half = 250 // half a grid step: a point's cell
     for (const p of data.points) if (p.region === focus.id) {
       out[p.index] = new THREE.Vector3(...meToThree(xyToMe(p.x, p.y)))
       point[p.index] = p
+      cells[p.index] = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => new THREE.Vector3(...meToThree(xyToMe(p.x + sx * half, p.y + sy * half))))
     }
-    return { vec: out, point }
+    return { vec: out, point, cells }
   }, [data, focus, n])
   const badgeVecs = useMemo(() => badges.map((b) => vecOf(b.lat, b.lon)), [badges])
   const rings = useMemo(() => [-85, -88].map((lat) => ({ lat, line: Array.from({ length: 121 }, (_, k) => vecOf(lat, k * 3)) })), [])
@@ -474,9 +551,23 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
         const xy = p && at(p)
         if (!xy) continue
         const verdict = stats.verdicts[k]
+        if (layer !== 'verdict') {
+          // the heat map (F15): each 500 m cell filled with its engine value, the terrain showing through, a hairline gap
+          const corners = dots.cells[k]?.map(at)
+          if (!corners || corners.some((c) => !c)) continue
+          const [cx, cy] = [corners.reduce((a, c) => a + c![0], 0) / 4, corners.reduce((a, c) => a + c![1], 0) / 4]
+          g.beginPath()
+          corners.forEach((c, j) => (j ? g.lineTo : g.moveTo).call(g, cx + (c![0] - cx) * 0.94, cy + (c![1] - cy) * 0.94))
+          g.closePath()
+          g.globalAlpha = 0.72
+          g.fillStyle = layer === 'sun' ? colour(stats.sun[k], 100, SUN_RAMP) : colour(stats.earth[k], 100, EARTH_RAMP)
+          g.fill()
+          g.globalAlpha = 1
+          continue
+        }
         g.beginPath()
         g.arc(xy[0], xy[1], r, 0, 2 * Math.PI)
-        if (layer === 'verdict') {
+        {
           // pass = solid, fail = hollow: the shape carries it, not only the colour
           if (verdict && verdict.evaluation.fails === 0) {
             g.fillStyle = OK
@@ -486,12 +577,6 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
             g.strokeStyle = verdict ? BAD : 'rgb(236 232 225 / 40%)'
             g.stroke()
           }
-        } else {
-          g.fillStyle = layer === 'sun' ? colour(stats.sun[k], 100, SUN_RAMP) : colour(stats.earth[k], 100, EARTH_RAMP)
-          g.fill()
-          g.lineWidth = 1
-          g.strokeStyle = 'rgb(5 6 8 / 70%)'
-          g.stroke()
         }
       }
       if (hover) {
@@ -690,25 +775,26 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
     <div className="moon-foot">
       <div className="moon-notes">{children}</div>
       <div className="moon-bar" role="group" aria-label="Moon view">
-        {zoomed ? (
-          <>
-            <button type="button" onClick={onBack} data-testid="moon-back"><ArrowLeft size={15} aria-hidden="true" />Back to pole</button>
-            <div className="modes" role="group" aria-label="Colour the grid by">
-              {(['sun', 'earth', 'verdict'] as const).map((l) => (
-                <button key={l} type="button" aria-pressed={layer === l} onClick={() => setLayer(l)}>{l === 'sun' ? 'Sunlight' : l === 'earth' ? 'Earth' : 'Verdict'}</button>
-              ))}
-            </div>
-            <span className="note moon-legend" data-testid="moon-legend">
-              {!stats ? 'Loading the grid…' : layer === 'verdict' ? (
-                <><i className="pass" aria-hidden="true" /> meets every constraint <i className="fail" aria-hidden="true" /> fails one or more</>
-              ) : (
-                <>
-                  {layer === 'sun' ? 'Sunlit' : 'Earth in view'} <span className="legend" aria-hidden="true">0% <i style={{ background: `linear-gradient(90deg, ${(layer === 'sun' ? SUN_RAMP : EARTH_RAMP).join(',')})` }} /> 100%</span> of the mission
-                </>
-              )}
-            </span>
-          </>
-        ) : <span className="note moon-legend">Pick a site to fly down to its search grid · <i className="pass" aria-hidden="true" /> meets every constraint <i className="fail" aria-hidden="true" /> fails one or more</span>}
+        <button type="button" onClick={toPole} data-testid="moon-back" title={zoomed ? 'Fly back to the pole' : 'Back to the starting view of the pole'}>
+          <Target size={15} aria-hidden="true" />Pole
+        </button>
+        <div className="modes" role="group" aria-label={zoomed ? 'Colour the grid by' : 'Colour the site pins by'}>
+          {(['verdict', 'sun', 'earth'] as const).map((l) => (
+            <button key={l} type="button" aria-pressed={layer === l} onClick={() => setLayer(l)}>{l === 'sun' ? 'Sunlight' : l === 'earth' ? 'Earth' : 'Verdict'}</button>
+          ))}
+        </div>
+        <span className="note moon-legend" data-testid="moon-legend">
+          {zoomed && !stats ? 'Loading the grid…' : layer === 'verdict' ? (
+            <><i className="pass" aria-hidden="true" /> meets every constraint <i className="fail" aria-hidden="true" /> fails one or more</>
+          ) : (
+            <>
+              {layer === 'sun' ? 'Sunlit' : 'Earth in view'} <span className="legend" aria-hidden="true">0% <i style={{ background: `linear-gradient(90deg, ${(layer === 'sun' ? SUN_RAMP : EARTH_RAMP).join(',')})` }} /> 100%</span> of the mission{zoomed ? ', per 500 m cell' : ', at each site'}
+            </>
+          )}
+        </span>
+        <button type="button" onClick={onPin} disabled={!canPin} aria-pressed={viewPinned} data-testid="moon-pin-view">
+          {viewPinned ? <PinOff size={15} aria-hidden="true" /> : <Pin size={15} aria-hidden="true" />}{viewPinned ? 'Unpin' : 'Pin'}
+        </button>
         <button type="button" className="primary" onClick={onStand} data-testid="moon-stand" aria-label="Stand here: view the landing point in 3D"><Eye size={15} aria-hidden="true" />Stand here</button>
       </div>
     </div>
@@ -716,10 +802,11 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
   const hovered = hover && stats ? { point: dots.point[hover.index], v: stats.verdicts[hover.index] } : null
   const dur = Number(constraints.mission_duration_days)
   return (
-    <div className={`moon${dragging ? ' dragging' : ''}`} ref={root} role="group" aria-label="Moon view: the south polar region and its sites" data-testid="moon-view" data-level={zoomed ? 'site' : 'pole'}>
+    <div className={`moon${dragging ? ' dragging' : ''}`} ref={root} role="group" aria-label="Moon view: the south polar region and its sites" data-testid="moon-view" data-level={zoomed ? 'site' : 'pole'} data-stars={sky ? sky.stars.length / 5 : 0}>
       <Canvas className="scene" frameloop="demand" dpr={[1, 2]} camera={{ fov: 40, near: NEAR_POLE, far: 10, position: [0, -1.5, 0] }}
         onCreated={(s) => { cam.current = s.camera }}>
         <color attach="background" args={['#000']} />
+        {sky && <Stars sky={sky} />}
         <Globe data={data} hour={hour} region={zoomed ? focus : null} />
         <Rig dest={dest} destKey={destKey} zoomed={zoomed} controls={controls} />
         <Painter paint={paint} />
@@ -734,19 +821,28 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
         // which constraints fail is in the description: their names here would collide with the constraint inputs' labels
         const state = pass === null ? 'not evaluated yet' : pass ? 'solid pin, meets every constraint' : `hollow pin, fails ${verdict!.evaluation.fails} of ${Object.keys(verdict!.evaluation.passes).length} constraints`
         const [dx, dy] = LABEL_AT[site.id] ?? [14, 0]
+        // the pin's dot follows the layer: verdict = solid/hollow, sunlight/Earth = the site's own % from the engine
+        const tint = verdict && layer !== 'verdict'
+          ? colour(layer === 'sun' ? verdict.metrics.sunlitPct : verdict.metrics.earthPct, 100, layer === 'sun' ? SUN_RAMP : EARTH_RAMP)
+          : null
         return (
-          <button key={site.id} type="button" ref={(el) => { pinEls.current[site.id] = el }} data-testid={`moon-pin-${site.id}`} data-verdict={pass === null ? 'pending' : pass ? 'pass' : 'fail'}
-            className={site.id === focus.id ? 'moon-pin selected' : 'moon-pin'} style={{ visibility: 'hidden', translate: `${dx < 0 ? `calc(${dx}px - 100%)` : `${dx}px`} calc(${dy}px - 50%)` }}
-            aria-label={`${site.name}: ${state} for a ${dur}-day mission landing ${when} UTC. Fly to its search grid.`} aria-describedby={`${id}-${site.id}`}
-            onClick={() => onSite(site.id)}>
-            <i className={pass === null ? 'pending' : pass ? 'pass' : 'fail'} aria-hidden="true" />
-            {short(site.name)}
-            <span className="moon-tip" id={`${id}-${site.id}`}>
-              <strong>{site.name}</strong>
-              {verdict ? <Numbers v={verdict} /> : <span>Not evaluated: its terrain is still loading, or the mission window runs past 2035.</span>}
-              <span className="dim">{dur}-day mission landing {when} UTC</span>
-            </span>
-          </button>
+          <span key={site.id} className={`moon-pin-wrap${dx < 0 ? ' left' : ''}`} ref={(el) => { pinEls.current[site.id] = el }}
+            style={{ visibility: 'hidden', translate: `${dx < 0 ? `calc(${dx}px - 100%)` : `${dx}px`} calc(${dy}px - 50%)` }}>
+            <button type="button" data-testid={`moon-pin-${site.id}`} data-verdict={pass === null ? 'pending' : pass ? 'pass' : 'fail'}
+              className={site.id === focus.id ? 'moon-pin selected' : 'moon-pin'}
+              aria-label={`${site.name}: ${state} for a ${dur}-day mission landing ${when} UTC${verdict ? `, sunlit ${verdict.metrics.sunlitPct.toFixed(0)}%, Earth ${verdict.metrics.earthPct.toFixed(0)}%` : ''}. Fly to its search grid.`}
+              aria-describedby={`${id}-${site.id}`} onClick={() => onSite(site.id)}>
+              {tint ? <i className="tinted" style={{ background: tint }} aria-hidden="true" /> : <i className={pass === null ? 'pending' : pass ? 'pass' : 'fail'} aria-hidden="true" />}
+              {short(site.name)}
+              <span className="moon-tip" id={`${id}-${site.id}`}>
+                <strong>{site.name}</strong>
+                {verdict ? <Numbers v={verdict} /> : <span>Not evaluated: its terrain is still loading, or the mission window runs past 2035.</span>}
+                <span className="dim">{dur}-day mission landing {when} UTC</span>
+              </span>
+            </button>
+            <button type="button" className="moon-pin-stand" data-testid={`moon-stand-${site.id}`} aria-label={`Stand at ${site.name} in 3D`} title="Stand here in 3D"
+              onClick={() => onStandAt(site.id)}><Eye size={13} aria-hidden="true" /></button>
+          </span>
         )
       })}
 

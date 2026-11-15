@@ -3,9 +3,9 @@ import engineCases from '../../shared/fixtures/engine_cases.json'
 import fixture from '../../shared/fixtures/metrics_cases.json'
 import pointsFile from '../public/data/points.json'
 import type { Constraints } from './engine/engine'
-import { R_MOON_KM, buildSeries, evaluate, latLonToXY, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
+import { R_MOON_KM, buildSeries, evaluate, latLonToXY, quatRotate, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
 import type { Vec3 } from './moon'
-import { flyPose, globeUV, gridIndex, latLonToMe, meToLatLon, meToThree, meToXY, pickGrid, raySphere, siteHillshade, siteUV, threeToMe, verdict, xyToMe } from './moon'
+import { flyPose, globeUV, icrfToThree, gridIndex, latLonToMe, meToLatLon, meToThree, meToXY, pickGrid, raySphere, siteHillshade, siteUV, threeToMe, verdict, xyToMe } from './moon'
 
 const points = pointsFile.points
 const region = points.filter((p) => p.region === 'change7-shackleton-rim')
@@ -143,5 +143,17 @@ describe('whole-Moon and site texture coordinates', () => {
     // at 0°E the light is from the north-west; ground rising to the south-east faces it
     const hm = Float32Array.from({ length: 9 }, (_, k) => (k % 3) * 5 + Math.floor(k / 3) * 5) // rises east and south
     expect(siteHillshade(hm, 3, 5, 1, 0)[4]).toBeGreaterThan(flat[4])
+  })
+})
+
+describe('star field on the Moon view', () => {
+  it('rotates ICRF into three.js axes exactly as quatRotate then meToThree', () => {
+    const q = [0.5, 0.5, -0.5, 0.5].map((x, i) => x + [0.1, 0, 0.05, -0.02][i]).map((x, _, a) => x / Math.hypot(...a)) // a unit quaternion
+    const m = icrfToThree([0, 0, 0, 0, ...q], 1)
+    for (const v of [[1, 0, 0], [0.3, -0.4, 0.866], [0, 0, 1]] as Vec3[]) {
+      const want = meToThree(quatRotate(q, 0, v))
+      const got = [0, 3, 6].map((r) => m[r] * v[0] + m[r + 1] * v[1] + m[r + 2] * v[2])
+      got.forEach((g, i) => expect(g).toBeCloseTo(want[i], 12))
+    }
   })
 })
