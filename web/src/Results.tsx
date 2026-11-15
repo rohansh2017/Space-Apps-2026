@@ -1,34 +1,52 @@
-import { Globe, Minimize2, Pin, PinOff } from 'lucide-react'
+import { ArrowUpDown, Globe, ListFilter, Minimize2, Pin, PinOff } from 'lucide-react'
 import type { RefObject } from 'react'
+import { useMemo, useState } from 'react'
 import Chips from './Chips'
 import type { Constraints } from './engine/engine'
-import type { Candidate, FinderResult } from './engine/finder'
+import type { Candidate, FinderResult, Scored } from './engine/finder'
 import { diffParts, relaxations } from './engine/finder'
+import ResultFilters, { FilterPills } from './ResultFilters'
+import type { ResultFilter } from './resultFilter'
+import { activeCount, applyFilter, rowsOf } from './resultFilter'
 import WhyNotLine from './WhyNotLine'
 import { whyNotFacts } from './whynot'
 
 interface Props {
   finder: FinderResult
   candidates: Candidate[]
-  opened: number | null
+  opened: string | null // key (point@hour) of the result in the 3D view
   date: (hour: number) => string
-  onOpen: (i: number | null) => void
-  onMoon: (i: number) => void // show the result on the Moon view, down on its site's grid
+  onOpen: (r: Scored | null) => void
+  onMoon: (r: Scored) => void // show the result on the Moon view, down on its site's grid
   stale: boolean // constraints changed after this search
   busy: boolean
   onRerun: () => void
   headingRef: RefObject<HTMLHeadingElement | null> // focused when a search finishes
   constraints: Constraints // the values this search ran with (they may have changed since)
   pinned: Set<string> // keys (point@hour) already in the compare tray
-  onPin: (i: number) => void // toggles the result in the compare tray
+  onPin: (r: Scored) => void // toggles the result in the compare tray
   onMinimize: () => void // folds the panel into its top-right corner
   fresh: boolean // just searched: play the entrance
   lead?: string // F26: the copilot's answer, when the copilot ran this search
+  filter: ResultFilter // F30: view filters over the ranked pool (kept in App so they survive minimizing)
+  onFilter: (f: ResultFilter) => void
+  onAnnounce: (text: string) => void // the app's one polite live region
 }
 
-export default function Results({ finder, candidates, opened, date, onOpen, onMoon, stale, busy, onRerun, headingRef, constraints, pinned, onPin, onMinimize, fresh, lead = '' }: Props) {
+export default function Results({ finder, candidates, opened, date, onOpen, onMoon, stale, busy, onRerun, headingRef, constraints, pinned, onPin, onMinimize, fresh, lead = '', filter, onFilter, onAnnounce }: Props) {
   const passing = finder.results.filter((r) => r.evaluation.fails === 0).length
   const base = finder.baseline
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const rows = useMemo(() => rowsOf(finder.pool, candidates, finder.baseline), [finder, candidates])
+  const sites = useMemo(() => [...new Set(rows.map((x) => candidates[x.r.candidate].label))].sort(), [rows, candidates])
+  const { shown, matches } = applyFilter(rows, candidates, filter)
+  const active = activeCount(filter)
+  const change = (f: ResultFilter) => {
+    onFilter(f)
+    const n = applyFilter(rows, candidates, f).matches
+    onAnnounce(`${n} alternative${n === 1 ? '' : 's'} match${n === 1 ? 'es' : ''} the filters.`)
+  }
+  const keyOf = (r: Scored) => `${candidates[r.candidate].id}@${r.start}`
   // F27: the plan's own fix, including the earliest later landing at the same point (the engine walked it hourly)
   const planWhy = base.evaluation.fails
     ? whyNotFacts(relaxations(base.metrics, candidates[0].slopeDeg, constraints, base.evaluation),
@@ -38,10 +56,22 @@ export default function Results({ finder, candidates, opened, date, onOpen, onMo
     <section className={fresh ? 'results-panel fresh' : 'results-panel'} aria-labelledby="results-heading">
       <div className="results-head">
         <h2 id="results-heading" ref={headingRef} tabIndex={-1}>Alternatives</h2>
-        <button type="button" className="icon-button" onClick={onMinimize} aria-label="Minimize the alternatives" title="Minimize">
-          <Minimize2 size={15} aria-hidden="true" />
-        </button>
+        <div className="results-head-actions">
+          <button type="button" className="icon-button filter-toggle" aria-expanded={filtersOpen} aria-controls="results-filter"
+            aria-label={`Filters${active ? `, ${active} active` : ''}`} title={filtersOpen ? 'Hide filters' : 'Filter'} data-testid="filter-toggle"
+            onClick={() => setFiltersOpen(!filtersOpen)}>
+            <ListFilter size={15} aria-hidden="true" />
+            {active > 0 && <span className="filter-badge" aria-hidden="true">{active}</span>}
+          </button>
+          <button type="button" className="icon-button" onClick={onMinimize} aria-label="Minimize the alternatives" title="Minimize">
+            <Minimize2 size={15} aria-hidden="true" />
+          </button>
+        </div>
       </div>
+      {filtersOpen && (
+        <ResultFilters id="results-filter" filter={filter} onChange={change} onClose={() => setFiltersOpen(false)} sites={sites}
+          criteria={Object.keys(base.evaluation.passes)} maxDays={Number(constraints.slip_range_days)} />
+      )}
       {stale && (
         <p className="stale" data-testid="results-stale">
           Out of date: the constraints changed after this search, so the pass/fail marks below no longer apply.{' '}
@@ -54,31 +84,54 @@ export default function Results({ finder, candidates, opened, date, onOpen, onMo
         {finder.evaluated.toLocaleString('en-US')} site and date pairs across {candidates.length} points in{' '}
         <span data-testid="finder-ms">{finder.ms.toFixed(0)}</span> ms · {passing} of the top {finder.results.length} meet every constraint
       </p>
+      <div className="results-toolbar">
+        <span className="note" data-testid="filter-count">
+          {active ? `${matches} of ${rows.length} match${matches > shown.length ? ` · top ${shown.length} shown` : ''}` : `Top ${shown.length} of ${rows.length}`}
+        </span>
+        <label className="results-sort">
+          <ArrowUpDown size={13} aria-hidden="true" />
+          <span className="sr-only">Sort alternatives by</span>
+          <select value={filter.sort} data-testid="results-sort" onChange={(e) => change({ ...filter, sort: e.target.value as ResultFilter['sort'] })}>
+            <option value="margin">Best margin</option>
+            <option value="soonest">Soonest landing</option>
+          </select>
+        </label>
+      </div>
+      <FilterPills filter={filter} onChange={change} />
+      {!shown.length && (
+        <p className="stale" data-testid="filter-empty">
+          No alternatives match these filters.{' '}
+          <button type="button" onClick={() => change({ ...filter, minDays: null, maxDays: null, maxKm: null, sites: [], allPass: false, mustPass: [] })}>Clear filters</button>
+        </p>
+      )}
       <ol className={stale ? 'results is-stale' : 'results'}>
-        {finder.results.map((r, i) => {
+        {shown.map(({ r, rank }) => {
           const c = candidates[r.candidate]
           const d = diffParts(candidates[0], finder.baseline, c, r)
-          const title = `#${i + 1} · ${d.where} · ${d.shift}`
+          const title = `#${rank} · ${d.where} · ${d.shift}`
           // the visible text stays "Open in 3D"; the name adds which result, so a screen reader can tell ten buttons apart
-          const which = `#${i + 1}, ${d.where}, ${d.shift}, ${c.label}, ${date(r.start)} UTC`
+          const which = `#${rank}, ${d.where}, ${d.shift}, ${c.label}, ${date(r.start)} UTC`
+          const key = keyOf(r)
+          const isOpen = opened === key
+          const isPinned = pinned.has(key)
           return (
-            <li key={`${c.id}@${r.start}`} className={opened === i ? 'open' : ''} data-testid="result">
+            <li key={key} className={isOpen ? 'open' : ''} data-testid="result">
               <div className="result-head">
                 <div className="result-title">
                   <strong data-testid="result-title">{title}</strong>
                   <span>{c.label} · lands <span className="nowrap">{date(r.start)} UTC</span></span>
                 </div>
                 <div className="result-actions">
-                  <button type="button" className="icon-button" aria-label={`${pinned.has(`${c.id}@${r.start}`) ? 'Unpin' : 'Pin'} #${i + 1} ${pinned.has(`${c.id}@${r.start}`) ? 'from' : 'to'} the compare tray`}
-                    aria-pressed={pinned.has(`${c.id}@${r.start}`)} onClick={() => onPin(i)}>
-                    {pinned.has(`${c.id}@${r.start}`) ? <PinOff size={15} aria-hidden="true" /> : <Pin size={15} aria-hidden="true" />}
+                  <button type="button" className="icon-button" aria-label={`${isPinned ? 'Unpin' : 'Pin'} #${rank} ${isPinned ? 'from' : 'to'} the compare tray`}
+                    aria-pressed={isPinned} onClick={() => onPin(r)}>
+                    {isPinned ? <PinOff size={15} aria-hidden="true" /> : <Pin size={15} aria-hidden="true" />}
                   </button>
-                  <button type="button" className="icon-button" aria-label={`Show on the Moon: ${which}`} title="Show on the Moon" onClick={() => onMoon(i)}>
+                  <button type="button" className="icon-button" aria-label={`Show on the Moon: ${which}`} title="Show on the Moon" onClick={() => onMoon(r)}>
                     <Globe size={15} aria-hidden="true" />
                   </button>
-                  <button type="button" aria-label={`${opened === i ? 'Back to plan from' : 'Open in 3D:'} ${which}`}
-                    aria-pressed={opened === i} onClick={() => onOpen(opened === i ? null : i)}>
-                    {opened === i ? 'Back to plan' : 'Open in 3D'}
+                  <button type="button" aria-label={`${isOpen ? 'Back to plan from' : 'Open in 3D:'} ${which}`}
+                    aria-pressed={isOpen} onClick={() => onOpen(isOpen ? null : r)}>
+                    {isOpen ? 'Back to plan' : 'Open in 3D'}
                   </button>
                 </div>
               </div>

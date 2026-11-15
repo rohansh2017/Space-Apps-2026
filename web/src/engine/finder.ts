@@ -22,6 +22,7 @@ export interface Scored {
 export interface FinderResult {
   baseline: Scored
   results: Scored[] // best start per candidate, best first; the baseline pair itself is excluded
+  pool: Scored[] // F30: every candidate's best start in the same order: results (refined hourly), then the rest at daily steps
   evaluated: number // (candidate, start) pairs scored
   ms: number
   planPassStart: number | null // F27: earliest hour, from the planned one, at which the plan's own point meets everything (null: none in the slip range)
@@ -118,7 +119,8 @@ export function runFinder(
     }
   }
   results.sort(order)
-  return { baseline: baseline!, results, evaluated, ms: performance.now() - t0, planPassStart }
+  const pool = results.concat(best.slice(keep))
+  return { baseline: baseline!, results, pool, evaluated, ms: performance.now() - t0, planPassStart }
 }
 
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
@@ -130,6 +132,8 @@ export interface DiffParts {
   when: string // "16 days later", "12 h earlier" or "same date"
   shift: string // the same, signed and short: "+16 days", "−12 h", "same date"
   metrics: string // "+97% sun, −158 h dark, +100% comms"
+  km: number // F30: distance from the plan's point
+  hours: number // F30: landing hour minus the plan's (forward only, so ≥ 0)
 }
 
 /** How a result differs from the original plan, in parts, so titles and sentences cannot disagree. */
@@ -151,7 +155,7 @@ export function diffParts(base: Candidate, baseScored: Scored, cand: Candidate, 
 
   const [m, b] = [scored.metrics, baseScored.metrics]
   const metrics = `${signed(m.sunlitPct - b.sunlitPct)}% sun, ${signed(m.longestDarkH - b.longestDarkH)} h dark, ${signed(m.earthPct - b.earthPct)}% comms`
-  return { where, when, shift, metrics }
+  return { where, when, shift, metrics, km, hours: dh }
 }
 
 /** One-line plain-language difference from the original plan, e.g. "1.4 km NE, 2 days later: +9% sun, −31 h dark, −5% comms". */
