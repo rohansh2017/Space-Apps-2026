@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { shot } from './hud'
+import { expandPanels, shot } from './hud'
 
 // Needs the Worker (Durable Object), not the Vite preview: `make e2e-room` (wrangler dev) or `make e2e-live`.
 test.skip(!process.env.ROOM_TEST, 'needs the Worker: run via make e2e-room or make e2e-live')
@@ -10,6 +10,7 @@ test('F24: two browsers in one mission room stay in step, and a late joiner gets
   test.slow()
   const a = await (await browser.newContext()).newPage()
   await a.goto('/')
+  await expandPanels(a)
   await expect(a.getByTestId('view')).toContainText('Plan: Shackleton rim')
   await a.getByRole('button', { name: /^Mission room/ }).click() // the header button opens the room drawer
   await a.getByRole('button', { name: 'Start mission room' }).click()
@@ -18,6 +19,7 @@ test('F24: two browsers in one mission room stay in step, and a late joiner gets
 
   const b = await (await browser.newContext()).newPage()
   await b.goto(link)
+  await expandPanels(b)
   await expect(a.getByTestId('room-count')).toHaveText('2 connected')
   await expect(b.getByTestId('room-count')).toHaveText('2 connected')
 
@@ -37,6 +39,7 @@ test('F24: two browsers in one mission room stay in step, and a late joiner gets
   // a late joiner receives the room's latest state
   const c = await (await browser.newContext()).newPage()
   await c.goto(link)
+  await expandPanels(c)
   await expect(c.getByTestId('view')).toContainText('Plan: Connecting Ridge')
   await expect(c.getByTestId('view')).toContainText('2026-12-01 00:00 UTC landing')
   await expect(c.getByLabel('Max continuous darkness')).toHaveValue('60')

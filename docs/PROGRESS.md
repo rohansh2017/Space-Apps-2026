@@ -306,3 +306,15 @@ Team request (D52): one open/close tab on the band's top edge in the same place 
 ## 2026-11-15 — Panel transitions, exclusive left panels, minimizable alternatives, benchmark (branch `redesign/new-visual-identity`)
 
 Team request (D53). Fixed the Plan-panel close glitch (blurred box; stretching; double tags), found by filming transitions at 1/20 speed. Plan / Map / Scenario matrix are exclusive and close the same way; the alternatives minimize into their top-right corner and back. New e2e test (exclusive panels, minimize and restore with focus). Benchmark (`make perf`, docs/PERF.md, mains power): finder 856 ms for 5,000 candidates; 3D playback 60 fps, equal to the empty-page cap (same as P6). On battery at 4% both the app and an empty page were capped at 30 fps, and an earlier finder run read 2,614 ms under load; no long animation frames during playback with the band open or collapsed. The snap note is now also shown in the Map drawer (invariant 9), since the map closes the Plan panel; app bundle 1.38 MB after switching to the Latin font subset (was 1.49 MB with all subsets, 1.23 MB before the redesign's font and icons); data sizes unchanged. `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — Quiet first view and stored locations (branch `feat/quiet-first-view`)
+
+Team request (D54): default view is the Plan panel with the card, HUD and band folded; plan site, point, date and pins kept in `localStorage` and restored from the bare address. New unit and e2e tests; e2e suite unfolds panels via `expandPanels`; local test limit 60 s. `make check` passes. Not deployed (needs a PR to `main`).
+
+## 2026-11-15 — `make check-changed` (branch `feat/quiet-first-view`)
+
+Team request (D55): per-push checks limited to what the changed files can affect; full `make check` kept for merges to `main` and deploys. Verified: docs-only change → nothing runs; this branch → lint, typecheck, 1 unit-test file, all browser tests, room test (passed, 3 min 8 s). CLAUDE.md, README updated.
+
+## 2026-11-15 — Baseline of your choice, optional plan column, clearer map marks (branch `feat/quiet-first-view`)
+
+Team request (D56). Tray starts empty, the plan is an optional column, *Compare to this* sets the baseline; carried in the link and stored locations. Tray hint removed. Map markers enlarged with dark halos. New e2e test (empty start, add/remove plan, change baseline, unpin baseline); the shared `expandPanels` helper adds the plan and opens the compare-mode disclosure so earlier tests keep their meaning; fixed the disclosure folding on a site change. Checked in Chromium at 1440×900 (empty tray, three columns with the plan or a pin as baseline, map drawer).

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { expandPanels } from './hud'
 
 // Calls the real Worker route (Gemini). Needs a deployment with the GEMINI_API_KEY secret: `make e2e-live`.
 test.skip(!process.env.GEMINI_TEST, 'needs the deployed Worker with the Gemini secret (make e2e-live)')
@@ -6,6 +7,7 @@ test.skip(!process.env.GEMINI_TEST, 'needs the deployed Worker with the Gemini s
 test('F21 live: the demo sentence fills the panel with schema-valid values', async ({ page }) => {
   test.slow()
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan:')
   await page.getByPlaceholder(/survive 4 days of dark/).fill('survive 4 days of dark, talk to Earth half the time')
   await page.getByRole('button', { name: 'Interpret with Gemini' }).click()
@@ -22,6 +24,7 @@ test('F21 live: the demo sentence fills the panel with schema-valid values', asy
 test('F22 live: Gemini describes the horizon, or the template stands in', async ({ page }) => {
   test.slow()
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan:')
   await page.getByRole('button', { name: 'Describe with Gemini' }).click()
   await expect(page.getByTestId('horizon-note')).not.toContainText('Template sentence', { timeout: 45_000 })

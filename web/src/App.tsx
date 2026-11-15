@@ -23,7 +23,7 @@ import Results from './Results'
 import type { Room, RoomState } from './room'
 import { connectRoom, newRoomId, roomIdFromUrl, roomLink, stateKey, validConstraints } from './room'
 import Scene3D from './Scene3D'
-import { decodeShare, encodeShare } from './share'
+import { decodeShare, encodeShare, pickLocations, withStoredLocations } from './share'
 import SiteMap from './SiteMap'
 import Tour from './Tour'
 import type { TrayColumn } from './Tray'
@@ -36,6 +36,11 @@ const SNAP_LIMIT_M = 500 // a custom coordinate farther than this from every gri
 const HOUR_MS = 3_600_000
 const START_HOUR = 7728 // 2026-11-19 00:00 UTC
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16)
+
+// locations survive a refresh or a bare URL (storage can be blocked: private windows, previews)
+const LOCATIONS_KEY = 'tranquility-base:locations'
+const readLocations = () => { try { return window.localStorage.getItem(LOCATIONS_KEY) } catch { return null } }
+const writeLocations = (v: string) => { try { window.localStorage.setItem(LOCATIONS_KEY, v) } catch { /* not stored; the URL still has it */ } }
 
 /**
  * Panel opens and closes morph instead of jumping (View Transitions, ~200 ms); instant where unsupported or with reduced
@@ -70,16 +75,20 @@ export default function App() {
   const [regions, setRegions] = useState<Record<string, Region>>({})
   const [found, setFound] = useState<{ finder: FinderResult; candidates: Candidate[]; constraints: Constraints } | null>(null)
   const [viewing, setViewing] = useState<ScenarioRef | null>(null) // the scenario in the 3D view; null = the plan
-  const [pins, setPins] = useState<ScenarioRef[]>([]) // the compare tray, beside the plan
+  const [pins, setPins] = useState<ScenarioRef[]>([]) // the compare tray's pinned scenarios
+  const [planInTray, setPlanInTray] = useState(false) // the live plan is a tray column only when the user adds it
+  const [baseline, setBaseline] = useState<string | null>(null) // the column the others are compared to; null = the first
   const [pendingPin, setPendingPin] = useState<ScenarioRef | null>(null) // waiting for a free column
   const [matrix, setMatrix] = useState(false)
   const [drawer, setDrawer] = useState<'map' | 'matrix' | 'room' | null>(null)
   const [sideOpen, setSideOpen] = useState(true)
   const [fullscreen, setFullscreen] = useState(false)
   // collapsible panels; full screen collapses them for a cinematic view and restores them on exit
-  const [hudOpen, setHudOpen] = useState(true)
-  const [statusOpen, setStatusOpen] = useState(true)
-  const [bandOpen, setBandOpen] = useState(true)
+  // a quiet first view: the Plan panel is open; the card, the HUD and the band start folded to one line each
+  const [hudOpen, setHudOpen] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
+  const [bandOpen, setBandOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false) // compare mode's nudge/skyline disclosure; kept while the band remounts on a site change
   const [resultsMin, setResultsMin] = useState(false) // the alternatives folded into their corner
   const [resultsFresh, setResultsFresh] = useState(false) // a search just finished: the list plays its entrance
   const resultsChip = useRef<HTMLButtonElement | null>(null)
@@ -114,7 +123,7 @@ export default function App() {
     loadDataset().then((d) => {
       setData(d)
       // F17: a shared link restores site, point, landing time, changed constraints and mode
-      const s = decodeShare(new URLSearchParams(window.location.search))
+      const s = decodeShare(withStoredLocations(new URLSearchParams(window.location.search), readLocations()))
       const site = d.sites.find((x) => x.id === s.site) ?? d.sites[0]
       setSiteId(site.id)
       if (s.point !== undefined && s.point !== d.centreIndex && d.points.some((p) => p.region === site.id && p.index === s.point)) setPointIndex(s.point)
@@ -123,7 +132,9 @@ export default function App() {
       setConstraints(validConstraints(d.constraintDefs, { ...defaults(d.constraintDefs), ...s.constraints }))
       if (s.mode) setMode(s.mode)
       const known = new Set(d.points.map((p) => p.id))
-      setPins(s.pins.filter((p) => known.has(p.point) && p.hour >= 0 && p.hour < d.hours).slice(0, TRAY_MAX))
+      setPins(s.pins.filter((p) => known.has(p.point) && p.hour >= 0 && p.hour < d.hours).slice(0, TRAY_MAX - (s.planInTray ? 1 : 0)))
+      setPlanInTray(s.planInTray)
+      if (s.ref) setBaseline(s.ref)
     }, (e) => setError(String(e)))
     return () => worker.current?.terminate()
   }, [])
@@ -403,10 +414,11 @@ export default function App() {
   useEffect(() => {
     if (!data || !siteId) return
     const params = encodeShare(new URLSearchParams(window.location.search), {
-      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode, pins,
+      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode, pins, planInTray, ref: baseline,
     })
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
-  }, [data, siteId, pointIndex, planHour, constraints, mode, pins])
+    writeLocations(pickLocations(params))
+  }, [data, siteId, pointIndex, planHour, constraints, mode, pins, planInTray, baseline])
   const [copied, setCopied] = useState(false)
   const copyLink = () => {
     navigator.clipboard?.writeText(window.location.href).catch(() => undefined)
@@ -470,12 +482,12 @@ export default function App() {
   const togglePin = useCallback((ref: ScenarioRef) => {
     const key = refKey(ref)
     if (pins.some((p) => refKey(p) === key)) setPins(pins.filter((p) => refKey(p) !== key))
-    else if (pins.length < TRAY_MAX) setPins([...pins, ref])
+    else if (pins.length + (planInTray ? 1 : 0) < TRAY_MAX) setPins([...pins, ref])
     else {
       setPendingPin(ref)
       setBandOpen(true) // the replace prompt lives in the tray
     }
-  }, [pins])
+  }, [pins, planInTray])
   const showScenario = (ref: ScenarioRef | null) => {
     setViewing(ref)
     setOffset(0)
@@ -584,6 +596,7 @@ export default function App() {
     setPlanHour(ref.hour)
     setSnapNote('')
     setPins(pins.map((p) => (refKey(p) === key ? old : p)))
+    if (baseline === key) setBaseline(planInTray ? 'plan' : null) // the baseline follows its scenario, now the live plan
     setAnnounce('The pinned scenario is now the plan; the previous plan is pinned in its place.')
     focusView.current = true
   }
@@ -829,7 +842,7 @@ export default function App() {
                 pinned={pinnedKeys} onPin={(i) => { const r = resultRef(i); if (r) togglePin(r) }}
                 onOpen={(i) => {
                   const r = i === null ? null : resultRef(i)
-                  if (r && !pinnedKeys.has(refKey(r)) && pins.length < TRAY_MAX) setPins([...pins, r]) // opening also pins it, room permitting
+                  if (r && !pinnedKeys.has(refKey(r)) && pins.length + (planInTray ? 1 : 0) < TRAY_MAX) setPins([...pins, r]) // opening also pins it, room permitting
                   showScenario(r)
                 }} />}
             </>
@@ -837,7 +850,7 @@ export default function App() {
         </div>
 
         {view && day && (
-          <section className={`band${pins.length && bandOpen ? ' comparing' : ''}${bandOpen ? '' : ' collapsed'}`} aria-label="Timeline and comparison" ref={band}
+          <section className={`band${(pins.length || planInTray) && bandOpen ? ' comparing' : ''}${bandOpen ? '' : ' collapsed'}`} aria-label="Timeline and comparison" ref={band}
             style={bandOpen && bandHeight !== null ? { height: bandHeight, maxHeight: 'none' } : undefined}>
             {bandOpen && (
               <div className="band-grip" role="separator" aria-orientation="horizontal" aria-label="Resize the timeline and comparison panel"
@@ -875,15 +888,26 @@ export default function App() {
               <HorizonText facts={horizonFacts(day.mask, day.series, day.track, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
                   </>
                 )
-                return pins.length ? <details className="band-more"><summary>Nudge, skyline and horizon description</summary>{detail}</details> : detail
+                return pins.length || planInTray ? <details className="band-more" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}><summary>Nudge, skyline and horizon description</summary>{detail}</details> : detail
               })()}
             </div>
-            {bandOpen && <Tray plan={trayPlan} pinned={trayPins} t={view.t} constraints={constraints} previous={nudgeFrom}
+            {bandOpen && <Tray plan={planInTray ? trayPlan : null} pinned={trayPins} baseline={baseline} t={view.t} constraints={constraints} previous={nudgeFrom}
               pending={pendingPin ? { title: (() => { const c = candidateOf(pendingPin.point); return c ? differenceOf(c, pendingPin.hour, null) : 'this scenario' })() } : null}
               onView={(key) => showScenario(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
               onAdopt={adoptPin}
-              onUnpin={(key) => { setPins(pins.filter((p) => refKey(p) !== key)); if (viewing && refKey(viewing) === key) showScenario(null) }}
-              onReplace={(key) => { if (pendingPin) setPins(pins.map((p) => (refKey(p) === key ? pendingPin : p))); setPendingPin(null) }}
+              onSetBaseline={(key) => { setBaseline(key); setAnnounce('Baseline changed: the other columns are now compared to it.') }}
+              onAddPlan={() => setPlanInTray(true)}
+              onRemovePlan={() => { setPlanInTray(false); if (baseline === 'plan') setBaseline(null) }}
+              onUnpin={(key) => {
+                setPins(pins.filter((p) => refKey(p) !== key))
+                if (baseline === key) setBaseline(null)
+                if (viewing && refKey(viewing) === key) showScenario(null)
+              }}
+              onReplace={(key) => {
+                if (pendingPin) setPins(pins.map((p) => (refKey(p) === key ? pendingPin : p)))
+                if (baseline === key) setBaseline(null)
+                setPendingPin(null)
+              }}
               onCancelPending={() => setPendingPin(null)}
               onPinView={() => { if (viewRef) togglePin(viewRef) }}
               canPinView={Boolean(viewRef && !pinnedKeys.has(refKey(viewRef)))} />}
