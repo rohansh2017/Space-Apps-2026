@@ -9,3 +9,10 @@ dist/
 .dev.vars
 *.egg-info/
 test-results/
+
+# AI tool folders (local only)
+.claude/
+.cursor/
+.gemini/
+.impeccable/
+.opencode/
