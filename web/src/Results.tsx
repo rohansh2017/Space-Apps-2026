@@ -1,3 +1,4 @@
+import { Pin, PinOff } from 'lucide-react'
 import type { RefObject } from 'react'
 import Chips from './Chips'
 import type { Constraints } from './engine/engine'
@@ -15,12 +16,14 @@ interface Props {
   onRerun: () => void
   headingRef: RefObject<HTMLHeadingElement | null> // focused when a search finishes
   constraints: Constraints // the values this search ran with (they may have changed since)
+  pinned: Set<string> // keys (point@hour) already in the compare tray
+  onPin: (i: number) => void // toggles the result in the compare tray
 }
 
-export default function Results({ finder, candidates, opened, date, onOpen, stale, busy, onRerun, headingRef, constraints }: Props) {
+export default function Results({ finder, candidates, opened, date, onOpen, stale, busy, onRerun, headingRef, constraints, pinned, onPin }: Props) {
   const passing = finder.results.filter((r) => r.evaluation.fails === 0).length
   return (
-    <section className="panel" aria-labelledby="results-heading">
+    <section className="results-panel" aria-labelledby="results-heading">
       <h2 id="results-heading" ref={headingRef} tabIndex={-1}>Alternatives</h2>
       {stale && (
         <p className="stale" data-testid="results-stale">
@@ -46,10 +49,16 @@ export default function Results({ finder, candidates, opened, date, onOpen, stal
                   <strong data-testid="result-title">{title}</strong>
                   <span>{c.label} · lands {date(r.start)} UTC</span>
                 </div>
-                <button type="button" aria-label={`${opened === i ? 'Back to plan from' : 'Open in 3D:'} ${which}`}
-                  aria-pressed={opened === i} onClick={() => onOpen(opened === i ? null : i)}>
-                  {opened === i ? 'Back to plan' : 'Open in 3D'}
-                </button>
+                <div className="result-actions">
+                  <button type="button" className="icon-button" aria-label={`${pinned.has(`${c.id}@${r.start}`) ? 'Unpin' : 'Pin'} #${i + 1} ${pinned.has(`${c.id}@${r.start}`) ? 'from' : 'to'} the compare tray`}
+                    aria-pressed={pinned.has(`${c.id}@${r.start}`)} onClick={() => onPin(i)}>
+                    {pinned.has(`${c.id}@${r.start}`) ? <PinOff size={15} aria-hidden="true" /> : <Pin size={15} aria-hidden="true" />}
+                  </button>
+                  <button type="button" aria-label={`${opened === i ? 'Back to plan from' : 'Open in 3D:'} ${which}`}
+                    aria-pressed={opened === i} onClick={() => onOpen(opened === i ? null : i)}>
+                    {opened === i ? 'Back to plan' : 'Open in 3D'}
+                  </button>
+                </div>
               </div>
               <div data-testid="result-diff">{d.metrics} <span className="note">vs the plan</span></div>
               <div className="result-foot">

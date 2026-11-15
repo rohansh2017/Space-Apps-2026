@@ -28,11 +28,11 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   await page.screenshot(shot('1-plan-shackleton-rim'))
 
   // the panorama has terrain, Sun-track and Earth-track pixels
-  const colours = await page.locator('canvas.panorama').evaluate((c: HTMLCanvasElement) => {
+  const colours = await page.locator('.band-time canvas.panorama').evaluate((c: HTMLCanvasElement) => {
     const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data
     const seen = new Set<string>()
     for (let i = 0; i < d.length; i += 4) seen.add(`${d[i]},${d[i + 1]},${d[i + 2]}`)
-    return ['74,79,92', '232,195,74', '95,168,255'].map((k) => seen.has(k))
+    return ['87,83,77', '240,185,85', '95,168,255'].map((k) => seen.has(k))
   })
   expect(colours).toEqual([true, true, true])
 

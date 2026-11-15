@@ -8,10 +8,11 @@ export interface Shared {
   utc?: string
   constraints: Record<string, number | boolean>
   mode?: 'planner' | 'explorer'
+  pins: { point: string; hour: number }[] // compare-tray scenarios, "region:index@hour"
 }
 
 export function decodeShare(params: URLSearchParams): Shared {
-  const out: Shared = { constraints: {} }
+  const out: Shared = { constraints: {}, pins: [] }
   const site = params.get('site')
   if (site) out.site = site
   const point = params.get('point')
@@ -25,13 +26,17 @@ export function decodeShare(params: URLSearchParams): Shared {
   }
   const mode = params.get('mode')
   if (mode === 'planner' || mode === 'explorer') out.mode = mode
+  for (const p of (params.get('pins') ?? '').split(',')) {
+    const m = /^([a-z0-9-]+:\d+)@(\d+)$/.exec(p)
+    if (m) out.pins.push({ point: m[1], hour: Number(m[2]) })
+  }
   return out
 }
 
 /** Writes the state into `params`, keeping unrelated keys (room). Only constraints that differ from the defaults are included. */
 export function encodeShare(
   params: URLSearchParams,
-  s: { site: string; point: number | null; utc: string; constraints: Constraints; defs: ConstraintDef[]; mode: 'planner' | 'explorer' },
+  s: { site: string; point: number | null; utc: string; constraints: Constraints; defs: ConstraintDef[]; mode: 'planner' | 'explorer'; pins?: { point: string; hour: number }[] },
 ): URLSearchParams {
   params.set('site', s.site)
   if (s.point === null) params.delete('point')
@@ -42,5 +47,7 @@ export function encodeShare(
   else params.delete('c')
   if (s.mode === 'explorer') params.set('mode', 'explorer')
   else params.delete('mode')
+  if (s.pins?.length) params.set('pins', s.pins.map((p) => `${p.point}@${p.hour}`).join(','))
+  else params.delete('pins')
   return params
 }

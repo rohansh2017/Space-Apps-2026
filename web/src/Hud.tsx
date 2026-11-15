@@ -41,7 +41,7 @@ export default function Hud({ sunEl, sunHorizon, earthEl, earthHorizon, lit, lin
         <dt className="sub">Horizon toward Earth</dt>
         <dd className="sub" data-testid="hud-earth-horizon">{earthHorizon.toFixed(2)}°</dd>
         <dt>Sun</dt>
-        <dd data-testid="hud-lit" className={lit > 0 ? 'ok' : 'bad'}>{lit > 0 ? `Lit ${(lit * 100).toFixed(0)}%` : 'Dark'}</dd>
+        <dd data-testid="hud-lit" className={lit > 0 ? 'sunlit' : 'bad'}>{lit > 0 ? `Lit ${(lit * 100).toFixed(0)}%` : 'Dark'}</dd>
         <dt><Term id="Earth link">Earth link</Term></dt>
         <dd data-testid="hud-link" className={link ? 'ok' : 'bad'}>{link ? 'Link' : 'No link'}</dd>
         <dt><Term id="Power index">Power index</Term></dt>

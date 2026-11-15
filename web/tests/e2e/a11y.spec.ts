@@ -12,7 +12,7 @@ test('finder: unique button names, announcement, focus on the results', async ({
   const names = await page.getByTestId('result').getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))
   expect(names.length).toBeGreaterThan(1)
   expect(new Set(names).size).toBe(names.length) // every button has its own name
-  expect(names[0]).toMatch(/^Open in 3D: #1, /) // the visible text stays the start of the name
+  expect(names.filter((n) => n?.startsWith('Open in 3D'))[0]).toMatch(/^Open in 3D: #1, /) // the visible text stays the start of the name
   // editing a constraint marks the results out of date instead of deleting them
   await page.getByLabel('Max continuous darkness').fill('60')
   await expect(page.getByTestId('results-stale')).toBeVisible()

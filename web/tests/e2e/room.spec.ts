@@ -11,6 +11,7 @@ test('F24: two browsers in one mission room stay in step, and a late joiner gets
   const a = await (await browser.newContext()).newPage()
   await a.goto('/')
   await expect(a.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  await a.getByRole('button', { name: /^Mission room/ }).click() // the header button opens the room drawer
   await a.getByRole('button', { name: 'Start mission room' }).click()
   const link = await a.getByTestId('room-link').inputValue()
   expect(link).toMatch(/[?&]room=tb-[a-z0-9]{6}(&|$)/) // F17 adds site/t/mode params after it
@@ -42,6 +43,7 @@ test('F24: two browsers in one mission room stay in step, and a late joiner gets
   await expect(a.getByTestId('room-count')).toHaveText('3 connected')
 
   // leaving the room keeps the local state and stops syncing
+  await c.getByRole('button', { name: /^Mission room/ }).click()
   await c.getByRole('button', { name: 'Leave room' }).click()
   await expect(c.getByTestId('room-count')).toHaveCount(0)
   await expect(a.getByTestId('room-count')).toHaveText('2 connected')

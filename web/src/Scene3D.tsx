@@ -231,8 +231,8 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
   earthMaterial.uniforms.sunDir.value.copy(sun)
   // keep the soil's contrast about constant: a given tilt matters more the lower the Sun is
   soil.normalScale.setScalar(0.055 * Math.min(4, Math.max(now.sunEl, 0.4)))
-  const sunTrail = useTrail(track, (a) => [a.sunAz, a.sunEl], '#f2c94c')
-  const earthTrail = useTrail(track, (a) => [a.earthAz, a.earthEl], '#6da7ec')
+  const sunTrail = useTrail(track, (a) => [a.sunAz, a.sunEl], '#f0b955')
+  const earthTrail = useTrail(track, (a) => [a.earthAz, a.earthEl], '#5fa8ff')
   sunTrail.geometry.setDrawRange(0, t + 1)
   earthTrail.geometry.setDrawRange(0, t + 1)
   // Display exposure, not photometry. At the pole a slope facing the Sun gets ~10x the light of flat ground, so no

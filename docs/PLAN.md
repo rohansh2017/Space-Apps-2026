@@ -91,3 +91,12 @@ Goal: replace illustrative 3D assets with real data where a source exists. Exit:
 - [x] Footer, README, DECISIONS updated; screenshots viewed; `make perf` re-run (2026-11-14 23:30; D40, D41)
 - [x] Distant ranges lit from LOLA crest slopes and the real Sun, with illustrative rock texture (2026-11-15, D45); Apollo sites removed from the app (D44)
 
+
+## P7 UI redesign for the challenge objective (team request, 2026-11-15, branch `redesign/new-visual-identity`)
+
+Goal: rapid, intuitive comparison of several scenarios, in full screen. Run through impeccable in this order: init, harden, clarify, delight, shape, layout, adapt, polish, critique. Exit: `make check` passes, screenshots viewed at desktop and phone widths, PR to `main` for the team.
+
+- [x] PRODUCT.md (init); harden (D46); clarify (D47); delight (D48)
+- [x] Shape + layout: full-screen layout, compare tray of plan + 3 pins in the share link, drawers, one-line footer with *About the data*, polar-light palette (D49)
+- [ ] Adapt (phones)
+- [ ] Polish, critique
