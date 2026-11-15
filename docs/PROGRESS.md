@@ -251,3 +251,46 @@ Team feedback: the 5 m ground looked smooth and unrealistic. Cause: the 5 m DEM 
 
 - Apollo 11/15/17 removed from the app (team decision, D44); still in `make validate`.
 - Distant ranges: per-azimuth crest normals from the DEM (`crest_normals`, unit-tested on a synthetic ridge and a flat sphere, and asserted against each site's mask in `make data`) light the horizon ring from the real Sun (D45); illustrative rock texture on it. Checked on the GPU at Shackleton rim (lit), Shackleton in shadow, Connecting Ridge, Nobile Rim 1; screenshots viewed.
+
+## 2026-11-15 — Docs audit; push rule
+
+Audit of every doc against the repo. Fixed: CLAUDE.md commands (e2e-room, e2e-live; check includes the room test) and doc map; web/CLAUDE.md (Gemini routes, `/api/*`, star field, ridge lighting); DATA.md derived files (ridges, nine sites); perf.sh per-region size now counts ridges, PERF.md regenerated; PLAN P6 lists the ring lighting and the Apollo removal. New standing rules in CLAUDE.md: push every commit to `build/tranquility-base` after `make check` (team decision), and update affected docs in the same commit.
+
+## 2026-11-15 — Callout borders
+
+The snap-note and Gemini-proposal callouts lose their yellow left bar (a design-review finding) for a 1 px full border, so the accent colour is freed for sunlight. Screenshot 14 viewed. Replacing Inter waits for the redesign decision (the face must be bundled: no runtime font requests).
+
+## 2026-11-15 — PRODUCT.md: comparison-first
+
+`/impeccable init` updated PRODUCT.md with the challenge objective as the primary purpose: rapid comparison of multiple landing scenarios when constraints shift. Confirmed with the user: planning teams are the primary users and the judges' demo is the proof; full screen means the interface fills the window and a Fullscreen-API toggle exists; how many scenarios can be compared at once is left open for `/impeccable shape`. Kept: truth-first data, labelled decoration, no numbers from the renderer, screening-grade statement on screen, no runtime network calls.
+
+## 2026-11-15 — `/impeccable harden` (branch `redesign/new-visual-identity`)
+
+- Results: each "Open in 3D" / "Back to plan" button has its own accessible name (`Open in 3D: #1, 5.0 km S, 16 days later, Shackleton rim, …`; visible text unchanged); search start/finish announced; focus moves to the "Alternatives" heading when a search finishes.
+- Constraint edits mark results out of date with "Run again" instead of deleting them; out-of-range input shows an inline error and keeps the last valid value (D46).
+- Tour takes focus, closes on Escape, returns focus to "Start tour"; Next turns into Finish in place so focus is not lost.
+- Glossary definitions linked with `aria-describedby` (the visual tooltip is CSS content, which screen readers skip).
+- Finder and terrain-load failures are inline with retry; failed region loads are no longer cached.
+- Scrubber and Play: already keyboard-operable (probe); scrubber now has `aria-valuetext`.
+- Tests: new `a11y.spec.ts` (5 tests) and screenshots 16–17 (viewed); demo test updated for the out-of-date behaviour and marked slow. `make check` passes.
+- Not deployed: this branch is the redesign branch, so the live site still runs `build/tranquility-base`.
+
+## 2026-11-15 — `/impeccable clarify` (branch `redesign/new-visual-identity`)
+
+Result titles by difference, site and time below, metrics change once; comparison labels by distance and date; thresholds on every chip (with the search's own values); HUD horizon height toward the Sun and Earth; Shackleton blurb reworded and `make data` rerun (only `sites.json` changed) (D47). Contrast fix: HUD sub-rows use `--dim`, since `--mute` is about 4.3:1 there. Tests: new `diffParts` unit test; demo and F11 tests updated to the new wording. Screenshots 1, 2 and 10 viewed. `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — `/impeccable delight` (branch `redesign/new-visual-identity`)
+
+Shadow display fill (D48): the slipped-date demo frame now shows the dimmed ground and distant ranges instead of black, with an in-view tag and a footer line naming it a display aid. Checked on the GPU at the slipped date and at the sunset frame, and in screenshot 3; demo test asserts the tag is absent in sunlight and present in shadow. `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — `/impeccable layout` (branch `redesign/new-visual-identity`)
+
+Full-screen comparison-first redesign (D49): window-filling 3D view, left rail and Plan panel with *Find alternatives* always visible, bottom band with panorama and the Compare tray (plan + 3 pins, pins in the share link), Map / Scenario matrix / Mission room drawers, one-line footer with *About the data*, full-screen toggle, polar-light palette and Public Sans. New components `Tray`, `Drawer`; `Compare.tsx` removed. Tests: F11 rewritten for the tray (pin, unpin, link, focus), map/matrix/room tests open their drawers, panorama and illumination colour checks updated; `share.ts` pins round-trip unit test. Screenshots checked at 1440×900, 1280×720 and 390 px; impeccable detector clean. Finish review (disposition: fix) acted on: with results open the HUD shrinks to its two countdowns above the results so the sky stays clear; pinned tray columns show engine deltas against the plan; tray metrics one per line; panorama labels sized for their on-screen width; shorter band on windows under 800 px tall; the level-ground fallback added to *About the data*; matrix drawer sized to its content. DESIGN.md and `.impeccable/design.json` written from the build. `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — `/impeccable polish` (branch `redesign/new-visual-identity`)
+
+Worked from all 17 test screenshots. Fixed: tray columns and result rows no longer cut or split landing dates (dates kept on one line; tray detail split into site and time); result rows put title and actions on one line with the site and date full width below; the tour stacks under the status card instead of covering its chips; the Map drawer shows both maps side by side, so the illumination map and its legend are visible without scrolling; panorama elevation labels are outlined so they read over the terrain; the Plan panel fades at its foot to show it scrolls. No behaviour or copy changes. Detector clean; `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — `/impeccable critique` and its P1 fixes (branch `redesign/new-visual-identity`)
+
+Dual-agent critique against the comparison objective: 25/40, detector clean in source (in-page: placeholder contrast 3.6:1, 11.8 px small text), snapshot in `.impeccable/critique/`. Fixed the three P1s (D50): compare mode for the band so the tray fits a 720p full screen (band 437/437 px, no scroll; 1440×900 392/392 with a 420 px view), the tray as a table with shared rows and the best value per row in bold, and *Make this the plan*. F11 test extended (best marker, adopt, focus). P2s left open: pinning feedback, sticky results header, matrix pass/fail mode. `make check` passes. Not deployed (redesign branch).

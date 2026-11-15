@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import type { Dataset, Point, Site } from './data'
 import { dataUrl } from './data'
 import { latLonToXY, xyToLatLon } from './engine/engine'
-import { RAMP, colour } from './ramp'
+import { SUN_RAMP, colour } from './ramp'
 
 const PX = 560 // canvas pixels; CSS scales it to the panel width
 
@@ -94,7 +94,7 @@ function SiteMap({ data, site, point, illumination, onPick }: Props) {
       const selected = s.id === site.id
       g.beginPath()
       g.arc(x, y, selected ? 9 : 6, 0, 2 * Math.PI)
-      g.fillStyle = selected ? '#f2c94c' : '#e8eaf0'
+      g.fillStyle = selected ? '#ece8e1' : '#9a948a'
       g.fill()
       g.lineWidth = 2
       g.strokeStyle = '#0a0c11'
@@ -109,7 +109,7 @@ function SiteMap({ data, site, point, illumination, onPick }: Props) {
       g.globalAlpha = 0.78
       for (const p of gridPoints) {
         const [x, y] = px(p.x, p.y)
-        g.fillStyle = colour(illumination[p.index], 100)
+        g.fillStyle = colour(illumination[p.index], 100, SUN_RAMP)
         g.fillRect(x - cell / 2 + 1, y - cell / 2 + 1, cell - 2, cell - 2)
       }
       g.globalAlpha = 1
@@ -125,7 +125,7 @@ function SiteMap({ data, site, point, illumination, onPick }: Props) {
       g.beginPath()
       g.arc(x, y, 10, 0, 2 * Math.PI)
       g.lineWidth = 3
-      g.strokeStyle = '#f2c94c'
+      g.strokeStyle = '#ece8e1'
       g.stroke()
     }
     // north (away from the pole) at this site, as an arrow in the corner
@@ -145,8 +145,7 @@ function SiteMap({ data, site, point, illumination, onPick }: Props) {
   }
 
   return (
-    <section className="panel" aria-label="Site map">
-      <h2>Map</h2>
+    <section aria-label="Site map">
       <MapCanvas label="South polar cap, 80–90°S: click to pick a point" testid="map-pole" image={pole} cx={0} cy={0}
         half={data.basemap.pole.half_width_m} draw={drawPole} onPick={onPick} />
       {centre && (
@@ -155,7 +154,7 @@ function SiteMap({ data, site, point, illumination, onPick }: Props) {
       )}
       {centre && illumination && (
         <p className="note legend-row" data-testid="illumination-legend">
-          Sunlit <span className="legend" aria-hidden="true">0% <i style={{ background: `linear-gradient(90deg, ${RAMP.join(',')})` }} /> 100%</span> of the mission window, per 500 m cell
+          Sunlit <span className="legend" aria-hidden="true">0% <i style={{ background: `linear-gradient(90deg, ${SUN_RAMP.join(',')})` }} /> 100%</span> of the mission window, per 500 m cell
         </p>
       )}
       <p className="note">LOLA hillshade with illustrative lighting. Clicks snap to the nearest precomputed grid point.</p>

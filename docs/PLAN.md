@@ -89,4 +89,15 @@ Goal: replace illustrative 3D assets with real data where a source exists. Exit:
   - Reversed 2026-11-15 (D43): the 5 m ground looked unrealistically smooth; the sub-1.5 m texture is back on every patch, under the real relief
 - [x] Real stars: BSC5 positions, magnitudes and B−V colours, oriented for the site and hour from an hourly ICRF→MOON_ME orientation table (new contract file); validated by rotating the Sun's ICRF direction onto the stored ephemeris vector
 - [x] Footer, README, DECISIONS updated; screenshots viewed; `make perf` re-run (2026-11-14 23:30; D40, D41)
+- [x] Distant ranges lit from LOLA crest slopes and the real Sun, with illustrative rock texture (2026-11-15, D45); Apollo sites removed from the app (D44)
 
+
+## P7 UI redesign for the challenge objective (team request, 2026-11-15, branch `redesign/new-visual-identity`)
+
+Goal: rapid, intuitive comparison of several scenarios, in full screen. Run through impeccable in this order: init, harden, clarify, delight, shape, layout, adapt, polish, critique. Exit: `make check` passes, screenshots viewed at desktop and phone widths, PR to `main` for the team.
+
+- [x] PRODUCT.md (init); harden (D46); clarify (D47); delight (D48)
+- [x] Shape + layout: full-screen layout, compare tray of plan + 3 pins in the share link, drawers, one-line footer with *About the data*, polar-light palette (D49)
+- [ ] Adapt (phones)
+- [x] Polish from the test screenshots (2026-11-15)
+- [x] Critique against the comparison objective (25/40); its three P1s fixed: tray fits a 720p full screen, tray reads as a table, *Make this the plan* (D50)

@@ -9,26 +9,44 @@ const hudOf = async (page: import('@playwright/test').Page) => ({
 const observer = (page: import('@playwright/test').Page) =>
   page.getByTestId('view').evaluate((el: HTMLElement) => ({ ...el.dataset }) as Record<string, string>)
 
-test('F11: an opened alternative is shown side by side with the plan', async ({ page }) => {
+test('F11: opened alternatives are pinned to the compare tray beside the plan', async ({ page }) => {
   await page.goto('/')
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
   await page.getByRole('button', { name: 'Find alternatives' }).click()
   await page.getByTestId('result').first().getByRole('button', { name: 'Open in 3D' }).click()
-  const compare = page.getByTestId('compare')
-  await expect(compare).toBeVisible()
-  await expect(compare.getByTestId('compare-plan')).toContainText('Plan: Shackleton rim')
-  await expect(compare.getByTestId('compare-plan')).toContainText('2026-12-01 00:00 UTC landing')
-  await expect(compare.getByTestId('compare-alt')).toContainText('Alternative:')
-  await expect(compare.locator('canvas.panorama')).toHaveCount(2)
-  await expect(compare.getByTestId('compare-plan').locator('.chip.fail').first()).toBeVisible() // the plan fails
-  await expect(compare.getByTestId('compare-alt').locator('.chip.fail')).toHaveCount(0) // the top result passes
-  // the scrubber moves both panoramas
+  await expect(page.getByTestId('view')).toBeFocused() // focus follows the scenario into the view
+  const tray = page.getByTestId('tray')
+  await expect(tray.getByTestId('tray-plan')).toContainText('Shackleton rim')
+  await expect(tray.getByTestId('tray-plan')).toContainText('2026-12-01 00:00 UTC')
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(1) // opening pinned it
+  await expect(tray.getByTestId('tray-pin')).toContainText(/(\d+(\.\d)? km [NESW]{1,2}|Same site) · ([+−]|same date)/)
+  await expect(tray.locator('canvas.panorama')).toHaveCount(2)
+  await expect(tray.getByTestId('tray-plan').locator('.chip.fail').first()).toBeVisible() // the plan fails
+  await expect(tray.getByTestId('tray-pin').locator('.chip.fail')).toHaveCount(0) // the top result passes
+  // a second result pins beside it; the pin button toggles
+  await page.getByRole('button', { name: 'Pin #2 to the compare tray' }).click()
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(2)
+  await page.getByRole('button', { name: 'Unpin #2 from the compare tray' }).click()
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(1)
+  // the scrubber moves every column
   await page.getByRole('slider').fill('200')
   await expect(page.getByTestId('view')).toHaveAttribute('data-hour', /\d+/)
   await page.waitForTimeout(1200)
-  await page.screenshot({ ...shot('10-side-by-side'), fullPage: true })
+  await page.screenshot(shot('10-compare-tray'))
+  // pins travel in the share link
+  expect(new URL(page.url()).searchParams.get('pins')).toMatch(/^[a-z0-9-]+:\d+@\d+$/)
+  // back to the plan keeps the pin
   await page.getByRole('button', { name: 'Back to plan' }).click()
-  await expect(compare).toHaveCount(0)
+  await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  await expect(tray.getByTestId('tray-pin')).toHaveCount(1)
+  // the best value in a row is marked, in words for screen readers too
+  await expect(tray.getByTestId('tray-pin').locator('dd.best').first()).toContainText('(best in the tray)')
+  // a pin can become the plan: the old plan takes its column
+  await page.getByRole('button', { name: /^Make .* the plan$/ }).click()
+  await expect(page.getByTestId('view')).toBeFocused()
+  await expect(tray.getByTestId('tray-plan').locator('.chip.fail')).toHaveCount(0)
+  await expect(tray.getByTestId('tray-pin').locator('.chip.fail').first()).toBeVisible()
+  await expect(tray.getByTestId('tray-pin')).toContainText('2026-12-01 00:00 UTC')
 })
 
 test('F14: nudging the plan by one grid step or one day marks what changed', async ({ page }) => {
@@ -147,24 +165,24 @@ test('F17: the URL carries site, point, date, constraints and mode, and reopens 
 test('F15: the region map shows sunlit % per grid point for the mission window', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  await page.getByRole('button', { name: 'Map', exact: true }).click()
   await expect(page.getByTestId('illumination-legend')).toContainText('Sunlit')
   await expect(page.getByTestId('map-region')).toHaveAttribute('aria-label', /sunlit % per grid point/)
-  // the ramp's blues are on the canvas; both dark (low) and light (high) ends appear around the Shackleton rim
-  const ends = await page.getByTestId('map-region').evaluate((c: HTMLCanvasElement) => {
+  // the sunlight ramp is on the canvas; both dark (low) and light (high) ends appear around the Shackleton rim
+  // the overlay is drawn after the drawer opens, so poll the pixels rather than read them once
+  const ends = () => page.getByTestId('map-region').evaluate((c: HTMLCanvasElement) => {
     const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data
     let dark = 0
     let light = 0
     for (let i = 0; i < d.length; i += 4) {
-      const [r, g, b] = [d[i], d[i + 1], d[i + 2]]
-      if (b > r + 40 && b > g + 10 && b < 150) dark++
-      if (b > r + 40 && b > 200) light++
+      const [r, b] = [d[i], d[i + 2]]
+      if (r > b + 20 && r < 140) dark++ // deep amber: little sun
+      if (r > 200 && r > b + 60) light++ // pale gold: mostly sunlit
     }
     return [dark, light]
   })
-  expect(ends[0]).toBeGreaterThan(200)
-  expect(ends[1]).toBeGreaterThan(200)
-  await page.getByTestId('map-region').scrollIntoViewIfNeeded()
-  await page.screenshot({ ...shot('15-illumination-map'), fullPage: true })
+  await expect.poll(async () => Math.min(...(await ends()))).toBeGreaterThan(200)
+  await page.screenshot(shot('15-illumination-map'))
 })
 
 test('F22: the horizon is described from engine facts; Gemini text is kept only when its numbers are facts', async ({ page }) => {

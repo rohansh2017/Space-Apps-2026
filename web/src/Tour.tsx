@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface Step {
   id: string
@@ -32,24 +32,33 @@ function SunriseContrast() {
 
 export default function Tour({ steps, onStep, onClose }: Props) {
   const [i, setI] = useState(0)
+  const box = useRef<HTMLElement>(null)
   const step = steps[i]
+  const last = i + 1 === steps.length
   useEffect(() => onStep(steps[0].id), []) // eslint-disable-line react-hooks/exhaustive-deps -- fire once for the first step
+  useEffect(() => box.current?.focus(), []) // the tour takes focus when it opens
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
   const go = (n: number) => {
     setI(n)
     onStep(steps[n].id)
   }
   return (
-    <section className="panel tour" role="dialog" aria-label="Guided tour" data-testid="tour">
+    <section className="panel tour" role="dialog" aria-label="Guided tour" data-testid="tour" ref={box} tabIndex={-1}>
       <h2>Why is the pole so hard? · step {i + 1} of {steps.length}</h2>
-      <h3>{step.title}</h3>
-      {i === 0 && <SunriseContrast />}
-      <p>{step.body}</p>
+      <div aria-live="polite">
+        <h3>{step.title}</h3>
+        {i === 0 && <SunriseContrast />}
+        <p>{step.body}</p>
+      </div>
       <div className="tour-nav">
         <button type="button" onClick={() => go(i - 1)} disabled={i === 0}>Back</button>
-        {i + 1 < steps.length
-          ? <button type="button" className="primary" onClick={() => go(i + 1)}>Next</button>
-          : <button type="button" className="primary" onClick={onClose}>Finish</button>}
-        <button type="button" onClick={onClose} aria-label="Close tour">Close</button>
+        {/* one button that changes from Next to Finish, so keyboard focus is not lost on the last step */}
+        <button type="button" className="primary" onClick={() => (last ? onClose() : go(i + 1))}>{last ? 'Finish' : 'Next'}</button>
+        <button type="button" onClick={onClose} aria-label="Close tour (Escape)">Close</button>
       </div>
     </section>
   )

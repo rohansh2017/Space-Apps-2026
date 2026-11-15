@@ -35,6 +35,7 @@ test('custom coordinates and map clicks snap to the grid and show the snap dista
   expect((await observer(page)).point).toBe(o.point)
 
   // a click on the region map picks another grid point
+  await page.getByRole('button', { name: 'Map', exact: true }).click()
   await page.getByTestId('map-region').click({ position: { x: 60, y: 200 } })
   await expect(page.getByTestId('snap-note')).toContainText('Snapped')
   const clicked = await observer(page)
@@ -69,7 +70,7 @@ test('Explorer mode adds plain-English labels and glossary tooltips', async ({ p
 
 test('scenario matrix: sites by landing dates, click-through to 3D', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: /Show scenario matrix/ }).click()
+  await page.getByRole('button', { name: 'Scenario matrix' }).click()
   const matrix = page.getByTestId('matrix')
   await expect(matrix.locator('tbody tr')).toHaveCount(9)
   await expect(matrix.locator('tbody tr').first().locator('button')).toHaveCount(60)

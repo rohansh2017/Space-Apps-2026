@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-15T02:25:33Z",
+  "title": "Design System: Tranquility Base",
+  "extensions": {
+    "colorMeta": {
+      "sun": { "role": "primary", "displayName": "Grazing-Sun Gold", "canonical": "#f0b955", "tonalRamp": ["#2a1f0c", "#3b2f18", "#4c3f24", "#5e4e30", "#6f5e3c", "#806e48", "#917e54", "#a28d60", "#b39d6c", "#c5ad78", "#d6bd84", "#e7cc90", "#f8dc9c"] },
+      "earth": { "role": "secondary", "displayName": "Earthshine Blue", "canonical": "#5fa8ff", "tonalRamp": ["#0d366b", "#104281", "#184f95", "#1c5cab", "#256abf", "#2a78d6", "#3987e5", "#5598e7", "#6da7ec", "#86b6ef", "#9ec5f4", "#b7d3f6", "#cde2fb"] },
+      "ok": { "role": "tertiary", "displayName": "Pass Green", "canonical": "#86d3a1" },
+      "bad": { "role": "tertiary", "displayName": "Fail Coral", "canonical": "#ff8f84" },
+      "bad-bg": { "role": "tertiary", "displayName": "Fail Wash", "canonical": "rgb(255 143 132 / 12%)" },
+      "ground": { "role": "neutral", "displayName": "Deep Shadow", "canonical": "#050608" },
+      "panel": { "role": "neutral", "displayName": "Regolith Glass", "canonical": "rgb(20 20 22 / 86%)" },
+      "panel-solid": { "role": "neutral", "displayName": "Regolith Solid", "canonical": "#141416" },
+      "raised": { "role": "neutral", "displayName": "Raised Regolith", "canonical": "#1d1d20", "tonalRamp": ["#1c1b1a", "#2d2b2a", "#3d3c39", "#4e4c49", "#5e5c58", "#6f6c68", "#807d78", "#908d87", "#a19d97", "#b1ada6", "#c2beb6", "#d2cec5", "#e3ded5"] },
+      "line": { "role": "neutral", "displayName": "Dust Hairline", "canonical": "rgb(224 216 200 / 10%)" },
+      "line-strong": { "role": "neutral", "displayName": "Dust Edge", "canonical": "rgb(224 216 200 / 22%)" },
+      "text": { "role": "neutral", "displayName": "Moon Text", "canonical": "#ece8e1" },
+      "dim": { "role": "neutral", "displayName": "Dim", "canonical": "#b9b3a8" },
+      "mute": { "role": "neutral", "displayName": "Mute", "canonical": "#9a948a" },
+      "pano-sky": { "role": "neutral", "displayName": "Panorama Sky", "canonical": "#07080a" },
+      "pano-terrain": { "role": "neutral", "displayName": "Panorama Terrain", "canonical": "#57534d" },
+      "pano-ridge": { "role": "neutral", "displayName": "Panorama Ridge", "canonical": "#8a857c" }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "App name; status and result titles (650)." },
+      "title": { "displayName": "Title", "purpose": "Sub-headings inside panels." },
+      "body": { "displayName": "Body", "purpose": "Everything else, with tabular figures." },
+      "label": { "displayName": "Label", "purpose": "Uppercase section headings naming the panel they sit on, and HUD countdown names." },
+      "numeral-large": { "displayName": "Numeral large", "purpose": "HUD countdowns (Sunset in, Earthset in)." }
+    },
+    "shadows": [
+      { "name": "drawer-lift", "value": "0 16px 48px rgb(0 0 0 / 55%)", "purpose": "Drawers floating over the 3D view." },
+      { "name": "tooltip-lift", "value": "0 6px 20px rgb(0 0 0 / 50%)", "purpose": "Glossary term tooltips." }
+    ],
+    "motion": [
+      { "name": "control-state", "value": "background 0.12s, border-color 0.12s", "purpose": "Button hover transitions." },
+      { "name": "delta-in", "value": "1.4s ease-out", "purpose": "A metric delta rises and flashes once after a nudge; disabled under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "short", "value": "max-height: 800px and min-width: 861px" },
+      { "name": "narrow", "value": "max-width: 860px (provisional stacked fallback pending /impeccable adapt)" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Light fill with dark text; one per context (Find alternatives, dialog Close).",
+      "html": "<button class=\"ds-btn-primary\">Find alternatives</button>",
+      "css": ".ds-btn-primary { font: 650 14px 'Public Sans', system-ui, sans-serif; background: #ece8e1; color: #141416; border: 1px solid #ece8e1; border-radius: 6px; padding: 0.65rem 1.2rem; cursor: pointer; transition: background 0.12s, border-color 0.12s; } .ds-btn-primary:hover { background: #fff; border-color: #fff; } .ds-btn-primary:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Raised regolith control for secondary actions.",
+      "html": "<button class=\"ds-btn\">Back to plan</button>",
+      "css": ".ds-btn { font: 400 14px 'Public Sans', system-ui, sans-serif; background: #1d1d20; color: #ece8e1; border: 1px solid rgb(224 216 200 / 22%); border-radius: 6px; padding: 0.36rem 0.55rem; cursor: pointer; transition: background 0.12s, border-color 0.12s; } .ds-btn:hover { background: #252528; border-color: #9a948a; } .ds-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Icon and word, no fill; top bar actions and tray column actions.",
+      "html": "<button class=\"ds-btn-quiet\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 17v5\"/><path d=\"M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z\"/></svg> Pin this view</button>",
+      "css": ".ds-btn-quiet { font: 400 14px 'Public Sans', system-ui, sans-serif; display: inline-flex; align-items: center; gap: 0.4rem; background: none; color: #b9b3a8; border: 1px solid transparent; border-radius: 6px; padding: 0.36rem 0.55rem; cursor: pointer; transition: background 0.12s; } .ds-btn-quiet:hover { color: #ece8e1; background: rgb(224 216 200 / 6%); } .ds-btn-quiet:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Raised field; coral border when invalid.",
+      "html": "<input class=\"ds-input\" placeholder=\"Lat, e.g. -88.79\" /> <input class=\"ds-input\" aria-invalid=\"true\" value=\"-95\" />",
+      "css": ".ds-input { font: 400 14px 'Public Sans', system-ui, sans-serif; font-variant-numeric: tabular-nums; background: #1d1d20; color: #ece8e1; border: 1px solid rgb(224 216 200 / 22%); border-radius: 6px; padding: 0.36rem 0.55rem; } .ds-input::placeholder { color: #9a948a; } .ds-input:focus-visible { outline: 2px solid #fff; outline-offset: 2px; } .ds-input[aria-invalid='true'] { border-color: #ff8f84; }"
+    },
+    {
+      "name": "Constraint Chips",
+      "kind": "chip",
+      "refersTo": "chip-pass",
+      "description": "Pass/fail per constraint: icon plus the threshold in words.",
+      "html": "<span class=\"ds-chip ds-pass\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>Sun 6 d min</span> <span class=\"ds-chip ds-fail\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18\"/><path d=\"m6 6 12 12\"/></svg>Dark 80 h max</span>",
+      "css": ".ds-chip { font: 400 0.72rem 'Public Sans', system-ui, sans-serif; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.1rem 0.5rem 0.1rem 0.4rem; border-radius: 999px; border: 1px solid; white-space: nowrap; } .ds-pass { color: #86d3a1; border-color: rgb(134 211 161 / 40%); } .ds-fail { color: #ff8f84; border-color: rgb(255 143 132 / 50%); background: rgb(255 143 132 / 12%); }"
+    },
+    {
+      "name": "Overlay Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Translucent regolith glass over the 3D view (status line, HUD).",
+      "html": "<div class=\"ds-panel\"><small class=\"ds-label\">Sunset in</small><strong class=\"ds-big\">18 d 20 h</strong></div>",
+      "css": ".ds-panel { font: 400 14px 'Public Sans', system-ui, sans-serif; font-variant-numeric: tabular-nums; color: #ece8e1; background: rgb(20 20 22 / 86%); backdrop-filter: blur(12px); border: 1px solid rgb(224 216 200 / 10%); border-radius: 8px; padding: 0.7rem 0.9rem; display: inline-grid; gap: 0.1rem; } .ds-label { font-size: 0.7rem; font-weight: 600; color: #b9b3a8; text-transform: uppercase; letter-spacing: 0.1em; } .ds-big { font-size: 1.6rem; font-weight: 600; }"
+    },
+    {
+      "name": "Mode Switch",
+      "kind": "nav",
+      "refersTo": "button-primary",
+      "description": "Planner / Explorer segmented switch; pressed segment matches primary.",
+      "html": "<div class=\"ds-modes\"><button aria-pressed=\"true\">Planner</button><button aria-pressed=\"false\">Explorer</button></div>",
+      "css": ".ds-modes { display: inline-flex; border: 1px solid rgb(224 216 200 / 22%); border-radius: 7px; padding: 2px; } .ds-modes button { font: 400 0.82rem 'Public Sans', system-ui, sans-serif; border: 0; background: none; border-radius: 5px; padding: 0.25rem 0.75rem; color: #b9b3a8; cursor: pointer; } .ds-modes button[aria-pressed='true'] { background: #ece8e1; color: #141416; font-weight: 600; } .ds-modes button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Compare Tray Column",
+      "kind": "custom",
+      "refersTo": "tray-column",
+      "description": "One scenario: title, tally, one-line metrics and a compact panorama with gold Sun and blue Earth tracks.",
+      "html": "<article class=\"ds-col\"><strong>Plan</strong><span class=\"ds-sub\">Shackleton rim · 2026-11-19 00:00 UTC</span><span class=\"ds-tally\">5 of 5 met</span><dl><div><dt>Sunlit</dt><dd>100.0%</dd></div><div><dt>Longest dark</dt><dd>0 h</dd></div></dl><svg class=\"ds-pano\" viewBox=\"0 0 540 100\" role=\"img\" aria-label=\"Skyline with Sun track in gold and Earth track in blue\"><rect width=\"540\" height=\"100\" fill=\"#07080a\"/><path d=\"M0 70 L90 64 L180 72 L270 80 L360 74 L450 60 L540 68 L540 100 L0 100Z\" fill=\"#57534d\" stroke=\"#8a857c\"/><g fill=\"#f0b955\"><rect x=\"40\" y=\"58\" width=\"3\" height=\"3\"/><rect x=\"120\" y=\"57\" width=\"3\" height=\"3\"/><rect x=\"200\" y=\"58\" width=\"3\" height=\"3\"/><rect x=\"300\" y=\"60\" width=\"3\" height=\"3\"/><rect x=\"440\" y=\"64\" width=\"3\" height=\"3\" opacity=\"0.32\"/></g><circle cx=\"300\" cy=\"61\" r=\"4.5\" fill=\"#f0b955\" stroke=\"#07080a\" stroke-width=\"2\"/><circle cx=\"360\" cy=\"45\" r=\"4\" fill=\"#5fa8ff\" stroke=\"#07080a\" stroke-width=\"2\"/></svg></article>",
+      "css": ".ds-col { font: 400 14px 'Public Sans', system-ui, sans-serif; font-variant-numeric: tabular-nums; color: #ece8e1; display: grid; gap: 0.4rem; width: 300px; padding: 0.5rem; border: 1px solid rgb(224 216 200 / 22%); border-radius: 7px; background: rgb(224 216 200 / 7%); } .ds-col strong { font-size: 0.86rem; } .ds-sub { font-size: 0.74rem; color: #b9b3a8; } .ds-tally { font-size: 0.74rem; color: #86d3a1; } .ds-col dl { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0 0.75rem; } .ds-col dl div { display: flex; justify-content: space-between; border-bottom: 1px solid rgb(224 216 200 / 10%); padding: 0.12rem 0; } .ds-col dt { font-size: 0.74rem; color: #b9b3a8; } .ds-col dd { margin: 0; font-size: 0.82rem; } .ds-pano { width: 100%; height: auto; display: block; border-radius: 6px; border: 1px solid rgb(224 216 200 / 10%); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Polar Light",
+    "overview": "The interface is the Moon's south pole at grazing sun: a deep-shadow ground, regolith-grey panels with warm grey text, and colour reserved for the two bodies that matter (the Sun and Earth) and for pass/fail. The 3D terrain view fills the window; every control sits over or around it as a quiet, translucent panel so the landscape stays the subject.\n\nDensity is that of an operations tool: 14px body, compact controls, tabular figures everywhere, and numbers that line up across the compare tray. Colour is semantic, never decorative. Every number comes from the engine; the renderer only draws.",
+    "keyCharacteristics": [
+      "Dark only (`color-scheme: dark`); near-black ground, warm-grey text.",
+      "One meaning per colour: gold is sunlight, blue is Earth, red/green is pass/fail.",
+      "The panorama (unrolled skyline with Sun and Earth tracks) is the signature element, repeated per scenario in the compare tray.",
+      "Flat, translucent panels with hairline borders; shadows only on things that float above the view.",
+      "Real icons (lucide-react), real words; no glyph icons."
+    ],
+    "rules": [
+      { "name": "The Sunlight Rule", "body": "Gold appears only where sunlight is the subject. Never as a brand accent, highlight, link or selection colour.", "section": "colors" },
+      { "name": "The Earthshine Rule", "body": "Blue appears only for Earth. Links, focus and selection are white or warm grey, never blue.", "section": "colors" },
+      { "name": "The Words-With-Colour Rule", "body": "Red and green mean pass/fail only, and never alone: every pass/fail carries a Check or X icon and words.", "section": "colors" },
+      { "name": "The One Ramp Per Subject Rule", "body": "Data maps use single-hue sequential ramps (13 steps, dark to light): the sun ramp for sunlight metrics, the Earth ramp for Earth metrics, the regolith ramp for everything else. Low values recede toward the ground.", "section": "colors" },
+      { "name": "The Tabular Rule", "body": "`font-variant-numeric: tabular-nums` is set on body; every number in the app uses fixed-width digits.", "section": "typography" },
+      { "name": "The Missing Glyphs Rule", "body": "Public Sans has no ≤ ≥ ✓ ✗. Thresholds are words (\"6 d min\", \"80 h max\", \"40% min\", \"10° max\"); state uses lucide Check/X icons. Never type those glyphs.", "section": "typography" },
+      { "name": "The Float-Only Shadow Rule", "body": "Only things that float above other UI (drawers, tooltips) cast a shadow. Panels docked to the grid or the view are flat.", "section": "elevation" }
+    ],
+    "dos": [
+      "**Do** keep gold for sunlight and blue for Earth, in the UI, the panorama, the 3D trails and the data ramps alike.",
+      "**Do** pair every pass/fail colour with a lucide Check/X icon and words.",
+      "**Do** make the primary button a light fill with dark text, and give every focusable element the 2px white focus ring.",
+      "**Do** write thresholds as words (\"6 d min\", \"80 h max\") and use tabular figures for every number.",
+      "**Do** list anything the 3D view invents (soil texture, ring rock texture, ground colour, Sun glare, Earth's surface, star colours, the shadow display fill) in the *About the data* dialog and label it in the view (stage tags such as \"In shadow · view brightened\").",
+      "**Do** draw every scenario the same way (chips, metrics, panorama) so differences are seen, not asserted."
+    ],
+    "donts": [
+      "**Don't** let any number come from the renderer; numbers come from the engine.",
+      "**Don't** use gold, blue, red or green as decoration, brand accent, link or selection colour.",
+      "**Don't** type ≤ ≥ ✓ ✗; the bundled face lacks them.",
+      "**Don't** use glyph icons or emoji; use lucide-react.",
+      "**Don't** add shadows to docked panels; only floating drawers and tooltips cast them.",
+      "**Don't** treat the stacked phone layout as a design to extend; it is provisional until `/impeccable adapt`."
+    ]
+  }
+}

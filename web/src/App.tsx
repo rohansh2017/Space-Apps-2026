@@ -1,14 +1,16 @@
+import { Info, LayoutGrid, Link2, Map as MapIcon, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Chips from './Chips'
-import Compare from './Compare'
 import ConstraintPanel from './ConstraintPanel'
 import type { Dataset, Region } from './data'
 import { loadDataset, loadRegion } from './data'
 import { horizonFacts } from './describe'
 import HorizonText from './HorizonText'
 import type { Constraints, Metrics } from './engine/engine'
-import { buildSeries, evaluate, nextChange, nudgeNeighbour, siteAngles, siteFrame, skyMatrix, snapToGrid, windowMetrics } from './engine/engine'
-import type { Candidate, FinderResult } from './engine/finder'
+import Drawer from './Drawer'
+import { buildSeries, evaluate, maskAt, nextChange, nudgeNeighbour, siteAngles, siteFrame, skyMatrix, snapToGrid, windowMetrics } from './engine/engine'
+import type { Candidate, FinderResult, Scored } from './engine/finder'
+import { diffParts } from './engine/finder'
 import type { FinderRequest } from './engine/finder.worker'
 import type { Mode } from './guide'
 import { Guide } from './guide'
@@ -22,8 +24,9 @@ import { connectRoom, newRoomId, roomIdFromUrl, roomLink, stateKey, validConstra
 import Scene3D from './Scene3D'
 import { decodeShare, encodeShare } from './share'
 import SiteMap from './SiteMap'
-import Summary from './Summary'
 import Tour from './Tour'
+import type { TrayColumn } from './Tray'
+import Tray, { TRAY_MAX } from './Tray'
 
 const LUNAR_DAY_H = 708
 const LOOKAHEAD_H = 720 // countdowns look this far past the scrubbed lunar day
@@ -32,6 +35,10 @@ const SNAP_LIMIT_M = 500 // a custom coordinate farther than this from every gri
 const HOUR_MS = 3_600_000
 const START_HOUR = 7728 // 2026-11-19 00:00 UTC
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16)
+
+/** A scenario is a grid point and a landing hour; the plan, finder results, pins and the 3D view all use it. */
+type ScenarioRef = { point: string; hour: number }
+const refKey = (r: ScenarioRef) => `${r.point}@${r.hour}`
 
 export default function App() {
   const [data, setData] = useState<Dataset | null>(null)
@@ -46,12 +53,31 @@ export default function App() {
   const [playing, setPlaying] = useState(false)
   const [constraints, setConstraints] = useState<Constraints>({})
   const [regions, setRegions] = useState<Record<string, Region>>({})
-  const [found, setFound] = useState<{ finder: FinderResult; candidates: Candidate[] } | null>(null)
-  const [opened, setOpened] = useState<number | null>(null)
+  const [found, setFound] = useState<{ finder: FinderResult; candidates: Candidate[]; constraints: Constraints } | null>(null)
+  const [viewing, setViewing] = useState<ScenarioRef | null>(null) // the scenario in the 3D view; null = the plan
+  const [pins, setPins] = useState<ScenarioRef[]>([]) // the compare tray, beside the plan
+  const [pendingPin, setPendingPin] = useState<ScenarioRef | null>(null) // waiting for a free column
   const [matrix, setMatrix] = useState(false)
+  const [drawer, setDrawer] = useState<'map' | 'matrix' | 'room' | null>(null)
+  const [sideOpen, setSideOpen] = useState(true)
+  const [fullscreen, setFullscreen] = useState(false)
+  const mapButton = useRef<HTMLButtonElement | null>(null)
+  const matrixButton = useRef<HTMLButtonElement | null>(null)
+  const roomButton = useRef<HTMLButtonElement | null>(null)
+  const viewStatus = useRef<HTMLDivElement | null>(null)
+  const focusView = useRef(false)
+  const about = useRef<HTMLDialogElement | null>(null)
   const [nudgeFrom, setNudgeFrom] = useState<Metrics | null>(null) // F14: metrics before the last nudge
   const [tour, setTour] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [stale, setStale] = useState(false) // constraints changed after the last search; results kept but marked out of date
+  const [finderError, setFinderError] = useState('')
+  const [loadError, setLoadError] = useState('') // one site's terrain failed to load; the rest of the app keeps working
+  const [retry, setRetry] = useState(0)
+  const [announce, setAnnounce] = useState('') // polite live region for screen readers
+  const resultsHeading = useRef<HTMLHeadingElement | null>(null)
+  const focusResults = useRef(false)
+  const startTourButton = useRef<HTMLButtonElement | null>(null)
   const [roomId, setRoomId] = useState<string | null>(roomIdFromUrl)
   const [roomCount, setRoomCount] = useState(0)
   const room = useRef<Room | null>(null)
@@ -70,6 +96,8 @@ export default function App() {
       if (h >= 0 && h < d.hours) setPlanHour(h)
       setConstraints(validConstraints(d.constraintDefs, { ...defaults(d.constraintDefs), ...s.constraints }))
       if (s.mode) setMode(s.mode)
+      const known = new Set(d.points.map((p) => p.id))
+      setPins(s.pins.filter((p) => known.has(p.point) && p.hour >= 0 && p.hour < d.hours).slice(0, TRAY_MAX))
     }, (e) => setError(String(e)))
     return () => worker.current?.terminate()
   }, [])
@@ -78,23 +106,35 @@ export default function App() {
   useEffect(() => {
     if (!site?.terrain) return
     let live = true
-    loadRegion(site.id).then((r) => live && setRegions((all) => ({ ...all, [site.id]: r })), (e) => setError(String(e)))
+    loadRegion(site.id).then(
+      (r) => live && setRegions((all) => ({ ...all, [site.id]: r })),
+      (e) => live && setLoadError(`Couldn't load the terrain for ${site.name} (${e instanceof Error ? e.message : String(e)}).`),
+    )
     return () => {
       live = false
     }
-  }, [site])
+  }, [site, retry])
+
+  useEffect(() => {
+    if (found && focusResults.current) {
+      focusResults.current = false
+      resultsHeading.current?.focus()
+    }
+  }, [found])
 
   const clearResults = useCallback(() => {
     setFound(null)
-    setOpened(null)
+    setViewing(null)
     setPlaying(false)
     setNudgeFrom(null)
+    setStale(false)
   }, [])
 
   const selectSite = useCallback((id: string, index: number | null = null) => {
     setSiteId(id)
     setPointIndex(index)
     setOffset(0)
+    setLoadError('')
     clearResults()
   }, [clearResults])
 
@@ -132,9 +172,29 @@ export default function App() {
     }
   }, [data, site, regions, planPoint, pointIndex])
 
-  const alt = found && opened !== null ? found.finder.results[opened] : null
-  const observer = alt ? found!.candidates[alt.candidate] : plan
-  const viewStart = alt ? alt.start : planHour
+  const pointById = useMemo(() => new Map((data?.points ?? []).map((p) => [p.id, p])), [data])
+  /** The candidate for any grid point whose region is loaded; the plan keeps its own label and coordinates. */
+  const candidateOf = useCallback((pointId: string): Candidate | null => {
+    if (plan && pointId === plan.id) return plan
+    const p = pointById.get(pointId)
+    const r = p && regions[p.region]
+    if (!data || !p || !r) return null
+    return {
+      id: p.id, label: data.sites.find((s) => s.id === p.region)!.name, lat: p.lat, lon: p.lon, elevM: p.elev_m,
+      slopeDeg: r.slopes[p.index], mask: r.masks.subarray(p.index * 360, (p.index + 1) * 360),
+    }
+  }, [data, plan, pointById, regions])
+
+  // pinned or viewed scenarios in another region load that region on demand
+  useEffect(() => {
+    const need = new Set([...pins, ...(viewing ? [viewing] : [])].map((r) => r.point.split(':')[0]).filter((id) => !regions[id]))
+    for (const id of need) loadRegion(id).then((r) => setRegions((all) => ({ ...all, [id]: r })), () => undefined)
+  }, [pins, viewing, regions])
+
+  const viewed = viewing ? candidateOf(viewing.point) : null
+  const observer = viewed ?? plan
+  const viewStart = viewed && viewing ? viewing.hour : planHour
+  const pinnedKeys = useMemo(() => new Set(pins.map(refKey)), [pins])
 
   /** Everything about one observer's lunar day from a landing hour that does not depend on the scrubber position. */
   const dayOf = useCallback((obs: Candidate, start: number) => {
@@ -155,8 +215,23 @@ export default function App() {
     return { mask, series, track, metrics, evaluation: metrics && evaluate(metrics, obs.slopeDeg, constraints), east: dot(home.east), north: dot(home.north) }
   }, [data, site, plan, constraints])
   const day = useMemo(() => (observer ? dayOf(observer, viewStart) : null), [dayOf, observer, viewStart])
-  /** F11: the plan's own day, kept alongside while an alternative is open. */
-  const planDay = useMemo(() => (alt && plan ? dayOf(plan, planHour) : null), [dayOf, alt, plan, planHour])
+  /** The plan's own day: the compare tray's first column, whatever the 3D view shows. */
+  const planDay = useMemo(() => (plan ? dayOf(plan, planHour) : null), [dayOf, plan, planHour])
+
+  /** How a scenario differs from the plan, "5.0 km S · +16 days", from the engine's difference parts. */
+  const differenceOf = useCallback((cand: Candidate, hour: number, metrics: Metrics | null) => {
+    if (!plan) return ''
+    const blank: Metrics = { sunlitPct: 0, longestLitH: 0, longestDarkH: 0, earthPct: 0, powerIndex: 0, meanElLit: null, landingOk: false }
+    const scored = (start: number, m: Metrics | null): Scored => ({ candidate: 0, start, metrics: m ?? blank, evaluation: { passes: {}, fails: 0, score: 0 } })
+    const d = diffParts(plan, scored(planHour, planDay?.metrics ?? null), cand, scored(hour, metrics))
+    return `${d.where} · ${d.shift}`
+  }, [plan, planHour, planDay])
+
+  /** F11, generalised: the plan plus up to three pinned scenarios, each computed by the engine like the plan. */
+  const pinnedDays = useMemo(() => pins.map((ref) => {
+    const cand = candidateOf(ref.point)
+    return { ref, cand, day: cand ? dayOf(cand, ref.hour) : null }
+  }), [pins, candidateOf, dayOf])
 
   /** F15: sunlit % at every grid point of the selected region over the mission window from the landing hour. */
   const illumination = useMemo(() => {
@@ -191,6 +266,9 @@ export default function App() {
       sunChangeH: nextChange(series.litLeft, t),
       earthChangeH: nextChange(series.earthLeft, t),
       earthDistKm: data.ephemeris[(viewStart + t) * 7 + 6],
+      // the terrain the Sun and Earth have to clear, read from the same mask the engine uses
+      sunHorizon: day.mask ? maskAt(day.mask, day.track[t].sunAz) : 0,
+      earthHorizon: day.mask ? maskAt(day.mask, day.track[t].earthAz) : 0,
       // real star field for this observer and hour (stars are fixed in ICRF; the Moon turns under them)
       sky: observer ? skyMatrix(data.orientation, viewStart + t, siteFrame(observer.lat, observer.lon, observer.elevM)) : null,
     }
@@ -254,6 +332,8 @@ export default function App() {
   async function runFinder() {
     if (!data || !site || !plan || !planPoint) return
     setBusy(true)
+    setFinderError('')
+    setAnnounce('Searching for alternatives…')
     try {
       // candidates: the plan first, then its grid within the search radius, then the other curated sites
       const loaded = await loadAll()
@@ -275,10 +355,17 @@ export default function App() {
         worker.current!.postMessage(request)
       })
       if (!reply.ok) throw new Error(reply.error)
-      setFound({ finder: reply.result!, candidates })
-      setOpened(null)
+      const result = reply.result!
+      setFound({ finder: result, candidates, constraints })
+      setViewing(null)
+      setStale(false)
+      const passing = result.results.filter((r) => r.evaluation.fails === 0).length
+      setAnnounce(`Search finished: ${result.results.length} alternatives ranked, ${passing} meet every constraint.`)
+      focusResults.current = true // the effect below moves focus once the results have rendered
     } catch (e) {
-      setError(String(e))
+      const message = e instanceof Error ? e.message : String(e)
+      setFinderError(`The search failed (${message}). Your plan and constraints are unchanged; try again.`)
+      setAnnounce('The search failed.')
     } finally {
       setBusy(false)
     }
@@ -288,10 +375,10 @@ export default function App() {
   useEffect(() => {
     if (!data || !siteId) return
     const params = encodeShare(new URLSearchParams(window.location.search), {
-      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode,
+      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode, pins,
     })
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
-  }, [data, siteId, pointIndex, planHour, constraints, mode])
+  }, [data, siteId, pointIndex, planHour, constraints, mode, pins])
   const [copied, setCopied] = useState(false)
   const copyLink = () => {
     navigator.clipboard?.writeText(window.location.href).catch(() => undefined)
@@ -314,7 +401,7 @@ export default function App() {
       setConstraints(constraints)
       setSnapNote('')
       setFound(null)
-      setOpened(null)
+      setViewing(null)
     }
     const r = connectRoom(roomId, apply, setRoomCount)
     room.current = r
@@ -348,15 +435,82 @@ export default function App() {
     selectSite(id)
     setPlanHour(hour)
     setSnapNote('')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setDrawer(null) // back to the view, so the opened cell is what you see
   }, [selectSite])
+
+  // --- compare tray: pin, replace, view
+  const togglePin = useCallback((ref: ScenarioRef) => {
+    const key = refKey(ref)
+    if (pins.some((p) => refKey(p) === key)) setPins(pins.filter((p) => refKey(p) !== key))
+    else if (pins.length < TRAY_MAX) setPins([...pins, ref])
+    else setPendingPin(ref)
+  }, [pins])
+  const showScenario = (ref: ScenarioRef | null) => {
+    setViewing(ref)
+    setOffset(0)
+    setPlaying(false)
+    focusView.current = true // the effect below moves focus to the view once it shows this scenario
+  }
+  useEffect(() => {
+    if (focusView.current && viewStatus.current) {
+      focusView.current = false
+      viewStatus.current.focus()
+    }
+  }, [viewing, observer])
+  const resultRef = (i: number): ScenarioRef | null => {
+    if (!found) return null
+    const r = found.finder.results[i]
+    return { point: found.candidates[r.candidate].id, hour: r.start }
+  }
+
+  // --- full screen (projector demos); browsers without the API simply get no button
+  const canFullscreen = typeof document !== 'undefined' && Boolean(document.fullscreenEnabled)
+  useEffect(() => {
+    const onChange = () => setFullscreen(Boolean(document.fullscreenElement))
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined)
+    else document.documentElement.requestFullscreen().catch(() => undefined)
+  }
+  const closeDrawer = useCallback(() => setDrawer(null), [])
+  /** Make a pinned scenario the plan: it takes the plan's place, and the old plan takes its column in the tray. */
+  const adoptPin = (key: string) => {
+    const ref = pins.find((p) => refKey(p) === key)
+    if (!data || !plan || !ref) return
+    const [region, index] = [ref.point.split(':')[0], Number(ref.point.split(':')[1])]
+    const old: ScenarioRef = { point: plan.id, hour: planHour }
+    selectSite(region, index === data.centreIndex ? null : index) // also clears results, which described the old plan
+    setPlanHour(ref.hour)
+    setSnapNote('')
+    setPins(pins.map((p) => (refKey(p) === key ? old : p)))
+    setAnnounce('The pinned scenario is now the plan; the previous plan is pinned in its place.')
+    focusView.current = true
+  }
+  const openMatrix = () => {
+    setDrawer(drawer === 'matrix' ? null : 'matrix')
+    if (!matrix) {
+      setMatrix(true)
+      loadAll().catch((e) => {
+        setMatrix(false)
+        setLoadError(`Couldn't load every site for the matrix (${e instanceof Error ? e.message : String(e)}).`)
+      })
+    }
+  }
 
   const guide = useMemo(
     () => ({ mode, glossary: new Map((data?.tour.glossary ?? []).map((g) => [g.term.toLowerCase(), g.definition])) }),
     [mode, data],
   )
 
-  if (error) return <main><p role="alert">Something went wrong: {error}</p></main>
+  if (error)
+    return (
+      <main>
+        <p role="alert">Tranquility Base couldn't load its data ({error}). Check the connection and reload.</p>
+        <button type="button" onClick={() => window.location.reload()}>Reload</button>
+      </main>
+    )
   if (!data || !site) return <main><p>Loading…</p></main>
 
   const date = (hour: number) => iso(data.startMs + hour * HOUR_MS).replace('T', ' ')
@@ -368,176 +522,316 @@ export default function App() {
       setSnapNote('Enter a latitude between −90 and −80 and an east longitude in degrees.')
     else locate(lat, lon)
   }
+
+  // the 3D view's scenario, named the way the results and the tray name it
+  const openedIndex = found && viewing
+    ? found.finder.results.findIndex((r) => refKey({ point: found.candidates[r.candidate].id, hour: r.start }) === refKey(viewing))
+    : -1
+  const viewTitle = viewed && day
+    ? `${openedIndex >= 0 ? `#${openedIndex + 1} · ` : ''}${differenceOf(viewed, viewStart, day.metrics)}`
+    : ''
+  const trayPlan: TrayColumn = {
+    key: 'plan', title: 'Plan', detail: plan?.label ?? site.name, when: `${date(planHour)} UTC`, viewing: !viewed,
+    day: planDay,
+  }
+  const trayPins: TrayColumn[] = pinnedDays.map(({ ref, cand, day: d }) => ({
+    key: refKey(ref),
+    title: cand ? differenceOf(cand, ref.hour, d?.metrics ?? null) : 'Loading…',
+    detail: cand?.label ?? ref.point.split(':')[0], when: `${date(ref.hour)} UTC`,
+    viewing: Boolean(viewing && refKey(viewing) === refKey(ref)),
+    day: d,
+  }))
+  const viewRef: ScenarioRef | null = viewing ?? (plan ? { point: plan.id, hour: planHour } : null)
+  const levelGround = Boolean(day && site.heightmap && Math.max(Math.abs(day.east), Math.abs(day.north)) >= site.heightmap.span_m / 2 - 20)
+
   return (
     <Guide.Provider value={guide}>
-      <main className={mode}>
-        <header>
-          <div>
+      <div className={`app ${mode}${found ? ' has-results' : ''}${sideOpen ? '' : ' side-closed'}`}>
+        <div className="stage">
+          {site.terrain && view && day && observer && (
+            <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
+              sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky!} stars={data.stars}
+              ridges={regions[observer.id.split(':')[0]]?.ridges ?? null} />
+          )}
+        </div>
+
+        <header className="topbar">
+          <div className="brand">
             <h1>Tranquility Base</h1>
-            <p className="note">Lunar south-pole landing site navigator</p>
-            {mode === 'explorer' && <button type="button" disabled={tour} onClick={() => setTour(true)}>Start tour</button>}
-            <button type="button" onClick={copyLink}>Copy link</button>
-            {copied && <span className="note" role="status">Link copied</span>}
+            <span>Lunar south-pole landing site navigator</span>
           </div>
-          <div className="modes" role="group" aria-label="Mode">
-            {(['planner', 'explorer'] as const).map((m) => (
-              <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); if (m === 'planner') setTour(false) }}>{m === 'planner' ? 'Planner' : 'Explorer'}</button>
-            ))}
+          <div className="topbar-actions">
+            {mode === 'explorer' && <button type="button" ref={startTourButton} disabled={tour} onClick={() => setTour(true)}>Start tour</button>}
+            {copied && <span className="note" role="status">Link copied</span>}
+            <button type="button" onClick={copyLink}><Link2 size={15} aria-hidden="true" />Copy link</button>
+            <button type="button" ref={roomButton} aria-expanded={drawer === 'room'} onClick={() => setDrawer(drawer === 'room' ? null : 'room')}>
+              <Users size={15} aria-hidden="true" />Mission room
+              {roomId && <span className={roomCount > 1 ? 'count live' : 'count'} data-testid="room-count">{roomCount} connected</span>}
+            </button>
+            {canFullscreen && (
+              <button type="button" onClick={toggleFullscreen} aria-pressed={fullscreen}>
+                {fullscreen ? <Minimize2 size={15} aria-hidden="true" /> : <Maximize2 size={15} aria-hidden="true" />}
+                {fullscreen ? 'Exit full screen' : 'Full screen'}
+              </button>
+            )}
+            <div className="modes" role="group" aria-label="Mode">
+              {(['planner', 'explorer'] as const).map((m) => (
+                <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); if (m === 'planner') setTour(false) }}>{m === 'planner' ? 'Planner' : 'Explorer'}</button>
+              ))}
+            </div>
           </div>
         </header>
         {data.synthetic && <p className="banner" role="status">Synthetic data: development fixtures, not real terrain or ephemeris.</p>}
-        <div className="layout">
-          <aside>
-            <section className="panel" aria-label="Plan">
-              <h2>Plan</h2>
-              <label className="row">
-                <span>Site</span>
-                <select value={siteId} onChange={(e) => { selectSite(e.target.value); setSnapNote('') }}>
-                  {data.sites.map((s) => <option key={s.id} value={s.id}>{s.name}{s.approximate ? ' (approx.)' : ''}</option>)}
-                </select>
-              </label>
-              <label className="row">
-                <span>Landing date and time (UTC)</span>
-                <input
-                  type="datetime-local"
-                  step={3600}
-                  value={iso(data.startMs + planHour * HOUR_MS)}
-                  min={iso(data.startMs)}
-                  max={iso(data.startMs + (data.hours - 1) * HOUR_MS)}
-                  onChange={(e) => {
-                    const h = Math.round((Date.parse(e.target.value + 'Z') - data.startMs) / HOUR_MS)
-                    if (Number.isFinite(h) && h >= 0 && h < data.hours) {
-                      setPlanHour(h)
-                      setOffset(0)
-                      clearResults()
-                    }
-                  }}
-                />
-              </label>
-              <form className="custom" onSubmit={submitCustom}>
-                <span>Custom coordinates</span>
-                <div>
-                  <input aria-label="Latitude" placeholder="Lat, e.g. −88.79" inputMode="decimal" value={custom.lat} onChange={(e) => setCustom({ ...custom, lat: e.target.value })} />
-                  <input aria-label="Longitude (east)" placeholder="Lon °E" inputMode="decimal" value={custom.lon} onChange={(e) => setCustom({ ...custom, lon: e.target.value })} />
-                  <button type="submit">Go</button>
-                </div>
-              </form>
-              {snapNote && <p className="note snap" role="status" data-testid="snap-note">{snapNote}</p>}
-              <p className="note">{site.mission} · {site.agency}<br />{(plan?.lat ?? site.lat).toFixed(3)}°, {(plan?.lon ?? site.lon).toFixed(3)}°E · {site.coord_source}</p>
-              {mode === 'explorer' && site.blurb && <p className="note">{site.blurb}</p>}
-            </section>
-            <ConstraintPanel defs={data.constraintDefs} value={constraints} onChange={(c) => { setConstraints(c); clearResults() }} />
-            <button type="button" className="primary" disabled={busy || !site.terrain || !plan} onClick={runFinder}>
-              {busy ? 'Searching…' : 'Find alternatives'}
+        <p className="sr-only" aria-live="polite" data-testid="announcer">{announce}</p>
+
+        <nav className="rail" aria-label="Tools">
+          {!sideOpen && (
+            <button type="button" className="rail-button" onClick={() => setSideOpen(true)}>
+              <PanelLeftOpen size={18} aria-hidden="true" /><span>Plan</span>
             </button>
-            {!site.terrain && <p className="note">This site has no terrain (angle validation only), so the finder is off.</p>}
+          )}
+          <button type="button" className="rail-button" ref={mapButton} aria-expanded={drawer === 'map'} onClick={() => setDrawer(drawer === 'map' ? null : 'map')}>
+            <MapIcon size={18} aria-hidden="true" /><span>Map</span>
+          </button>
+          <button type="button" className="rail-button" ref={matrixButton} aria-expanded={drawer === 'matrix'} onClick={openMatrix}>
+            <LayoutGrid size={18} aria-hidden="true" /><span>Scenario matrix</span>
+          </button>
+        </nav>
+
+        {sideOpen && (
+          <aside className="side" aria-label="Plan and constraints">
+            <div className="side-scroll">
+              <section className="panel" aria-label="Plan">
+                <div className="side-head">
+                  <h2>Plan</h2>
+                  <button type="button" className="icon-button" onClick={() => setSideOpen(false)} aria-label="Hide the plan panel">
+                    <PanelLeftClose size={16} aria-hidden="true" />
+                  </button>
+                </div>
+                <label className="row">
+                  <span>Site</span>
+                  <select value={siteId} onChange={(e) => { selectSite(e.target.value); setSnapNote('') }}>
+                    {data.sites.map((s) => <option key={s.id} value={s.id}>{s.name}{s.approximate ? ' (approx.)' : ''}</option>)}
+                  </select>
+                </label>
+                <label className="row">
+                  <span>Landing date and time (UTC)</span>
+                  <input
+                    type="datetime-local"
+                    step={3600}
+                    value={iso(data.startMs + planHour * HOUR_MS)}
+                    min={iso(data.startMs)}
+                    max={iso(data.startMs + (data.hours - 1) * HOUR_MS)}
+                    onChange={(e) => {
+                      const h = Math.round((Date.parse(e.target.value + 'Z') - data.startMs) / HOUR_MS)
+                      if (Number.isFinite(h) && h >= 0 && h < data.hours) {
+                        setPlanHour(h)
+                        setOffset(0)
+                        clearResults()
+                      }
+                    }}
+                  />
+                </label>
+                <form className="custom" onSubmit={submitCustom}>
+                  <span>Custom coordinates</span>
+                  <div>
+                    <input aria-label="Latitude" placeholder="Lat, e.g. −88.79" inputMode="decimal" value={custom.lat} onChange={(e) => setCustom({ ...custom, lat: e.target.value })} />
+                    <input aria-label="Longitude (east)" placeholder="Lon °E" inputMode="decimal" value={custom.lon} onChange={(e) => setCustom({ ...custom, lon: e.target.value })} />
+                    <button type="submit">Go</button>
+                  </div>
+                </form>
+                {snapNote && <p className="note snap" role="status" data-testid="snap-note">{snapNote}</p>}
+                <p className="note">{site.mission} · {site.agency}<br />{(plan?.lat ?? site.lat).toFixed(3)}°, {(plan?.lon ?? site.lon).toFixed(3)}°E · {site.coord_source}</p>
+                {mode === 'explorer' && site.blurb && <p className="note">{site.blurb}</p>}
+              </section>
+              <ConstraintPanel defs={data.constraintDefs} value={constraints} onChange={(c) => {
+                setConstraints(c)
+                setNudgeFrom(null)
+                if (found && !stale) {
+                  setStale(true)
+                  setAnnounce('Constraints changed: the alternatives are out of date. Run the search again.')
+                }
+              }} />
+            </div>
+            <div className="side-foot">
+              <button type="button" className="primary" disabled={busy || !site.terrain || !plan} aria-busy={busy} onClick={runFinder}>
+                {busy ? 'Searching…' : 'Find alternatives'}
+              </button>
+              {finderError && <p className="inline-error" role="alert" data-testid="finder-error">{finderError}</p>}
+            </div>
+          </aside>
+        )}
+
+        <div className="over">
+          {loadError ? (
+            <div className="inline-error floating" role="alert" data-testid="load-error">
+              <p>{loadError} Pick another site, or try again.</p>
+              <button type="button" onClick={() => { setLoadError(''); setRetry((n) => n + 1) }}>Try again</button>
+            </div>
+          ) : !view || !day || !observer ? <p className="floating note">Loading terrain…</p> : (
+            <>
+              <div className="over-stack">
+              <div
+                className="status"
+                ref={viewStatus}
+                tabIndex={-1}
+                data-testid="view"
+                data-lat={observer.lat}
+                data-lon={observer.lon}
+                data-elev={observer.elevM}
+                data-point={observer.id}
+                data-hour={viewStart + view.t}
+                data-east={day.east.toFixed(0)}
+                data-north={day.north.toFixed(0)}
+              >
+                <div className="status-title">
+                  <strong>{viewed ? `Alternative: ${viewTitle}` : `Plan: ${observer.label}`}</strong>
+                  <span>{viewed ? `${observer.label} · ` : ''}{date(viewStart)} UTC landing</span>
+                </div>
+                {day.evaluation ? <Chips evaluation={day.evaluation} constraints={constraints} /> : <span className="note">Mission window runs past 2035</span>}
+              </div>
+              {tour && <Tour steps={data.tour.steps} onStep={tourStep} onClose={() => {
+                setTour(false)
+                setPlaying(false)
+                requestAnimationFrame(() => startTourButton.current?.focus()) // the button is re-enabled on the next render
+              }} />}
+              </div>
+              <Hud sunEl={view.now.sunEl} sunHorizon={view.sunHorizon} earthEl={view.now.earthEl} earthHorizon={view.earthHorizon}
+                lit={view.lit} link={view.link} power={view.power}
+                sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} />
+              <div className="stage-notes">
+                {levelGround && (
+                  <p className="tag" data-testid="level-ground-note">
+                    Outside the 5 × 5 km terrain patch: the 3D ground is drawn level; the skyline, panorama and every number use this point's own terrain.
+                  </p>
+                )}
+                {site.terrain && view.lit < 0.5 && (
+                  <p className="tag" data-testid="fill-tag">In shadow · view brightened so the terrain stays visible</p>
+                )}
+              </div>
+              {found && <Results finder={found.finder} candidates={found.candidates} opened={openedIndex >= 0 ? openedIndex : null} date={date} stale={stale}
+                headingRef={resultsHeading} onRerun={runFinder} busy={busy} constraints={found.constraints}
+                pinned={pinnedKeys} onPin={(i) => { const r = resultRef(i); if (r) togglePin(r) }}
+                onOpen={(i) => {
+                  const r = i === null ? null : resultRef(i)
+                  if (r && !pinnedKeys.has(refKey(r)) && pins.length < TRAY_MAX) setPins([...pins, r]) // opening also pins it, room permitting
+                  showScenario(r)
+                }} />}
+            </>
+          )}
+        </div>
+
+        {view && day && (
+          <section className={pins.length ? 'band comparing' : 'band'} aria-label="Timeline and comparison">
+            <div className="band-time">
+              <div className="scrub">
+                <button type="button" onClick={togglePlay} aria-pressed={playing} data-testid="play">
+                  {playing ? <Pause size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
+                  {playing ? 'Pause' : 'Play lunar day'}
+                </button>
+                <label>
+                  <span>Lunar day · {date(viewStart + view.t)} UTC <em>landing +{view.t} h</em></span>
+                  <input type="range" min={0} max={last} value={view.t} aria-valuetext={`${date(viewStart + view.t)} UTC, landing plus ${view.t} hours`}
+                    onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
+                </label>
+              </div>
+              {/* with pins, the tray needs the band: the plan's own skyline is in its column, the rest folds away */}
+              {(() => {
+                const detail = (
+                  <>
+              {!viewed && site.terrain && (
+                <div className="nudge" role="group" aria-label="Nudge the plan">
+                  <span className="note">Nudge the plan</span>
+                  {(['N', 'E', 'S', 'W'] as const).map((d) => (
+                    <button key={d} type="button" disabled={!neighbours?.[d]} onClick={() => nudge(d)}>500 m {d}</button>
+                  ))}
+                  <button type="button" disabled={planHour < 24} onClick={() => nudge('earlier')}>1 day earlier</button>
+                  <button type="button" disabled={planHour + 24 >= data.hours} onClick={() => nudge('later')}>1 day later</button>
+                  {nudgeFrom && <span className="note" data-testid="nudge-note">The plan's tiles show the change since the last nudge.</span>}
+                </div>
+              )}
+              <Panorama mask={day.mask} track={day.track} t={view.t} width={1080} height={210} />
+              <HorizonText facts={horizonFacts(day.mask, day.series, day.track, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
+                  </>
+                )
+                return pins.length ? <details className="band-more"><summary>Nudge, skyline and horizon description</summary>{detail}</details> : detail
+              })()}
+            </div>
+            <Tray plan={trayPlan} pinned={trayPins} t={view.t} constraints={constraints} previous={nudgeFrom}
+              pending={pendingPin ? { title: (() => { const c = candidateOf(pendingPin.point); return c ? differenceOf(c, pendingPin.hour, null) : 'this scenario' })() } : null}
+              onView={(key) => showScenario(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
+              onAdopt={adoptPin}
+              onUnpin={(key) => { setPins(pins.filter((p) => refKey(p) !== key)); if (viewing && refKey(viewing) === key) showScenario(null) }}
+              onReplace={(key) => { if (pendingPin) setPins(pins.map((p) => (refKey(p) === key ? pendingPin : p))); setPendingPin(null) }}
+              onCancelPending={() => setPendingPin(null)}
+              onPinView={() => { if (viewRef) togglePin(viewRef) }}
+              canPinView={Boolean(viewRef && !pinnedKeys.has(refKey(viewRef)))} />
+          </section>
+        )}
+
+        <footer className="footline">
+          <span>Screening grade only: 500 m search grid on LOLA terrain. Not a mission design, hazard, power, thermal or link-budget tool.</span>
+          <button type="button" className="link-button" onClick={() => about.current?.showModal()}><Info size={14} aria-hidden="true" />About the data</button>
+        </footer>
+
+        <dialog ref={about} className="about" aria-labelledby="about-title" onClick={(e) => { if (e.target === e.currentTarget) about.current?.close() }}>
+          <div className="about-body">
+            <h2 id="about-title">About the data</h2>
+            <p>
+              Screening-grade results: a 500 m search grid, 20 m terrain within 10 km and 80 m beyond. Not a mission design,
+              landing hazard, power, thermal or communications link-budget tool. Every number on screen comes from the engine, never
+              from the 3D renderer.
+            </p>
+            <h3>Data</h3>
+            <p>NASA/JPL DE440 ephemeris and NAIF lunar kernels; LRO LOLA terrain from NASA GSFC PGDA (20 m and 80 m polar DEMs, 5 m site DEMs); the Yale Bright Star Catalogue (BSC5).</p>
+            <h3>What the 3D view takes from data</h3>
+            <p>Terrain relief (5 m where PGDA has a site DEM, otherwise 20 m); the distant ranges' outline and their lighting from the LOLA slope at each crest; the Sun's and Earth's positions; the stars' positions and brightness for this site and hour.</p>
+            <h3>What it invents, for legibility</h3>
+            <ul>
+              <li>Soil texture finer than about 1.5 m, and the rock texture on the distant ranges.</li>
+              <li>The ground colour, the Sun's glare and Earth's surface pattern.</li>
+              <li>Star colours, approximated from each star's B−V index.</li>
+              <li>Outside the 5 × 5 km terrain patch, level ground at the point's own elevation; the skyline and every number still use its real terrain.</li>
+              <li>When the Sun is hidden, a faint overhead fill so the terrain stays visible. Real lunar shadow is black.</li>
+            </ul>
+            <form method="dialog"><button type="submit" className="primary">Close</button></form>
+          </div>
+        </dialog>
+
+        {drawer === 'map' && (
+          <Drawer title="Map" side="left" onClose={closeDrawer} returnFocus={mapButton} testId="drawer-map">
             <SiteMap data={data} site={site} point={planPoint} illumination={illumination} onPick={locate} />
-            <section className="panel room" aria-label="Mission room">
-              <h2>Mission room</h2>
+          </Drawer>
+        )}
+        {drawer === 'matrix' && (
+          <Drawer title="Scenario matrix" side="wide" onClose={closeDrawer} returnFocus={matrixButton} testId="drawer-matrix">
+            {matrix && allLoaded
+              ? <Matrix data={data} regions={regions} start={planHour} constraints={constraints} selected={site.id} onOpen={openCell} />
+              : <p className="note">Loading every site…</p>}
+          </Drawer>
+        )}
+        {drawer === 'room' && (
+          <Drawer title="Mission room" side="right" onClose={closeDrawer} returnFocus={roomButton} testId="drawer-room">
+            <div className="room">
               {roomId ? (
                 <>
                   <div className="room-row">
-                    <span className={roomCount > 1 ? 'ok' : ''} data-testid="room-count">{roomCount} connected</span>
+                    <span>{roomCount} in this room</span>
                     <button type="button" onClick={leaveRoom}>Leave room</button>
                   </div>
                   <input readOnly value={roomLink(roomId)} aria-label="Room link" data-testid="room-link" onFocus={(e) => e.target.select()} />
-                  <span>Share the link: everyone in the room sees the same site, date and constraints. Each browser still runs the engine itself.</span>
+                  <p className="note">Share the link: everyone in the room sees the same site, date and constraints. Each browser still runs the engine itself.</p>
                 </>
               ) : (
                 <>
-                  <button type="button" onClick={startRoom}>Start mission room</button>
-                  <span>Share one plan with teammates in real time.</span>
+                  <button type="button" className="primary" onClick={startRoom}>Start mission room</button>
+                  <p className="note">Share one plan with teammates in real time.</p>
                 </>
               )}
-            </section>
-          </aside>
-          <div className="stage">
-            {!view || !day || !observer ? <p>Loading terrain…</p> : (
-              <>
-                <div
-                  className="status"
-                  data-testid="view"
-                  data-lat={observer.lat}
-                  data-lon={observer.lon}
-                  data-elev={observer.elevM}
-                  data-point={observer.id}
-                  data-hour={viewStart + view.t}
-                  data-east={day.east.toFixed(0)}
-                  data-north={day.north.toFixed(0)}
-                >
-                  <strong>{alt ? 'Alternative' : 'Plan'}: {observer.label}</strong>
-                  <span>{date(viewStart)} UTC landing</span>
-                  {day.evaluation ? <Chips evaluation={day.evaluation} /> : <span className="note">Mission window runs past 2035</span>}
-                </div>
-                {tour && <Tour steps={data.tour.steps} onStep={tourStep} onClose={() => { setTour(false); setPlaying(false) }} />}
-                <div className="viewport">
-                  {site.terrain
-                    ? <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
-                        sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky!} stars={data.stars}
-                        ridges={regions[observer.id.split(':')[0]]?.ridges ?? null} />
-                    : <p className="note empty">No terrain for this site: it is used to validate Sun and Earth angles only, so the horizon below is flat.</p>}
-                  <Hud sunEl={view.now.sunEl} earthEl={view.now.earthEl} lit={view.lit} link={view.link} power={view.power}
-                    sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} />
-                </div>
-                {site.heightmap && Math.max(Math.abs(day.east), Math.abs(day.north)) >= site.heightmap.span_m / 2 - 20 && (
-                  <p className="note" data-testid="level-ground-note">
-                    This point is outside the 5 × 5 km terrain patch around the site centre, so the 3D ground is drawn level.
-                    The horizon ring, the panorama and every number still use this point's own terrain.
-                  </p>
-                )}
-                <div className="scrub">
-                  <button type="button" onClick={togglePlay} aria-pressed={playing} data-testid="play">
-                    {playing ? 'Pause' : 'Play lunar day'}
-                  </button>
-                  <label>
-                    <span>Lunar day scrubber · {date(viewStart + view.t)} UTC (landing +{view.t} h)</span>
-                    <input type="range" min={0} max={last} value={view.t} onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
-                  </label>
-                </div>
-                {!alt && site.terrain && (
-                  <div className="nudge" role="group" aria-label="Nudge the plan">
-                    <span className="note">Nudge:</span>
-                    {(['N', 'E', 'S', 'W'] as const).map((d) => (
-                      <button key={d} type="button" disabled={!neighbours?.[d]} onClick={() => nudge(d)}>500 m {d}</button>
-                    ))}
-                    <button type="button" disabled={planHour < 24} onClick={() => nudge('earlier')}>1 day earlier</button>
-                    <button type="button" disabled={planHour + 24 >= data.hours} onClick={() => nudge('later')}>1 day later</button>
-                    {nudgeFrom && <span className="note" data-testid="nudge-note">Tiles show the change since the last nudge.</span>}
-                  </div>
-                )}
-                {planDay && alt && plan
-                  ? <Compare plan={{ label: plan.label, date: date(planHour), day: planDay }} alt={{ label: observer.label, date: date(viewStart), day }} t={view.t} />
-                  : (
-                    <>
-                      {day.metrics && <Summary metrics={day.metrics} previous={nudgeFrom} />}
-                      <Panorama mask={day.mask} track={day.track} t={view.t} />
-                      <HorizonText facts={horizonFacts(day.mask, day.series, day.track, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
-                    </>
-                  )}
-                {found && <Results finder={found.finder} candidates={found.candidates} opened={opened} date={date}
-                  onOpen={(i) => { setOpened(i); setOffset(0); setPlaying(false) }} />}
-                {matrix && allLoaded
-                  ? <Matrix data={data} regions={regions} start={planHour} constraints={constraints} selected={site.id} onOpen={openCell} />
-                  : (
-                    <button type="button" className="secondary" disabled={matrix} onClick={() => { setMatrix(true); loadAll().catch((e) => setError(String(e))) }}>
-                      {matrix ? 'Loading every site…' : 'Show scenario matrix (all sites × landing dates)'}
-                    </button>
-                  )}
-              </>
-            )}
-          </div>
-        </div>
-        <footer>
-          Screening-grade results: 500 m search grid, 20 m terrain within 10 km and 80 m beyond. Not a
-          mission design, hazard, power, thermal or link-budget tool. 3D view: terrain relief is LOLA data
-          (5 m where PGDA has a site DEM, otherwise 20 m); the distant ranges' outline and lighting come from LOLA
-          slopes at each crest; soil texture under 1.5 m, the ranges' rock texture, the ground colour, the Sun's
-          glare and Earth's surface are illustrative; stars are
-          from the Yale Bright Star Catalogue at their real positions for this site and hour, with colours
-          approximated from B−V.
-          Every number comes from the engine. Data: NASA/JPL DE440, LRO LOLA (NASA GSFC PGDA), BSC5.
-        </footer>
-      </main>
+            </div>
+          </Drawer>
+        )}
+      </div>
     </Guide.Provider>
   )
 }

@@ -3,13 +3,14 @@ import type { Dataset, Region } from './data'
 import type { Constraints } from './engine/engine'
 import { buildSeries, evaluate, siteFrame, windowMetrics } from './engine/engine'
 
-import { RAMP, colour } from './ramp'
+import { EARTH_RAMP, REGOLITH_RAMP, SUN_RAMP, colour } from './ramp'
 
+// each metric is drawn in its subject's ramp; longest dark runs darker as the run gets longer
 const METRICS = {
-  sunlit: { name: 'Sunlit %', unit: '%' },
-  dark: { name: 'Longest dark run', unit: ' h' },
-  earth: { name: 'Earth visible %', unit: '%' },
-  met: { name: 'Constraints met', unit: '' },
+  sunlit: { name: 'Sunlit %', unit: '%', ramp: SUN_RAMP, invert: false },
+  dark: { name: 'Longest dark run', unit: ' h', ramp: REGOLITH_RAMP, invert: true },
+  earth: { name: 'Earth visible %', unit: '%', ramp: EARTH_RAMP, invert: false },
+  met: { name: 'Constraints met', unit: '', ramp: REGOLITH_RAMP, invert: false },
 } as const
 type MetricId = keyof typeof METRICS
 
@@ -59,9 +60,8 @@ function Matrix({ data, regions, start, constraints, selected, onOpen }: Props) 
   const labelEvery = Math.ceil(cols / 6)
 
   return (
-    <section className="panel" aria-label="Scenario matrix">
+    <section aria-label="Scenario matrix">
       <div className="matrix-head">
-        <h2>Scenario matrix</h2>
         <label>Colour by{' '}
           <select value={metric} onChange={(e) => setMetric(e.target.value as MetricId)} aria-label="Matrix metric">
             {Object.entries(METRICS).map(([id, m]) => <option key={id} value={id}>{m.name}</option>)}
@@ -73,7 +73,7 @@ function Matrix({ data, regions, start, constraints, selected, onOpen }: Props) 
           </select>
         </label>
         <span className="legend" aria-hidden="true">
-          0 <i style={{ background: `linear-gradient(90deg, ${RAMP.join(',')})` }} /> {max}{METRICS[metric].unit}
+          0 <i style={{ background: `linear-gradient(90deg, ${(METRICS[metric].invert ? [...METRICS[metric].ramp].reverse() : METRICS[metric].ramp).join(',')})` }} /> {max}{METRICS[metric].unit}
         </span>
       </div>
       <div className="matrix-scroll">
@@ -92,7 +92,7 @@ function Matrix({ data, regions, start, constraints, selected, onOpen }: Props) 
                   <td key={c}>
                     <button
                       type="button"
-                      style={{ background: colour(cell[metric], max) }}
+                      style={{ background: colour(METRICS[metric].invert ? max - cell[metric] : cell[metric], max, METRICS[metric].ramp) }}
                       className={site.id === selected && c === 0 ? 'plan' : ''}
                       aria-label={`${site.name}, ${day(c)}: ${METRICS[metric].name} ${value(cell[metric])}`}
                       onMouseEnter={(e) => setHover(e.currentTarget.ariaLabel ?? '')}

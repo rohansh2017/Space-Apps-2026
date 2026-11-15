@@ -31,15 +31,21 @@ The full pipeline, from raw data to a tested app, is `make setup && make data-do
 
 ### What to try
 
-Choose a site, change the date (UTC), drag the lunar-day scrubber or press Play, drag inside the 3D
-view to look around. Slip the date and press *Find alternatives*. Open a result: the plan and the
-alternative appear side by side. Nudge the plan 500 m or a day and watch the tiles change. Type a
-custom coordinate or click either map; the region map colours each 500 m cell by its sunlit % for the
-mission window. Open the scenario matrix and click a cell. Switch to Explorer mode and press
-*Start tour*. *Copy link* gives a URL that reopens the same plan.
+The 3D view fills the window; press *Full screen* for a projector. Choose a site and date (UTC) in
+the Plan panel on the left, drag the lunar-day scrubber or press Play, drag inside the 3D view to look
+around. Slip the date and press *Find alternatives*. Open a result: it is pinned to the *Compare* tray
+at the bottom, beside the plan, and every column follows the same scrubber. Pin up to three (the pin
+on each result, or *Pin this view*); pins travel in the copied link. The tray reads like a table: one row
+per metric, the best value in each row in bold, differences against the plan beside each pin. *Make this
+the plan* on a pin swaps it with the plan. Nudge the plan 500 m or a day and
+watch the plan's tiles change. Type a custom coordinate, or open *Map* on the left rail and click
+either map; the region map colours each 500 m cell by its sunlit % for the mission window. Open
+*Scenario matrix* and click a cell. Switch to Explorer mode and press *Start tour*. *Copy link* gives
+a URL that reopens the same plan. *About the data* (bottom right) lists the sources and everything
+the 3D view invents.
 
-On the deployed site two more things work that need the Cloudflare Worker: *Start mission room*
-(open the link in a second browser; both follow each other), *Interpret with Gemini* under the
+On the deployed site two more things work that need the Cloudflare Worker: the *Mission room* header
+button (start a room, open its link in a second browser; both follow each other), *Interpret with Gemini* under the
 constraints ("survive 4 days of dark, talk to Earth half the time") and *Describe with Gemini* under
 the panorama. Locally those report an error and everything else still works; the horizon sentence
 then stays the engine's own template.
@@ -99,8 +105,9 @@ ephemeris positions. The distant mountain ranges are a ring whose outline is the
 from the real LOLA slope at each crest and the real Sun, so ranges facing the Sun light up. Invented,
 and labelled in the app: the ranges' rock texture, soil texture below the data's resolution
 (bumps and craters under about 1.5 m, so it never contradicts the LOLA relief), the ground colour, the
-Sun's glare, Earth's surface, and star colours (approximated from each star's B−V index). None of it
-feeds any number.
+Sun's glare, Earth's surface, star colours (approximated from each star's B−V index), and a faint
+overhead fill when the Sun is hidden (real lunar shadow is black; the view says when it is brightened).
+None of it feeds any number.
 
 **Synthetic data:** none in the deployed app. `make data-fixtures` can generate synthetic
 contract-shaped files for development; the app then shows a banner, and such files are never committed.

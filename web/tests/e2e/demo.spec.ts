@@ -4,6 +4,8 @@ import { expectedHud, shot } from './hud'
 // The spec's demo script up to the must-have steps, and the P2 gate (M2):
 // a slipped date returns ranked alternatives in under 3 s and opens in 3D with HUD values equal to engine values.
 test('demo path: site, scrub to sunset, slip the date, find alternatives, open the best in 3D', async ({ page }) => {
+  // the whole demo story in one test: its run time depends on how many other tests share the machine
+  test.slow()
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   const view = page.getByTestId('view')
@@ -22,14 +24,15 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   await expect(view.locator('.chip.fail')).toHaveCount(0)
   expect(await hud()).toEqual(expectedHud(await observer()))
   await settle()
+  await expect(page.getByTestId('fill-tag')).toHaveCount(0) // sunlit: no display fill
   await page.screenshot(shot('1-plan-shackleton-rim'))
 
   // the panorama has terrain, Sun-track and Earth-track pixels
-  const colours = await page.locator('canvas.panorama').evaluate((c: HTMLCanvasElement) => {
+  const colours = await page.locator('.band-time canvas.panorama').evaluate((c: HTMLCanvasElement) => {
     const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data
     const seen = new Set<string>()
     for (let i = 0; i < d.length; i += 4) seen.add(`${d[i]},${d[i + 1]},${d[i + 2]}`)
-    return ['74,79,92', '232,195,74', '95,168,255'].map((k) => seen.has(k))
+    return ['87,83,77', '240,185,85', '95,168,255'].map((k) => seen.has(k))
   })
   expect(colours).toEqual([true, true, true])
 
@@ -47,6 +50,7 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   await expect(view).toContainText('2026-12-01 00:00')
   await expect(view.locator('.chip.fail').first()).toBeVisible()
   await settle()
+  await expect(page.getByTestId('fill-tag')).toBeVisible() // in shadow: the brightened view is labelled
   await page.screenshot(shot('3-slipped-date-fails'))
 
   // 4. Run the finder: ranked alternatives with written differences, in under 3 s.
@@ -55,7 +59,8 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   await expect(results.first()).toBeVisible()
   expect(Number(await page.getByTestId('finder-ms').textContent())).toBeLessThan(3000)
   await expect(results.first().locator('.chip.fail')).toHaveCount(0) // the top result meets every constraint
-  await expect(results.first().getByTestId('result-diff')).toContainText(/(km [NESW]{1,2}|Same site), .*: [+−]\d+% sun, [+−]\d+ h dark, [+−]\d+% comms/)
+  await expect(results.first().getByTestId('result-title')).toHaveText(/^#1 · (\d+(\.\d)? km [NESW]{1,2}|Same site) · ([+−][\d.]+ (days?|h)|same date)$/)
+  await expect(results.first().getByTestId('result-diff')).toContainText(/^[+−]\d+% sun, [+−]\d+ h dark, [+−]\d+% comms vs the plan$/)
   await page.screenshot({ ...shot('4-finder-results'), fullPage: true })
 
   // 5. Open the top result in 3D: HUD values equal engine values for that point and time.
@@ -72,6 +77,11 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   // the other presets apply and the finder still answers
   await page.getByRole('button', { name: 'Rover' }).click()
   await expect(page.getByLabel('Mission duration')).toHaveValue('14')
-  await expect(results).toHaveCount(0) // changing constraints clears stale results
+  // changing constraints keeps the results but marks them out of date, with a way to run the search again
+  await expect(results.first()).toBeVisible()
+  await expect(page.getByTestId('results-stale')).toContainText('Out of date')
+  await page.getByTestId('results-stale').getByRole('button', { name: 'Run again' }).click()
+  await expect(page.getByTestId('results-stale')).toHaveCount(0)
+  await expect(page.getByTestId('announcer')).toContainText('Search finished')
   expect(errors).toEqual([])
 })

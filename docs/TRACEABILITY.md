@@ -7,14 +7,14 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F1 | Curated site list + custom lat/lon + map click, snapped to grid | M | 1 | web/src/App.tsx (locate), SiteMap.tsx, engine.ts snapToGrid | e2e p3.spec.ts (custom coordinates), metrics.test.ts | done (9 polar sites; Apollo 11/15/17 removed from the app, kept in validation, D44) |
 | F2 | UTC date/time picker + lunar-day scrubber, 2026–2035 | M | 2, 6 | web/src/App.tsx | e2e demo.spec.ts | done (windows past 2035 are reported, not computed) |
 | F3 | First-person 3D scene: Sun/Earth at true az/el, shadows, silhouette ring | M | 3, 5 | web/src/Scene3D.tsx, starfield.ts, regolith.ts | e2e demo.spec.ts, orientation.test.ts, screenshots 1–5 | done (5 m LOLA relief at 8 of 9 sites, real BSC5 stars; illustrative parts listed in the footer, D37–D40; distant ranges lit from LOLA crest slopes, D45) |
-| F4 | HUD: elevations, lit/link status, power index, countdowns | M | 3, 4 | web/src/Hud.tsx | e2e demo.spec.ts (HUD = engine at four steps) | done |
+| F4 | HUD: elevations, lit/link status, power index, countdowns | M | 3, 4 | web/src/Hud.tsx | e2e demo.spec.ts (HUD = engine at four steps) | done (horizon height toward Sun and Earth shown, D47) |
 | F5 | Horizon panorama with Sun and Earth tracks | M | 3, 5, 6 | web/src/Panorama.tsx | e2e demo.spec.ts | done (window = one lunar day from landing) |
 | F6 | Constraint panel with presets | M | 4 | web/src/ConstraintPanel.tsx, presets.ts | e2e demo.spec.ts | done |
 | F7 | Constraint finder: ranked dates and nearby sites, pass/fail per constraint | M | 1, 2, 4 | web/src/engine/finder.ts, finder.worker.ts, Results.tsx | finder.test.ts, e2e demo.spec.ts | done (forward-only, D19) |
-| F8 | Plain-language difference from the original plan | M | 4, 7 | web/src/engine/finder.ts diffText | finder.test.ts, e2e demo.spec.ts | done |
+| F8 | Plain-language difference from the original plan | M | 4, 7 | web/src/engine/finder.ts diffText | finder.test.ts, e2e demo.spec.ts | done (rows titled by difference, D47) |
 | F9 | Planner and Explorer modes | M | 7 | web/src/App.tsx, Summary.tsx, Hud.tsx, Glossary.tsx | e2e p3.spec.ts (Explorer mode) | done |
 | F10 | Scenario matrix | S | 1, 2, 5 | web/src/Matrix.tsx | e2e p3.spec.ts (scenario matrix) | done |
-| F11 | Side-by-side comparison | S | 1, 5 | web/src/Compare.tsx, App.tsx planDay | e2e p4.spec.ts (F11) | done (paired panoramas + metrics, D27) |
+| F11 | Side-by-side comparison | S | 1, 5 | web/src/Tray.tsx (compare tray), App.tsx planDay/pinnedDays | e2e p4.spec.ts (F11) | done (plan + up to 3 pinned scenarios as a table, shared scrubber, adopt a pin as the plan, D27, D49, D50) |
 | F12 | Lunar-day playback with trails | S | 6 | web/src/App.tsx (playback), Scene3D.tsx, Panorama.tsx | e2e p3.spec.ts (playback) | done |
 | F13 | Guided tour from tour.json | S | 7 | web/src/Tour.tsx, build/tour_src.json | e2e p4.spec.ts (F13) | done (outsider test of the tour still pending) |
 | F14 | Nudge control (100 m / 1 day) | S | 1, 2, 7 | web/src/App.tsx nudge, engine.ts nudgeNeighbour, Summary.tsx deltas | metrics.test.ts, e2e p4.spec.ts (F14) | done (500 m grid step, not 100 m: D26) |

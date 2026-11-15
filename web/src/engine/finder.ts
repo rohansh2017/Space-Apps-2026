@@ -88,7 +88,15 @@ const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
 const signed = (v: number, digits = 0) => `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(digits)}`
 
 /** One-line plain-language difference from the original plan, e.g. "1.4 km NE, 2 days later: +9% sun, −31 h dark, −5% comms". */
-export function diffText(base: Candidate, baseScored: Scored, cand: Candidate, scored: Scored): string {
+export interface DiffParts {
+  where: string // "5.0 km S" or "Same site"
+  when: string // "16 days later", "12 h earlier" or "same date"
+  shift: string // the same, signed and short: "+16 days", "−12 h", "same date"
+  metrics: string // "+97% sun, −158 h dark, +100% comms"
+}
+
+/** How a result differs from the original plan, in parts, so titles and sentences cannot disagree. */
+export function diffParts(base: Candidate, baseScored: Scored, cand: Candidate, scored: Scored): DiffParts {
   const f = siteFrame(base.lat, base.lon, base.elevM)
   const p = siteFrame(cand.lat, cand.lon, cand.elevM).pos
   const d = [p[0] - f.pos[0], p[1] - f.pos[1], p[2] - f.pos[2]]
@@ -102,7 +110,15 @@ export function diffText(base: Candidate, baseScored: Scored, cand: Candidate, s
   const days = Math.abs(dh) / 24
   const amount = Math.abs(dh) < 24 ? `${Math.abs(dh)} h` : `${Number.isInteger(days) ? days : days.toFixed(1)} day${days === 1 ? '' : 's'}`
   const when = dh === 0 ? 'same date' : `${amount} ${dh > 0 ? 'later' : 'earlier'}`
+  const shift = dh === 0 ? 'same date' : `${dh > 0 ? '+' : '−'}${amount}`
 
   const [m, b] = [scored.metrics, baseScored.metrics]
-  return `${where}, ${when}: ${signed(m.sunlitPct - b.sunlitPct)}% sun, ${signed(m.longestDarkH - b.longestDarkH)} h dark, ${signed(m.earthPct - b.earthPct)}% comms`
+  const metrics = `${signed(m.sunlitPct - b.sunlitPct)}% sun, ${signed(m.longestDarkH - b.longestDarkH)} h dark, ${signed(m.earthPct - b.earthPct)}% comms`
+  return { where, when, shift, metrics }
+}
+
+/** One-line plain-language difference from the original plan, e.g. "1.4 km NE, 2 days later: +9% sun, −31 h dark, −5% comms". */
+export function diffText(base: Candidate, baseScored: Scored, cand: Candidate, scored: Scored): string {
+  const { where, when, metrics } = diffParts(base, baseScored, cand, scored)
+  return `${where}, ${when}: ${metrics}`
 }
