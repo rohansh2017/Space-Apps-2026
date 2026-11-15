@@ -104,6 +104,13 @@ def write_region(
     return entry, points
 
 
+def write_ridges(out: Path, sid: str, normals: np.ndarray) -> None:
+    """Per azimuth (360), the unit normal of the horizon-forming crest seen from the site centre, in the
+    site's east/north/up axes, stored as Int8 x 3 scaled by 127."""
+    assert normals.shape == (360, 3)
+    write_bin(out / "ridges" / f"{sid}.bin", np.round(np.clip(normals, -1, 1) * 127), "i1")
+
+
 def hillshade(dem: np.ndarray, res_m: float, exaggeration: float = 1.0) -> np.ndarray:
     """8-bit hillshade lit from the upper left at 35 deg. Lighting is illustrative, not the real Sun."""
     gy, gx = np.gradient(dem.astype(np.float64) * exaggeration, res_m)

@@ -65,6 +65,10 @@ def main() -> None:
             heights,
             "synthetic fixture",
         )
+        a = np.radians(az)
+        export.write_ridges(
+            OUT, s["id"], np.stack([-0.3 * np.sin(a), -0.3 * np.cos(a), np.full(360, 0.954)], 1)
+        )
         sites.append(entry)
         points += pts
     export.write_index(OUT, sites, points, synthetic=True)

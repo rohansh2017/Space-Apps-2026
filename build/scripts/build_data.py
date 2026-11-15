@@ -11,7 +11,7 @@ from rasterio.windows import from_bounds
 
 from horizonwalk import ephem, export, stars
 from horizonwalk.geo import latlon_to_xy, xy_to_latlon
-from horizonwalk.masks import horizon_masks, sample
+from horizonwalk.masks import crest_normals, horizon_masks, sample
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW, OUT = ROOT / "data" / "raw", ROOT / "web" / "public" / "data"
@@ -108,6 +108,14 @@ def main(only: list[str]) -> None:
                 lat, lon, near, left, top, res, far, far_left, far_top, far_res
             )
             assert np.isfinite(elev).all() and np.isfinite(masks).all(), s["id"]
+            c = export.GRID_N * export.GRID_N // 2  # the site's own point
+            crest_deg, _, normals = crest_normals(
+                lat[c], lon[c], elev[c], near, left, top, res, far, far_left, far_top, far_res
+            )
+            assert np.allclose(crest_deg, masks[c], atol=1e-6), (
+                "crest march disagrees with the mask"
+            )
+            export.write_ridges(OUT, s["id"], normals)
             gy, gx = np.gradient(near.astype(np.float64), res)
             slope = np.degrees(np.arctan(np.hypot(gx, gy))).astype(np.float32)
             slopes = sample(slope, left, top, res, x, y)

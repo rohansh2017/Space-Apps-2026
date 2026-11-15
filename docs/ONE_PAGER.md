@@ -24,7 +24,7 @@ Pick a south-pole site and a landing time. Stand on the real LOLA terrain in 3D 
 
 | Challenge objective | In the app |
 | --- | --- |
-| Site selection and comparison | 12 curated sites, custom coordinates and map clicks, finder, matrix, side-by-side, nudge |
+| Site selection and comparison | 9 curated south-pole sites, custom coordinates and map clicks, finder, matrix, side-by-side, nudge |
 | Date and time flexibility | UTC picker, lunar-day scrubber, slip-range search, year-long matrix |
 | Sun and Earth visualization | 3D sky against the true horizon, panorama, HUD countdowns |
 | Power and comms assessment | Sunlit %, longest dark run, Earth visibility, power index, pass/fail per constraint |

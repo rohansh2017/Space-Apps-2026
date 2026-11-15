@@ -63,6 +63,8 @@ def test_masks_slopes_and_points_line_up():
         elev = mask * meta["mask"]["unit_deg"] - meta["mask"]["offset_deg"]
         assert -10 <= elev.min() and elev.max() < 90
         assert (DATA / "slopes" / f"{region}.bin").stat().st_size == n
+        normals = np.fromfile(DATA / "ridges" / f"{region}.bin", "i1").reshape(360, 3) / 127
+        assert np.allclose(np.linalg.norm(normals, axis=1), 1, atol=0.02)
     for key in ("id", "lat", "lon", "x", "y", "region", "parent_site"):
         assert key in meta["points"][0]
 
