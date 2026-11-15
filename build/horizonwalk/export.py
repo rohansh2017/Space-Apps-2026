@@ -32,16 +32,23 @@ def write_bin(path: Path, array: np.ndarray, dtype: str) -> None:
     array.astype(dtype).tofile(path)
 
 
-def write_png16(path: Path, img: np.ndarray, depth: int = 16) -> None:
-    """Greyscale PNG, 16-bit (heightmaps) or 8-bit (basemaps). Every scanline uses filter 0, which
-    the web heightmap decoder relies on."""
+def write_png16(path: Path, img: np.ndarray, depth: int = 16, up: bool = False) -> None:
+    """Greyscale PNG, 16-bit (heightmaps) or 8-bit (basemaps). Every scanline uses filter 0, or with
+    `up` filter 2 (Up: each byte minus the one above it; smooth terrain then compresses far better).
+    The web heightmap decoder handles exactly these two."""
 
     def chunk(tag: bytes, data: bytes) -> bytes:
         body = tag + data
         return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
 
     h, w = img.shape
-    raw = b"".join(b"\x00" + row.astype(">u2" if depth == 16 else "u1").tobytes() for row in img)
+    rows = np.stack([row.astype(">u2" if depth == 16 else "u1").view(np.uint8) for row in img])
+    if up:
+        rows = np.concatenate(
+            [rows[:1], rows[1:] - rows[:-1]]
+        )  # uint8 wraps modulo 256, as PNG does
+    tag = b"\x02" if up else b"\x00"
+    raw = b"".join(tag + row.tobytes() for row in rows)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(
         b"\x89PNG\r\n\x1a\n"
@@ -143,8 +150,14 @@ def globe_hillshade(radius_m: np.ndarray, exaggeration: float = 4.0) -> np.ndarr
     shade = (np.cos(alt) * (np.sin(az) * -gx + np.cos(az) * gy) + np.sin(alt)) / np.sqrt(
         gx * gx + gy * gy + 1.0
     )
-    shade = np.clip(shade, 0.0, 1.0) * 255.0
-    # bilinear resample to the output grid (pixel centres to pixel centres)
+    return np.round(globe_resample(np.clip(shade, 0.0, 1.0) * 255.0))
+
+
+def globe_resample(grid: np.ndarray) -> np.ndarray:
+    """Bilinear resample of a global equirectangular grid to GLOBE_W x GLOBE_H (pixel centres to
+    pixel centres), wrapping in longitude."""
+    h, w = grid.shape
+    shade = grid.astype(np.float64)
     sr = (np.arange(GLOBE_H) + 0.5) * h / GLOBE_H - 0.5
     sc = (np.arange(GLOBE_W) + 0.5) * w / GLOBE_W - 0.5
     r0 = np.clip(np.floor(sr).astype(int), 0, h - 2)
@@ -154,7 +167,7 @@ def globe_hillshade(radius_m: np.ndarray, exaggeration: float = 4.0) -> np.ndarr
     c0, c1 = c0 % w, (c0 + 1) % w
     top = shade[r0][:, c0] * (1 - fc) + shade[r0][:, c1] * fc
     bot = shade[r0 + 1][:, c0] * (1 - fc) + shade[r0 + 1][:, c1] * fc
-    return np.round(top * (1 - fr) + bot * fr)
+    return top * (1 - fr) + bot * fr
 
 
 def write_globe(out: Path, img: np.ndarray, source: str, synthetic: bool) -> None:
@@ -190,8 +203,8 @@ def write_basemap(
         "synthetic": synthetic,
         "pole": {"file": "basemaps/pole.png", "half_width_m": POLE_HALF_M},
         "regions": {"half_width_m": REGION_HALF_M, "files": {s: f"basemaps/{s}.png" for s in regions}},
-        # written by build_globe.py and build_context.py
-        **{k: kept[k] for k in ("globe", "context") if k in kept},
+        # written by build_globe.py, build_context.py and build_relief.py
+        **{k: kept[k] for k in ("globe", "context", "relief") if k in kept},
     })  # fmt: skip
 
 
@@ -217,6 +230,62 @@ def write_context(
         "source": source,
         "files": {sid: f"basemaps/context/{sid}.jpg" for sid in maps},
     }
+    meta["synthetic"] = bool(meta.get("synthetic")) or synthetic
+    write_json(out / "basemap.json", meta)
+
+
+RELIEF_PX = 1024  # pole and context elevation grids (D67): ~594 m and 62.5 m per pixel
+
+
+RELIEF_STEP_M = (
+    0.5  # relief height step: far below a 62.5 m pixel's slope noise, and half the PNG size
+)
+
+
+def _png16_heights(path: Path, heights_m: np.ndarray) -> dict:
+    """16-bit greyscale heights in RELIEF_STEP_M steps (finer if the range needs it):
+    metres = offset_m + value x scale_m (the heightmap convention), PNG filter Up."""
+    assert np.isfinite(heights_m).all(), path
+    lo, hi = float(heights_m.min()), float(heights_m.max())
+    scale = max((hi - lo) / 65535, RELIEF_STEP_M)
+    write_png16(path, np.round((heights_m - lo) / scale), up=True)
+    return {"offset_m": lo, "scale_m": scale, "max_m": hi}
+
+
+def write_relief(
+    out: Path,
+    globe_m: np.ndarray,
+    pole_m: np.ndarray,
+    contexts_m: dict[str, np.ndarray],
+    sources: dict[str, str],
+    synthetic: bool,
+) -> None:
+    """Elevation for the Moon view's 3D relief, real-Sun shading and Topo layer (D67): heights in metres
+    above R = 1,737,400 m. The globe is equirectangular (like globe.png); the pole and context grids
+    use the pole and context hillshades' stereographic axes (row 0 = +y, col 0 = -x)."""
+    rel = out / "basemaps" / "relief"
+    assert globe_m.shape[1] == 2 * globe_m.shape[0]
+    assert pole_m.shape[0] == pole_m.shape[1]
+    globe = {"file": "basemaps/relief/globe.png", "width_px": globe_m.shape[1],
+             **_png16_heights(rel / "globe.png", globe_m), "source": sources["globe"]}  # fmt: skip
+    pole = {"file": "basemaps/relief/pole.png", "half_width_m": POLE_HALF_M, "size_px": pole_m.shape[0],
+            **_png16_heights(rel / "pole.png", pole_m), "source": sources["polar"]}  # fmt: skip
+    files = {}
+    for sid, h in contexts_m.items():
+        assert h.shape[0] == h.shape[1]
+        files[sid] = {
+            "file": f"basemaps/relief/context/{sid}.png",
+            **_png16_heights(rel / "context" / f"{sid}.png", h),
+        }
+    size = {h.shape[0] for h in contexts_m.values()}
+    assert len(size) <= 1
+    meta = json.loads((out / "basemap.json").read_text())
+    meta["relief"] = {
+        "globe": globe,
+        "pole": pole,
+        "context": {"half_width_m": CONTEXT_HALF_M, "size_px": size.pop() if size else 0,
+                    "source": sources["polar"], "files": files},
+    }  # fmt: skip
     meta["synthetic"] = bool(meta.get("synthetic")) or synthetic
     write_json(out / "basemap.json", meta)
 

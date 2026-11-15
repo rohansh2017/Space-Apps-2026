@@ -127,6 +127,29 @@ def test_globe_is_an_8bit_equirectangular_png():
     assert w == 2 * h and (depth, colour) == (8, 0)
 
 
+def test_relief_is_16bit_heights_in_the_hillshade_axes():
+    meta = load("basemap.json")
+    rel = meta["relief"]
+
+    def png(entry):
+        w, h, depth, colour = struct.unpack(">IIBB", (DATA / entry["file"]).read_bytes()[16:26])
+        assert (depth, colour) == (16, 0) and entry["scale_m"] > 0, entry["file"]
+        return w, h
+
+    w, h = png(rel["globe"])
+    assert w == 2 * h == rel["globe"]["width_px"]
+    w, h = png(rel["pole"])
+    assert (
+        w == h == rel["pole"]["size_px"]
+        and rel["pole"]["half_width_m"] == meta["pole"]["half_width_m"]
+    )
+    assert rel["context"]["half_width_m"] == meta["context"]["half_width_m"]
+    assert set(rel["context"]["files"]) == set(meta["regions"]["files"])
+    for entry in rel["context"]["files"].values():
+        w, h = png(entry)
+        assert w == h == rel["context"]["size_px"]
+
+
 def test_context_maps_are_square_jpegs_for_every_terrain_site():
     meta = load("basemap.json")
     ctx = meta["context"]

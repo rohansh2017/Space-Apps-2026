@@ -120,6 +120,7 @@ Goal: rapid, intuitive comparison of several scenarios, in full screen. Run thro
 - [x] Moon view: orbitable polar region with site pins, fly-down to the search grid, draggable landing point (D58)
 - [x] Pins as snapshots, tray reorder, labelled band tab (D59); whole-Moon relief and 5 m site layer (D60)
 - [x] Stars on the Moon view, Pole button everywhere, fewer clicks, Map drawer folded into the Moon view (D61); 20 m context maps around each site (D62)
+- [x] Moon view in 3D: LOLA relief raised with a Height slider, lit by the real Sun with terrain shadows; Topo layer with contour lines (D67, D68)
 - [ ] Adapt (phones)
 - [x] Polish from the test screenshots (2026-11-15)
 - [x] Critique against the comparison objective (25/40); its three P1s fixed: tray fits a 720p full screen, tray reads as a table, *Make this the plan* (D50)

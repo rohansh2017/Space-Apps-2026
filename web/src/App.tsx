@@ -870,7 +870,9 @@ export default function App() {
               {/* invariant 9: the snap note stays in sight when the Plan panel and the map are closed */}
               {snapNote && !sideOpen && <p className="tag" role="status" data-testid="snap-note">{snapNote}</p>}
               {viewed && moonZoom && <p className="tag">An alternative is on show, so its landing point is fixed. Show the plan to move the point.</p>}
-              <p className="tag" data-testid="moon-note">Day/night line on a smooth sphere: no terrain shadows · night side brightened</p>
+              <p className="tag" data-testid="moon-note">{data.basemap.relief
+                ? 'Real Sun on LOLA terrain, shadows included · height exaggerated for the eye · ground out of the Sun shown dim'
+                : 'Day/night line on a smooth sphere: no terrain shadows · night side brightened'}</p>
             </MoonView>
           ) : site.terrain && view && day && observer && sky && view.sky && (
             <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
@@ -1173,12 +1175,12 @@ export default function App() {
             <h3>What the 3D view takes from data</h3>
             <p>Terrain relief (5 m where PGDA has a site DEM, otherwise 20 m); the distant ranges' outline and their lighting from the LOLA slope at each crest; the Sun's and Earth's positions; the stars' positions and brightness for this site and hour.</p>
             <h3>What the Moon view takes from data</h3>
-            <p>Site and grid positions on the true sphere; LOLA relief draped on it: the whole Moon from the global 16 px/degree grid, 80–90°S from the 80 m polar DEM, 64 × 64 km around each site and its 10 km box from the 20 m DEM, and its 5 × 5 km patch from the same 5 m (or 20 m) heightmap as the 3D view; the Sun's direction for the day/night line; the stars' positions and brightness for the hour (as in the 3D view); pin, cell and dot colours, tooltips and bearing labels, all from the engine.</p>
+            <p>Site and grid positions on the true sphere; LOLA relief draped on it: the whole Moon from the global 16 px/degree grid, 80–90°S from the 80 m polar DEM, 64 × 64 km around each site and its 10 km box from the 20 m DEM, and its 5 × 5 km patch from the same 5 m (or 20 m) heightmap as the 3D view; the terrain's height in 3D, from LOLA (the whole Moon from the same global grid, 80–90°S and 64 × 64 km around each site from the 20 m DEM, averaged); its lighting and cast shadows from the hour's real Sun direction, and its Topo colours and contour lines from those heights; the stars' positions and brightness for the hour (as in the 3D view); pin, cell and dot colours, tooltips and bearing labels, all from the engine.</p>
             <h3>What Gemini does</h3>
             <p>Gemini (on the deployed site only) reads typed sentences into constraint values, a later landing and a site, which you confirm before anything changes; it may also reword the horizon and "why not" sentences on request, and that wording is kept only if every number in it came from the engine. It never computes a number: the finder, the metrics and the "why not" fixes are the engine's.</p>
             <h3>What the views invent, for legibility</h3>
             <ul>
-              <li>Moon view: the day/night line is drawn on a smooth sphere, so terrain shadows are not shown there; the night side is kept at a quarter of the day side's brightness; the relief's shading uses a fixed, illustrative light (the same for every layer), not the real Sun.</li>
+              <li>Moon view: the terrain's height is exaggerated (×1 to ×5, the Height slider) for the eye; lighting, shadows, contours and every number use the true height. The ground has one uniform brightness (no albedo map), seen through an exposure curve; ground the Sun does not reach is drawn dimly with a fixed, illustrative light so its shape stays visible (real lunar shadow is black); until the relief loads, the day/night line is drawn on a smooth sphere with the night side at a quarter brightness.</li>
               <li>Soil texture finer than about 1.5 m, and the rock texture on the distant ranges.</li>
               <li>The ground colour, the Sun's glare and Earth's surface pattern.</li>
               <li>Star colours, approximated from each star's B−V index.</li>

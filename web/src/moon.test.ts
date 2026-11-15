@@ -5,7 +5,8 @@ import pointsFile from '../public/data/points.json'
 import type { Constraints } from './engine/engine'
 import { R_MOON_KM, buildSeries, evaluate, latLonToXY, quatRotate, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
 import type { Vec3 } from './moon'
-import { flyPose, globeUV, icrfToThree, gridIndex, latLonToMe, meToLatLon, meToThree, meToXY, pickGrid, raySphere, siteHillshade, siteUV, threeToMe, verdict, xyToMe } from './moon'
+import type { ReliefGrid } from './moon'
+import { contourInterval, flyPose, globeUV, gridHeight, icrfToThree, gridIndex, latLonToMe, meToLatLon, meToThree, meToXY, packRG8, pickGrid, raySphere, rayRelief, reliefAt, siteHillshade, siteUV, threeToMe, verdict, xyToMe } from './moon'
 
 const points = pointsFile.points
 const region = points.filter((p) => p.region === 'change7-shackleton-rim')
@@ -155,5 +156,70 @@ describe('star field on the Moon view', () => {
       const got = [0, 3, 6].map((r) => m[r] * v[0] + m[r + 1] * v[1] + m[r + 2] * v[2])
       got.forEach((g, i) => expect(g).toBeCloseTo(want[i], 12))
     }
+  })
+})
+
+describe('relief grids (D67)', () => {
+  const R_M = R_MOON_KM * 1000
+  // a 4 x 4 stereographic grid over +-2 km around (cx, cy); value = 100 x row + col, so every pixel centre is known
+  const [cx, cy] = latLonToXY(centre.lat, centre.lon)
+  const stereo: ReliefGrid = { kind: 'stereo', values: Uint16Array.from({ length: 16 }, (_, k) => 100 * Math.floor(k / 4) + (k % 4)), n: 4, cx, cy, half: 2000, offset: -50, scale: 2 }
+  const pixel = (col: number, row: number) => xyToMe(cx - 2000 + (col + 0.5) * 1000, cy + 2000 - (row + 0.5) * 1000) // row 0 = +y, col 0 = -x
+
+  it('reads a stereographic grid at its pixel centres, interpolates between them, and is null outside', () => {
+    expect(gridHeight(stereo, pixel(1, 2))).toBeCloseTo(-50 + 2 * 201, 6)
+    expect(gridHeight(stereo, pixel(3, 0))).toBeCloseTo(-50 + 2 * 3, 6)
+    expect(gridHeight(stereo, xyToMe(cx - 500, cy))).toBeCloseTo(-50 + 2 * (150 + 1), 6) // half-way between rows 1, 2 at col 1
+    expect(gridHeight(stereo, xyToMe(cx + 2100, cy))).toBeNull()
+  })
+
+  it('reads the equirectangular globe: col 0 = 0°E, row 0 = 90°N, wrapping in longitude', () => {
+    const globe: ReliefGrid = { kind: 'globe', values: Uint16Array.from({ length: 8 * 4 }, (_, k) => k), w: 8, h: 4, offset: 0, scale: 1 }
+    // pixel centres at 22.5°E + 45° x col, 67.5°N - 45° x row
+    expect(gridHeight(globe, latLonToMe(22.5, 22.5 + 45 * 2))).toBeCloseTo(8 + 2, 9)
+    expect(gridHeight(globe, latLonToMe(-67.5, 22.5))).toBeCloseTo(24, 9)
+    expect(gridHeight(globe, latLonToMe(-67.5, 0))).toBeCloseTo((24 + 31) / 2, 9) // across the 0° seam
+  })
+
+  it('takes the finest grid that covers a point', () => {
+    const coarse: ReliefGrid = { ...stereo, values: new Uint16Array(16).fill(1000), half: 50_000, offset: 0, scale: 1 }
+    expect(reliefAt([coarse, stereo], pixel(1, 2))).toBeCloseTo(-50 + 2 * 201, 6)
+    expect(reliefAt([coarse, stereo], xyToMe(cx + 10_000, cy))).toBe(1000)
+    expect(reliefAt([coarse, null], xyToMe(cx + 60_000, cy))).toBeNull()
+  })
+
+  it('packs 16-bit heights into the two bytes the shader recombines', () => {
+    const v = Uint16Array.from([0, 255, 256, 40_000, 65_535])
+    const rg = packRG8(v)
+    v.forEach((x, k) => expect(rg[2 * k] * 256 + rg[2 * k + 1]).toBe(x))
+  })
+
+  it('picks on the raised terrain: the hit lies on the ground x exag, within a millimetre', () => {
+    const hill = (m: Vec3) => 3000 + 500 * Math.sin(m[0] * 3000) // a smooth landscape, metres
+    const target = threeToMe(meToThree(latLonToMe(centre.lat, centre.lon)))
+    const eye: Vec3 = meToThree([target[0] * 1.03 + 0.01, target[1] * 1.03, target[2] * 1.03])
+    const t = meToThree(target)
+    const d = [t[0] - eye[0], t[1] - eye[1], t[2] - eye[2]]
+    const len = Math.hypot(d[0], d[1], d[2])
+    const dir: Vec3 = [d[0] / len, d[1] / len, d[2] / len]
+    for (const exag of [1, 3]) {
+      const hit = rayRelief(eye, dir, hill, exag)!
+      const r = Math.hypot(...hit)
+      const m = threeToMe(hit.map((x) => x / r) as Vec3)
+      expect(Math.abs((r - 1) * R_M - exag * hill(m))).toBeLessThan(0.002)
+    }
+    // from an eye lower than the highest ground can be (a close view at x3): still found
+    const low: Vec3 = meToThree([target[0] * 1.008 + 0.002, target[1] * 1.008, target[2] * 1.008]) // 14 km up: over the hill, under 33 km
+    const dl = [t[0] - low[0], t[1] - low[1], t[2] - low[2]]
+    const ll = Math.hypot(dl[0], dl[1], dl[2])
+    const near = rayRelief(low, [dl[0] / ll, dl[1] / ll, dl[2] / ll], hill, 3)!
+    expect(near).not.toBeNull()
+    const rn = Math.hypot(...near)
+    expect(Math.abs((rn - 1) * R_M - 3 * hill(threeToMe(near.map((x) => x / rn) as Vec3)))).toBeLessThan(0.002)
+    expect(rayRelief(eye, dir)).toEqual(raySphere(eye, dir)) // without heights: the sphere, as before
+  })
+
+  it('spaces contours by level', () => {
+    expect([contourInterval('pole'), contourInterval('site'), contourInterval('patch')]).toEqual([1000, 100, 20])
   })
 })
