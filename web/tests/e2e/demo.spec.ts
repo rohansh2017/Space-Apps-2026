@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { expectedHud, shot } from './hud'
+import { expectedHud, shot, standOnTheGround } from './hud'
 
 // The spec's demo script up to the must-have steps, and the P2 gate (M2):
 // a slipped date returns ranked alternatives in under 3 s and opens in 3D with HUD values equal to engine values.
@@ -21,6 +21,7 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   await page.goto('/')
   await expect(view).toContainText('Plan: Shackleton rim')
   await expect(page.getByRole('status')).toHaveCount(0) // no synthetic-data banner
+  await standOnTheGround(page) // the page opens on the Moon view (moon.spec.ts); this path is the ground view's
   await expect(view.locator('.chip.fail')).toHaveCount(0)
   expect(await hud()).toEqual(expectedHud(await observer()))
   await settle()

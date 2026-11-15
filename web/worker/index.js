@@ -23,17 +23,22 @@ export default {
     const key = pathname.startsWith('/data/') ? pathname.slice('/data/'.length) : ''
     // the bucket also holds the raw DEMs under raw/, which are never served
     if (key && !key.startsWith('raw/') && (request.method === 'GET' || request.method === 'HEAD')) {
-      const object = await env.DATA.get(key).catch(() => null)
+      // a Range request gets just that part (the Moon view reads one 720-byte mask row per site, not nine whole regions)
+      const ranged = request.headers.has('range')
+      const object = await env.DATA.get(key, ranged ? { range: request.headers } : undefined).catch(() => null)
       if (object) {
-        return new Response(request.method === 'HEAD' ? null : object.body, {
-          headers: {
-            'content-type': TYPES[key.split('.').pop()] ?? 'application/octet-stream',
-            'content-length': String(object.size),
-            etag: object.httpEtag,
-            'cache-control': 'public, max-age=300',
-            'x-data-source': 'r2',
-          },
-        })
+        const part = ranged && object.range && typeof object.range.offset === 'number' ? object.range : null
+        const length = part ? (part.length ?? object.size - part.offset) : object.size
+        const headers = {
+          'content-type': TYPES[key.split('.').pop()] ?? 'application/octet-stream',
+          'content-length': String(length),
+          'accept-ranges': 'bytes',
+          etag: object.httpEtag,
+          'cache-control': 'public, max-age=300',
+          'x-data-source': 'r2',
+        }
+        if (part) headers['content-range'] = `bytes ${part.offset}-${part.offset + length - 1}/${object.size}`
+        return new Response(request.method === 'HEAD' ? null : object.body, { status: part ? 206 : 200, headers })
       }
     }
     const response = await env.ASSETS.fetch(request)

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { expectedHud, shot } from './hud'
+import { expectedHud, shot, standOnTheGround } from './hud'
 
 const hudOf = async (page: import('@playwright/test').Page) => ({
   sunEl: await page.getByTestId('hud-sun-el').textContent(),
@@ -107,6 +107,7 @@ test('lunar-day playback advances the scrubber and reports the frame rate', asyn
   console.log(`PERF Empty page in the same browser (frame cap): ${cap.toFixed(0)} fps`)
   await page.goto('/')
   await expect(page.getByTestId('view')).toContainText('Plan:')
+  await standOnTheGround(page) // the frame rate target is the ground view's (terrain, shadows, stars)
   await page.waitForTimeout(1500)
   await page.getByTestId('play').click()
   const fps = await page.evaluate(() => new Promise<number>((resolve) => {

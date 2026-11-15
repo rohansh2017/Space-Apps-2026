@@ -453,3 +453,52 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
   border-radius: var(--radius); padding: 0.45rem 0.7rem; color: var(--text); font-size: 0.84rem; }
 .results-chip .count { font-size: 0.72rem; padding: 0 0.45rem; border-radius: 999px; background: var(--raised); color: var(--dim); }
 .results-chip:hover:not(:disabled) { border-color: var(--mute); background: var(--raised); }
+
+/* --- Moon view: the orbitable south polar region. It takes the part of the stage the rail and the Plan panel leave free. */
+.moon { position: absolute; inset: 0 0 0 356px; overflow: hidden; touch-action: none; }
+.app.side-closed .moon { left: 56px; }
+.app.cinematic .moon { left: 0; }
+.moon .scene { cursor: grab; }
+.moon.dragging, .moon.dragging .scene { cursor: grabbing; }
+.moon-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.rail-button[aria-pressed='true'] { color: var(--text); background: rgb(224 216 200 / 8%); }
+/* pass = solid, fail = hollow: the shape says it as well as the colour */
+:is(.moon, .moon-foot) :is(i.pass, i.fail, i.pending) { display: inline-block; width: 0.62rem; height: 0.62rem; border-radius: 50%; border: 2px solid var(--ok); vertical-align: -1px; flex: none; }
+:is(.moon, .moon-foot) i.pass { background: var(--ok); }
+:is(.moon, .moon-foot) i.fail { border-color: var(--bad); }
+:is(.moon, .moon-foot) i.pending { border: 1px dashed var(--mute); }
+/* pins: the label is the button; a leader on the canvas joins it to the site's true position */
+.moon-pin { position: absolute; left: 0; top: 0; translate: 0 -50%; gap: 0.35rem; padding: 0.1rem 0.5rem 0.1rem 0.4rem; border-radius: 999px; font-size: 0.74rem;
+  background: rgb(5 6 8 / 80%); border-color: var(--line-strong); color: var(--text); }
+.moon-pin.selected { border-color: var(--text); font-weight: 650; }
+.moon-pin:hover, .moon-pin:focus-visible { z-index: 2; }
+.moon-tip { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 3; gap: 0.15rem; width: max-content; max-width: 19rem; padding: 0.45rem 0.6rem; text-align: left; white-space: normal;
+  background: #232326; color: var(--text); border: 1px solid var(--line-strong); border-radius: 6px; font-size: 0.76rem; font-weight: 400; box-shadow: 0 6px 20px rgb(0 0 0 / 50%); pointer-events: none; }
+.moon-pin:hover .moon-tip, .moon-pin:focus-visible .moon-tip, .moon-tip.dot { display: grid; }
+.moon-tip.dot { translate: 14px 12px; top: 0; }
+.moon-tip.dot.up { translate: 14px calc(-100% - 12px); } /* in the lower half it opens upward, clear of the bar */
+.moon-tip .dim { color: var(--dim); }
+.moon-marker { position: absolute; left: 0; top: 0; width: 30px; height: 30px; margin: -15px 0 0 -15px; padding: 0; border-radius: 50%; justify-content: center; cursor: grab;
+  background: rgb(5 6 8 / 35%); border: 2px solid var(--text); box-shadow: 0 0 0 1.5px rgb(5 6 8 / 80%), inset 0 0 0 1.5px rgb(5 6 8 / 80%); touch-action: none; }
+.moon .moon-marker:hover { background: rgb(5 6 8 / 35%); border-color: #fff; }
+.moon-marker i { width: 6px; height: 6px; border-radius: 50%; background: var(--text); }
+.moon-marker.fixed { cursor: default; border-style: dashed; }
+.moon.dragging .moon-marker { cursor: grabbing; }
+.moon-bearing { position: absolute; left: 0; top: 0; translate: 8px -50%; font-size: 0.74rem; font-weight: 650; white-space: nowrap; pointer-events: none;
+  text-shadow: 0 0 3px #050608, 0 0 3px #050608, 0 0 6px #050608; }
+.earthlit { color: var(--earth); }
+/* the view's bar and notes live in the overlay layer, so no card can cover them */
+.over > .moon-foot { position: absolute; left: 50%; bottom: 20px; translate: -50% 0; width: max-content; max-width: calc(100% - 2 * var(--gap)); display: grid; gap: 6px; justify-items: center; pointer-events: none; }
+.has-results .over > .moon-foot { left: calc(50% - 186px); max-width: calc(100% - 372px - 2 * var(--gap)); }
+.moon-notes { display: grid; gap: 0.3rem; justify-items: center; }
+.moon-notes .tag { text-align: center; text-wrap: pretty; border-radius: 12px; }
+.moon-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.5rem 0.7rem; padding: 0.4rem 0.5rem; pointer-events: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.moon-bar .modes { margin-left: 0; }
+.moon-bar .primary { padding: 0.36rem 0.8rem; }
+.moon-legend { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.2rem 0.35rem; }
+.moon-foot { view-transition-name: moon-foot; }
+.tray-letter { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; margin-right: 0.35rem; border-radius: 4px; background: var(--text); color: #141416; font-size: 0.68rem; font-weight: 700; vertical-align: 1px; }
+@media (max-width: 860px) {
+  .moon, .app.side-closed .moon { left: 0; }
+}

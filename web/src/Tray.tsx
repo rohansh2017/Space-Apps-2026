@@ -1,4 +1,4 @@
-import { Eye, Pin, PinOff, Target } from 'lucide-react'
+import { Eye, Globe, Pin, PinOff, Target } from 'lucide-react'
 import { useContext } from 'react'
 import Chips from './Chips'
 import type { Angles, Constraints, Evaluation, Metrics } from './engine/engine'
@@ -11,7 +11,8 @@ export interface TrayColumn {
   title: string // "Plan" or "5.0 km S · +16 days"
   detail: string // site
   when: string // landing time, kept on one line
-  viewing: boolean // this scenario is the one in the 3D view
+  viewing: boolean // this scenario is the one on the stage (the 3D view or the Moon view)
+  letter?: string // pinned columns: the letter that marks this scenario on the Moon view
   day: { mask: Uint16Array | null; track: Angles[]; metrics: Metrics | null; evaluation: Evaluation | null } | null // null while its terrain loads
 }
 
@@ -22,7 +23,9 @@ interface Props {
   constraints: Constraints
   previous: Metrics | null // F14 nudge deltas on the plan's column; pinned columns show theirs against the plan
   pending: { title: string } | null // a pin waiting for a free column
+  stage: 'moon' | 'ground' // which view the stage shows
   onView: (key: string | null) => void // null = the plan
+  onMoon: (key: string | null) => void // show this scenario's point on the Moon view
   onUnpin: (key: string) => void
   onAdopt: (key: string) => void // make this pin the plan; the old plan takes its column
   onReplace: (key: string) => void
@@ -38,7 +41,7 @@ export const TRAY_MAX = 3 // pinned scenarios beside the plan
 type Key = 'sunlitPct' | 'longestLitH' | 'longestDarkH' | 'earthPct' | 'powerIndex' | 'meanElLit'
 const BETTER: Record<Key, 1 | -1> = { sunlitPct: 1, longestLitH: 1, longestDarkH: -1, earthPct: 1, powerIndex: 1, meanElLit: 1 }
 
-export default function Tray({ plan, pinned, t, constraints, previous, pending, onView, onUnpin, onAdopt, onReplace, onCancelPending, onPinView, canPinView }: Props) {
+export default function Tray({ plan, pinned, t, constraints, previous, pending, stage, onView, onMoon, onUnpin, onAdopt, onReplace, onCancelPending, onPinView, canPinView }: Props) {
   const explorer = useContext(Guide).mode === 'explorer'
   const scored = [plan, ...pinned].filter((c) => c.day?.metrics)
   const bestOf = (c: TrayColumn): Set<string> => {
@@ -58,7 +61,7 @@ export default function Tray({ plan, pinned, t, constraints, previous, pending, 
       aria-current={c.viewing ? 'true' : undefined} data-testid={isPlan ? 'tray-plan' : 'tray-pin'}>
       <header>
         <div className="tray-col-title">
-          <strong>{c.title}</strong>
+          <strong>{c.letter && <span className="tray-letter" title="Its letter on the Moon view">{c.letter}</span>}{c.title}</strong>
           {!isPlan && (
             <button type="button" className="icon-button" onClick={() => onUnpin(c.key)} aria-label={`Unpin ${c.title}`} title="Unpin">
               <PinOff size={14} aria-hidden="true" />
@@ -80,12 +83,17 @@ export default function Tray({ plan, pinned, t, constraints, previous, pending, 
           label={`Skyline for ${c.title}: Sun track in gold, Earth in blue`} />}
       </div>
       <footer>
-        {!c.viewing && (
+        {!(c.viewing && stage === 'ground') && (
           <button type="button" className="quiet" onClick={() => onView(isPlan ? null : c.key)} aria-label={`View ${isPlan ? 'the plan' : c.title} in 3D`}>
             <Eye size={14} aria-hidden="true" /> View in 3D
           </button>
         )}
-        {c.viewing && <span className="note">In the 3D view</span>}
+        {!(c.viewing && stage === 'moon') && c.day && (
+          <button type="button" className="quiet" onClick={() => onMoon(isPlan ? null : c.key)} aria-label={`Show ${isPlan ? 'the plan' : c.title} on the Moon`}>
+            <Globe size={14} aria-hidden="true" /> Show on the Moon
+          </button>
+        )}
+        {c.viewing && <span className="note">{stage === 'moon' ? 'On the Moon view' : 'In the 3D view'}</span>}
         {!isPlan && c.day && (
           <button type="button" className="quiet" onClick={() => onAdopt(c.key)} aria-label={`Make ${c.title} the plan`}>
             <Target size={14} aria-hidden="true" /> Make this the plan

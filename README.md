@@ -31,6 +31,12 @@ The full pipeline, from raw data to a tested app, is `make setup && make data-do
 
 ### What to try
 
+The page opens on the *Moon*: the south polar region, which you orbit by dragging and zoom with the wheel. Each curated
+site is a pin, solid when it meets every constraint for the planned landing date and hollow when it fails (hover for
+its numbers). Click a pin to fly down to that site's 10 km search grid: the dots are coloured by sunlit %, Earth %
+or verdict; drag the landing marker, click a dot or use the arrow keys, and press *Stand here* (or Enter) to stand
+on that point in 3D. *Moon* on the left rail and *Show on the Moon* in the tray bring it back.
+
 The 3D view fills the window. Press *Full screen* for a projector: it goes cinematic, folding the panels away
 and fading the header and rail while the pointer rests (move the mouse or press a key to bring them back;
 leaving full screen restores your layout). The countdown panel and the plan card collapse with their chevron;
@@ -102,6 +108,10 @@ Not a mission design tool (no trajectories, fuel or launch windows), not a landi
 (slope screening is an aid), not a power or thermal simulation (the power index is a relative number),
 not a communications link budget (geometric Earth visibility only), and not global: terrain covers
 80–90°S. Apollo 11, 15 and 17 are not in the app; they are used only by `make validate` to check Sun and Earth angles against JPL Horizons.
+
+The Moon view's positions, LOLA hillshade, Sun direction and every colour and number on it come from data and the
+engine; its day/night line is drawn on a smooth sphere without terrain shadows, with the night side brightened, and is
+labelled as such.
 
 What the 3D view takes from data and what it invents: terrain relief is LOLA data, at 5 m for eight of
 the nine sites (PGDA site DEMs) and 20 m for IM-2 Mons Mouton; stars are the 9,096 stars of the Yale
