@@ -255,3 +255,7 @@ Team feedback: the 5 m ground looked smooth and unrealistic. Cause: the 5 m DEM 
 ## 2026-11-15 — Docs audit; push rule
 
 Audit of every doc against the repo. Fixed: CLAUDE.md commands (e2e-room, e2e-live; check includes the room test) and doc map; web/CLAUDE.md (Gemini routes, `/api/*`, star field, ridge lighting); DATA.md derived files (ridges, nine sites); perf.sh per-region size now counts ridges, PERF.md regenerated; PLAN P6 lists the ring lighting and the Apollo removal. New standing rules in CLAUDE.md: push every commit to `build/tranquility-base` after `make check` (team decision), and update affected docs in the same commit.
+
+## 2026-11-15 — Callout borders
+
+The snap-note and Gemini-proposal callouts lose their yellow left bar (a design-review finding) for a 1 px full border, so the accent colour is freed for sunlight. Screenshot 14 viewed. Replacing Inter waits for the redesign decision (the face must be bundled: no runtime font requests).

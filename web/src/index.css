@@ -41,7 +41,7 @@ button.secondary { padding: 0.65rem; border-radius: var(--radius); color: var(--
 .custom input { min-width: 0; width: 100%; }
 .note { font-size: 0.78rem; color: var(--dim); margin: 0; }
 .note + .note { margin-top: 0.4rem; }
-.snap { color: var(--text); background: var(--raised); border-left: 3px solid var(--accent); padding: 0.4rem 0.55rem; border-radius: 4px; margin-bottom: 0.5rem; }
+.snap { color: var(--text); background: var(--raised); border: 1px solid var(--line-strong); padding: 0.4rem 0.55rem; border-radius: 7px; margin-bottom: 0.5rem; }
 .banner { background: #7a4b00; color: #fff; padding: 0.5rem 0.75rem; border-radius: 6px; }
 .stage { display: grid; gap: 0.75rem; }
 .status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; font-size: 0.92rem; }
@@ -125,7 +125,7 @@ footer { margin-top: 2rem; font-size: 0.78rem; color: var(--mute); max-width: 70
 .sentence { display: grid; gap: 0.4rem; margin-top: 0.8rem; padding-top: 0.7rem; border-top: 1px solid var(--line); }
 .sentence label { display: grid; gap: 0.25rem; font-size: 0.8rem; color: var(--dim); }
 .sentence textarea { font: inherit; font-size: 0.85rem; color: var(--text); background: var(--raised); border: 1px solid var(--line-strong); border-radius: 7px; padding: 0.4rem 0.5rem; resize: vertical; width: 100%; }
-.suggestion { display: grid; gap: 0.4rem; background: var(--raised); border-left: 3px solid var(--accent); border-radius: 4px; padding: 0.5rem 0.6rem; font-size: 0.85rem; }
+.suggestion { display: grid; gap: 0.4rem; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 7px; padding: 0.5rem 0.6rem; font-size: 0.85rem; }
 .suggestion ul { margin: 0; padding-left: 1.1rem; }
 .suggestion .primary { padding: 0.35rem 0.8rem; border-radius: 7px; font-size: 0.8rem; }
 .legend-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-top: 0.3rem; }
