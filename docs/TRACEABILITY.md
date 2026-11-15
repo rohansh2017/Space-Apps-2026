@@ -28,7 +28,7 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 | F22 | Gemini horizon description with template fallback | C | 7 | web/worker/describe.js, web/src/describe.ts, HorizonText.tsx | describe.test.ts, e2e p4.spec.ts (mocked: kept / rejected), gemini.spec.ts (live) | done |
 | F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js, web/scripts/upload-data.sh | make e2e-live (15 browser tests on the live URL; `x-data-source: r2`) | done |
 | F24 | Mission room (Durable Object, WebSockets) | S | Prize | web/worker/room.js (MissionRoom), worker/index.js /room/{id}, web/src/room.ts, App.tsx | e2e room.spec.ts (make e2e-room, make e2e-live) | done |
-| F25 | Moon view: every site at a glance, fly down to a site's grid, drag the landing point | S | 1, 5 | web/src/MoonView.tsx, moon.ts, App.tsx (stageView, gridStats, loadSitePoint), Tray.tsx, worker/index.js (Range) | moon.test.ts, e2e moon.spec.ts | done (D54) |
+| F25 | Moon view: every site at a glance, fly down to a site's grid, drag the landing point | S | 1, 5 | web/src/MoonView.tsx, moon.ts, App.tsx (stageView, gridStats, loadSitePoint), Tray.tsx, worker/index.js (Range) | moon.test.ts, e2e moon.spec.ts | done (D58) |
 | SM1 | Every M item works end to end in the deployed build | M | - | live URL | make e2e-live (demo path F1–F9 on the deployed build) | done |
 | SM2 | Engine within 0.1° of Horizons (az and el) at the validation sites | M | - | build/horizonwalk/engine.py, ephem.py | make validate | done (6 sites, 720 h, max error 0.0007°) |
 | SM3 | Finder under 3 s for 5,000 candidates × 60-day slip | M | - | web/src/engine/finder.ts | make perf (finder.perf.test.ts) | done (966 ms) |

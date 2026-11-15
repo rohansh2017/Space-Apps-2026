@@ -26,7 +26,7 @@ import Results from './Results'
 import type { Room, RoomState } from './room'
 import { connectRoom, newRoomId, roomIdFromUrl, roomLink, stateKey, validConstraints } from './room'
 import Scene3D from './Scene3D'
-import { decodeShare, encodeShare } from './share'
+import { decodeShare, encodeShare, pickLocations, withStoredLocations } from './share'
 import SiteMap from './SiteMap'
 import Tour from './Tour'
 import type { TrayColumn } from './Tray'
@@ -38,8 +38,13 @@ const PLAYBACK_S = 20 // one lunar day of playback
 const SNAP_LIMIT_M = 500 // a custom coordinate farther than this from every grid point is outside the regions
 const HOUR_MS = 3_600_000
 const START_HOUR = 7728 // 2026-11-19 00:00 UTC
-const TRAY_LETTERS = 'ABC' // pinned scenarios, as the tray and the Moon view mark them
+const TRAY_LETTERS = 'ABCD' // pinned scenarios, as the tray and the Moon view mark them
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16)
+
+// locations survive a refresh or a bare URL (storage can be blocked: private windows, previews)
+const LOCATIONS_KEY = 'tranquility-base:locations'
+const readLocations = () => { try { return window.localStorage.getItem(LOCATIONS_KEY) } catch { return null } }
+const writeLocations = (v: string) => { try { window.localStorage.setItem(LOCATIONS_KEY, v) } catch { /* not stored; the URL still has it */ } }
 
 /**
  * Panel opens and closes morph instead of jumping (View Transitions, ~200 ms); instant where unsupported or with reduced
@@ -74,21 +79,24 @@ export default function App() {
   const [regions, setRegions] = useState<Record<string, Region>>({})
   const [found, setFound] = useState<{ finder: FinderResult; candidates: Candidate[]; constraints: Constraints } | null>(null)
   const [viewing, setViewing] = useState<ScenarioRef | null>(null) // the scenario in the 3D view; null = the plan
+  const [pins, setPins] = useState<ScenarioRef[]>([]) // the compare tray's pinned scenarios
+  const [planInTray, setPlanInTray] = useState(false) // the live plan is a tray column only when the user adds it
+  const [baseline, setBaseline] = useState<string | null>(null) // the column the others are compared to; null = the first
   const [stageView, setStageView] = useState<'moon' | 'ground'>('moon') // the stage: the orbitable Moon, or the first-person ground view
   const [sitePoints, setSitePoints] = useState<Record<string, SitePoint>>({}) // each site's own mask row and slope, for the Moon view's pins
   const asked = useRef(new Set<string>())
   const [overlays, setOverlays] = useState<HTMLDivElement | null>(null) // the Moon view draws its bar here, above the cards
   const [moonZoom, setMoonZoom] = useState(false) // Moon view: down on a site's search grid (false = the whole polar region)
-  const [pins, setPins] = useState<ScenarioRef[]>([]) // the compare tray, beside the plan
   const [pendingPin, setPendingPin] = useState<ScenarioRef | null>(null) // waiting for a free column
   const [matrix, setMatrix] = useState(false)
   const [drawer, setDrawer] = useState<'map' | 'matrix' | 'room' | null>(null)
   const [sideOpen, setSideOpen] = useState(true)
   const [fullscreen, setFullscreen] = useState(false)
   // collapsible panels; full screen collapses them for a cinematic view and restores them on exit
-  const [hudOpen, setHudOpen] = useState(true)
-  const [statusOpen, setStatusOpen] = useState(true)
-  const [bandOpen, setBandOpen] = useState(true)
+  // a quiet first view: the Plan panel is open; the card, the HUD and the band start folded to one line each
+  const [hudOpen, setHudOpen] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
+  const [bandOpen, setBandOpen] = useState(false)
   const [resultsMin, setResultsMin] = useState(false) // the alternatives folded into their corner
   const [resultsFresh, setResultsFresh] = useState(false) // a search just finished: the list plays its entrance
   const resultsChip = useRef<HTMLButtonElement | null>(null)
@@ -123,17 +131,20 @@ export default function App() {
     loadDataset().then((d) => {
       setData(d)
       // F17: a shared link restores site, point, landing time, changed constraints and mode
-      const s = decodeShare(new URLSearchParams(window.location.search))
+      const s = decodeShare(withStoredLocations(new URLSearchParams(window.location.search), readLocations()))
       const site = d.sites.find((x) => x.id === s.site) ?? d.sites[0]
       setSiteId(site.id)
       if (s.point !== undefined && s.point !== d.centreIndex && d.points.some((p) => p.region === site.id && p.index === s.point)) setPointIndex(s.point)
-      if (s.point !== undefined) setStageView('ground') // a link to an exact point opens standing on it
+      // a link to an exact point opens standing on it; a point only remembered by this browser keeps the Moon view
+      if (new URLSearchParams(window.location.search).has('point')) setStageView('ground')
       const h = s.utc ? Math.round((Date.parse(s.utc) - d.startMs) / HOUR_MS) : NaN
       if (h >= 0 && h < d.hours) setPlanHour(h)
       setConstraints(validConstraints(d.constraintDefs, { ...defaults(d.constraintDefs), ...s.constraints }))
       if (s.mode) setMode(s.mode)
       const known = new Set(d.points.map((p) => p.id))
-      setPins(s.pins.filter((p) => known.has(p.point) && p.hour >= 0 && p.hour < d.hours).slice(0, TRAY_MAX))
+      setPins(s.pins.filter((p) => known.has(p.point) && p.hour >= 0 && p.hour < d.hours).slice(0, TRAY_MAX - (s.planInTray ? 1 : 0)))
+      setPlanInTray(s.planInTray)
+      if (s.ref) setBaseline(s.ref)
     }, (e) => setError(String(e)))
     return () => worker.current?.terminate()
   }, [])
@@ -359,7 +370,7 @@ export default function App() {
   }, [terrain])
 
   // --- Moon view: every curated site as a pin, the grid of the site on show, and where the tray pins and results are
-  // a pin needs its site's own horizon mask and slope only: one 720-byte row per site, not the whole region (D54)
+  // a pin needs its site's own horizon mask and slope only: one 720-byte row per site, not the whole region (D58)
   useEffect(() => {
     if (!data || stageView !== 'moon') return
     for (const s of terrain) {
@@ -483,10 +494,11 @@ export default function App() {
   useEffect(() => {
     if (!data || !siteId) return
     const params = encodeShare(new URLSearchParams(window.location.search), {
-      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode, pins,
+      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode, pins, planInTray, ref: baseline,
     })
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
-  }, [data, siteId, pointIndex, planHour, constraints, mode, pins])
+    writeLocations(pickLocations(params))
+  }, [data, siteId, pointIndex, planHour, constraints, mode, pins, planInTray, baseline])
   const [copied, setCopied] = useState(false)
   const copyLink = () => {
     navigator.clipboard?.writeText(window.location.href).catch(() => undefined)
@@ -550,12 +562,12 @@ export default function App() {
   const togglePin = useCallback((ref: ScenarioRef) => {
     const key = refKey(ref)
     if (pins.some((p) => refKey(p) === key)) setPins(pins.filter((p) => refKey(p) !== key))
-    else if (pins.length < TRAY_MAX) setPins([...pins, ref])
+    else if (pins.length + (planInTray ? 1 : 0) < TRAY_MAX) setPins([...pins, ref])
     else {
       setPendingPin(ref)
       setBandOpen(true) // the replace prompt lives in the tray
     }
-  }, [pins])
+  }, [pins, planInTray])
   const viewScenario = (ref: ScenarioRef | null) => {
     setViewing(ref)
     setOffset(0)
@@ -676,6 +688,7 @@ export default function App() {
     setPlanHour(ref.hour)
     setSnapNote('')
     setPins(pins.map((p) => (refKey(p) === key ? old : p)))
+    if (baseline === key) setBaseline(planInTray ? 'plan' : null) // the baseline follows its scenario, now the live plan
     setAnnounce('The pinned scenario is now the plan; the previous plan is pinned in its place.')
     focusView.current = true
   }
@@ -740,7 +753,7 @@ export default function App() {
     viewing: Boolean(viewing && refKey(viewing) === refKey(ref)),
     day: d,
   }))
-  const viewRef: ScenarioRef | null = viewing ?? (plan ? { point: plan.id, hour: planHour } : null)
+  const trayCount = pins.length + (planInTray ? 1 : 0)
   const focusSite = data.sites.find((s) => s.id === focusId) ?? site
   const onGrid = moonZoom && focusSite.terrain && view && observer && pointById.has(observer.id) ? view : null // bearings start at the landing point
   const levelGround = Boolean(day && site.heightmap && Math.max(Math.abs(day.east), Math.abs(day.north)) >= site.heightmap.span_m / 2 - 20)
@@ -938,7 +951,7 @@ export default function App() {
                 pinned={pinnedKeys} onPin={(i) => { const r = resultRef(i); if (r) togglePin(r) }}
                 onOpen={(i) => {
                   const r = i === null ? null : resultRef(i)
-                  if (r && !pinnedKeys.has(refKey(r)) && pins.length < TRAY_MAX) setPins([...pins, r]) // opening also pins it, room permitting
+                  if (r && !pinnedKeys.has(refKey(r)) && pins.length + (planInTray ? 1 : 0) < TRAY_MAX) setPins([...pins, r]) // opening also pins it, room permitting
                   if (r) showScenario(r)
                   else viewScenario(null) // back to the plan, in whichever view is on the stage
                 }} />}
@@ -947,7 +960,7 @@ export default function App() {
         </div>
 
         {view && day && (
-          <section className={`band${pins.length && bandOpen ? ' comparing' : ''}${bandOpen ? '' : ' collapsed'}`} aria-label="Timeline and comparison" ref={band}
+          <section className={`band${(pins.length || planInTray) && bandOpen ? ' comparing' : ''}${bandOpen ? '' : ' collapsed'}`} aria-label="Timeline and comparison" ref={band}
             style={bandOpen && bandHeight !== null ? { height: bandHeight, maxHeight: 'none' } : undefined}>
             {bandOpen && (
               <div className="band-grip" role="separator" aria-orientation="horizontal" aria-label="Resize the timeline and comparison panel"
@@ -966,7 +979,6 @@ export default function App() {
                     onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
                 </label>
               </div>
-              {/* with pins, the tray needs the band: the plan's own skyline is in its column, the rest folds away */}
               {bandOpen && (() => {
                 const detail = (
                   <>
@@ -978,27 +990,40 @@ export default function App() {
                   ))}
                   <button type="button" disabled={planHour < 24} onClick={() => nudge('earlier')}>1 day earlier</button>
                   <button type="button" disabled={planHour + 24 >= data.hours} onClick={() => nudge('later')}>1 day later</button>
-                  {nudgeFrom && <span className="note" data-testid="nudge-note">The plan's tiles show the change since the last nudge.</span>}
+                  {nudgeFrom && planInTray && <span className="note" data-testid="nudge-note">The plan's tiles show the change since the last nudge.</span>}
                 </div>
               )}
               <Panorama mask={day.mask} track={day.track} t={view.t} width={1080} height={210} />
               <HorizonText facts={horizonFacts(day.mask, day.series, day.track, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
                   </>
                 )
-                return pins.length ? <details className="band-more"><summary>Nudge, skyline and horizon description</summary>{detail}</details> : detail
+                return detail
               })()}
             </div>
-            {bandOpen && <Tray plan={trayPlan} pinned={trayPins} t={view.t} constraints={constraints} previous={nudgeFrom}
+            {bandOpen && <Tray plan={planInTray ? trayPlan : null} pinned={trayPins} baseline={baseline} t={view.t} constraints={constraints} previous={nudgeFrom}
               pending={pendingPin ? { title: (() => { const c = candidateOf(pendingPin.point); return c ? differenceOf(c, pendingPin.hour, null) : 'this scenario' })() } : null}
               stage={stageView}
               onView={(key) => showScenario(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
               onMoon={(key) => showOnMoon(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
               onAdopt={adoptPin}
-              onUnpin={(key) => { setPins(pins.filter((p) => refKey(p) !== key)); if (viewing && refKey(viewing) === key) viewScenario(null) }}
-              onReplace={(key) => { if (pendingPin) setPins(pins.map((p) => (refKey(p) === key ? pendingPin : p))); setPendingPin(null) }}
+              onSetBaseline={(key) => { setBaseline(key); setAnnounce('Baseline changed: the other columns are now compared to it.') }}
+              onRemovePlan={() => { setPlanInTray(false); if (baseline === 'plan') setBaseline(null) }}
+              onUnpin={(key) => {
+                setPins(pins.filter((p) => refKey(p) !== key))
+                if (baseline === key) setBaseline(null)
+                if (viewing && refKey(viewing) === key) viewScenario(null)
+              }}
+              onReplace={(key) => {
+                if (pendingPin) setPins(pins.map((p) => (refKey(p) === key ? pendingPin : p)))
+                if (baseline === key) setBaseline(null)
+                setPendingPin(null)
+              }}
               onCancelPending={() => setPendingPin(null)}
-              onPinView={() => { if (viewRef) togglePin(viewRef) }}
-              canPinView={Boolean(viewRef && !pinnedKeys.has(refKey(viewRef)))} />}
+              onPinView={() => {
+                if (!viewing) { if (trayCount < TRAY_MAX) setPlanInTray(true) } // the plan in view: its live column
+                else togglePin(viewing)
+              }}
+              canPinView={!viewing ? !planInTray && trayCount < TRAY_MAX : !pinnedKeys.has(refKey(viewing))} />}
           </section>
         )}
         {view && day && (

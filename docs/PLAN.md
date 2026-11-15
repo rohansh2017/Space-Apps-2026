@@ -98,7 +98,7 @@ Goal: rapid, intuitive comparison of several scenarios, in full screen. Run thro
 
 - [x] PRODUCT.md (init); harden (D46); clarify (D47); delight (D48)
 - [x] Shape + layout: full-screen layout, compare tray of plan + 3 pins in the share link, drawers, one-line footer with *About the data*, polar-light palette (D49)
-- [x] Moon view: orbitable polar region with site pins, fly-down to the search grid, draggable landing point (D54)
+- [x] Moon view: orbitable polar region with site pins, fly-down to the search grid, draggable landing point (D58)
 - [ ] Adapt (phones)
 - [x] Polish from the test screenshots (2026-11-15)
 - [x] Critique against the comparison objective (25/40); its three P1s fixed: tray fits a 720p full screen, tray reads as a table, *Make this the plan* (D50)

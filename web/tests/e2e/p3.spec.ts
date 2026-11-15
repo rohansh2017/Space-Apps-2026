@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { expectedHud, shot, standOnTheGround } from './hud'
+import { expandPanels, expectedHud, shot, standOnTheGround } from './hud'
 
 const hudOf = async (page: import('@playwright/test').Page) => ({
   sunEl: await page.getByTestId('hud-sun-el').textContent(),
@@ -12,6 +12,7 @@ const observer = (page: import('@playwright/test').Page) =>
 test('custom coordinates and map clicks snap to the grid and show the snap distance', async ({ page }) => {
   test.slow() // 15 s alone; under the full parallel suite it can pass 30 s
   await page.goto('/')
+  await expandPanels(page)
   const view = page.getByTestId('view')
   await expect(view).toContainText('Plan: Shackleton rim')
 
@@ -56,6 +57,7 @@ test('custom coordinates and map clicks snap to the grid and show the snap dista
 
 test('Explorer mode adds plain-English labels and glossary tooltips', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('summary')).toContainText('Sunlit')
   await expect(page.getByTestId('summary')).toContainText('Mean elevation while lit') // Planner only
   await page.getByRole('button', { name: 'Explorer' }).click()
@@ -71,6 +73,7 @@ test('Explorer mode adds plain-English labels and glossary tooltips', async ({ p
 
 test('scenario matrix: sites by landing dates, click-through to 3D', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await page.getByRole('button', { name: 'Scenario matrix' }).click()
   const matrix = page.getByTestId('matrix')
   await expect(matrix.locator('tbody tr')).toHaveCount(9)
@@ -106,6 +109,7 @@ test('lunar-day playback advances the scrubber and reports the frame rate', asyn
   }))
   console.log(`PERF Empty page in the same browser (frame cap): ${cap.toFixed(0)} fps`)
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan:')
   await standOnTheGround(page) // the frame rate target is the ground view's (terrain, shadows, stars)
   await page.waitForTimeout(1500)

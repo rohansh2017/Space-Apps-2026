@@ -13,7 +13,7 @@ RAW_URLS := $(PGDA)/LDEM_80S_20MPP_ADJ.TIF $(PGDA)/LDEM_80S_80MPP_ADJ.TIF \
   $(NAIF)/fk/satellites/a_old_versions/moon_de440_220930.tf \
   $(ILLUM)/AVGVISIB_85S_060M_201608.TIF $(ILLUM)/AVGVISIB_75S_120M_201608.TIF $(PGDA)/LDSM_80S_20MPP_ADJ.TIF
 
-.PHONY: setup data-download data data-fixtures test parity validate e2e e2e-live e2e-room perf check dev build deploy
+.PHONY: setup data-download data data-fixtures test parity validate e2e e2e-live e2e-room perf check check-changed dev build deploy
 
 setup:
 	cd build && uv sync
@@ -69,10 +69,15 @@ test:
 validate:
 	cd build && { uv run python scripts/validate_horizons.py && uv run python scripts/validate_illumination.py && uv run python scripts/validate_slopes.py; } > ../docs/VALIDATION.md; s=$$?; cat ../docs/VALIDATION.md; exit $$s
 
+# Everything: the gate before merging to main and before a deploy.
 check:
 	cd build && uv run ruff check . && uv run ruff format --check .
 	cd web && npm run lint && npx tsc -b
 	$(MAKE) test parity e2e e2e-room
+
+# Only the checks the files changed since main can affect (PLAN=1 to just print them). Before every push.
+check-changed:
+	sh web/scripts/check-changed.sh
 
 dev:
 	cd web && npm run dev

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { expectedHud, expectedPole, shot } from './hud'
+import { expandPanels, expectedHud, expectedPole, shot } from './hud'
 
 const observer = (page: Page) => page.getByTestId('view').evaluate((el: HTMLElement) => ({ ...el.dataset }) as Record<string, string>)
 const centreOf = async (page: Page, testId: string) => {
@@ -28,6 +28,7 @@ test('Moon view: pins with engine verdicts, fly-down, drag the landing point, st
   const moon = page.getByTestId('moon-view')
   const view = page.getByTestId('view')
   await expect(moon).toBeVisible()
+  await expandPanels(page) // the first view is quiet (D54, team): open the card, the HUD and the tray, with the plan in it
   await expect(moon).toHaveAttribute('data-level', 'pole')
   await expect(view).toContainText('Plan: Shackleton rim') // the status card and HUD stay
   await expect(page.locator('.stage canvas[data-engine]')).toHaveCount(1) // one WebGL context
@@ -161,6 +162,7 @@ test('Moon view: reduced motion jumps instead of flying; a link to an exact poin
 
 test('Moon view: finder results and tray pins are marked, and a pinned scenario can be shown on the Moon', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
   await expect(page.getByTestId('moon-pin-change7-shackleton-rim')).toHaveAttribute('data-verdict', 'fail') // the slipped date fails here too
   await page.getByRole('button', { name: 'Find alternatives' }).click()

@@ -37,17 +37,21 @@ its numbers). Click a pin to fly down to that site's 10 km search grid: the dots
 or verdict; drag the landing marker, click a dot or use the arrow keys, and press *Stand here* (or Enter) to stand
 on that point in 3D. *Moon* on the left rail and *Show on the Moon* in the tray bring it back.
 
-The 3D view fills the window. Press *Full screen* for a projector: it goes cinematic, folding the panels away
+The ground view fills the window too. The page opens quietly: the Plan panel is open, and the plan card, the countdown
+panel and the bottom panel are folded to one line each (unfold them with their arrows). Your plan's site, point
+and date and your pinned scenarios are kept in this browser, so a refresh or the bare address brings them back;
+a shared link with its own site wins. Press *Full screen* for a projector: it goes cinematic, folding the panels away
 and fading the header and rail while the pointer rests (move the mouse or press a key to bring them back;
 leaving full screen restores your layout). The countdown panel and the plan card collapse with their chevron;
 the bottom panel drops and rises with the tab on its top edge, and resizes by dragging that edge (arrow keys work too;
 double-click resets it). Choose a site and date (UTC) in
 the Plan panel on the left, drag the lunar-day scrubber or press Play, drag inside the 3D view to look
 around. Slip the date and press *Find alternatives*. Open a result: it is pinned to the *Compare* tray
-at the bottom, beside the plan, and every column follows the same scrubber. Pin up to three (the pin
-on each result, or *Pin this view*); pins travel in the copied link. The tray reads like a table: one row
-per metric, the best value in each row in bold, differences against the plan beside each pin. *Make this
-the plan* on a pin swaps it with the plan. Nudge the plan 500 m or a day and
+at the bottom, beside the plan, and every column follows the same scrubber. The tray starts empty: pin up to four
+scenarios (the pin on each result, or *Pin this view*; with your plan in the 3D view, *Pin this view* adds the plan's
+live column, which follows your edits and shows each nudge's change). One column is the baseline (the first, until you press *Compare to this* on another): every other column
+shows its differences from it, and the best value in each row is bold. The tray, the plan's place in it and the
+baseline travel in the copied link. *Make this the plan* on a pin swaps it with the plan. Nudge the plan 500 m or a day and
 watch the plan's tiles change. Type a custom coordinate, or open *Map* on the left rail and click
 either map; the region map colours each 500 m cell by its sunlit % for the mission window. Open
 *Scenario matrix* and click a cell. Plan, Map and Scenario matrix share the left edge, so opening one closes the
@@ -133,9 +137,10 @@ contract-shaped files for development; the app then shows a banner, and such fil
 | --- | --- | --- |
 | `make test` | Python unit tests + TypeScript unit tests | ~5 s |
 | `make parity` | Python engine and TypeScript engine give the same answers | ~3 s |
-| `make e2e` | Opens the built app in headless Chromium, clicks through the demo path and every feature, saves screenshots to `web/tests/screenshots/` | ~35 s |
+| `make e2e` | Opens the built app in headless Chromium, clicks through the demo path and every feature, saves screenshots to `web/tests/screenshots/` | ~2.5 min |
 | `make e2e-room` | Starts the Worker locally (`wrangler dev`) and checks that three browsers in one mission room stay in step | ~25 s |
-| `make check` | Lint + typecheck + all of the above. **Run this before every push.** | ~90 s |
+| `make check-changed` | Only the checks the files changed since `main` can affect (docs only: nothing; Python: ruff + pytest; engines or fixtures: parity + browser tests; web code: lint, typecheck, the unit tests that import the changed files, browser tests; mission room files: the room test). `PLAN=1` prints the plan without running it. **Run this before every push.** | 0 s to ~3 min |
+| `make check` | Lint + typecheck + all of the above. **Run this before merging to `main` and before a deploy.** | ~4 min |
 | `make e2e-live` | The browser tests, mission room and Gemini included, against the deployed site | ~50 s |
 | `make validate` | Engine vs Horizons, sunlit % vs PGDA, slopes vs LOLA; rewrites `docs/VALIDATION.md`. The last two need `make data-download` | ~40 s |
 | `make perf` | Finder timing, 3D frame rate on this machine's GPU, download sizes; rewrites `docs/PERF.md` | ~40 s |
