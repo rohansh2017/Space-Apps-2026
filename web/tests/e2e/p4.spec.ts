@@ -613,3 +613,28 @@ test('F30: filters hide behind the funnel, narrow the alternatives, stay visible
   await rows.first().getByRole('button', { name: /^Pin #\d+ to the compare tray$/ }).click()
   await expect(page.getByTestId('tray').getByTestId('tray-pin')).toHaveCount(1)
 })
+
+test('F31: Recompute ranks on the ticked criteria alone, and pressing it again restores the full search', async ({ page }) => {
+  await page.goto('/')
+  await expandPanels(page)
+  await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  await page.getByRole('button', { name: 'Find alternatives' }).click()
+  await expect(page.getByTestId('result')).toHaveCount(10)
+  await page.getByTestId('filter-toggle').click()
+  const menu = page.getByTestId('results-filter')
+  const recompute = menu.getByTestId('recompute')
+  await expect(recompute).toBeDisabled() // nothing ticked yet
+  await menu.getByRole('checkbox', { name: 'Max terrain slope' }).check()
+  await menu.getByRole('checkbox', { name: 'Min Earth visibility' }).check()
+  await recompute.click()
+  await expect(page.getByTestId('focus-note')).toContainText('Ranked on Min Earth visibility and Max terrain slope only')
+  await expect(page.getByTestId('finder-summary')).toContainText('meet the chosen criteria')
+  await expect(page.getByTestId('result').first()).toBeVisible()
+  // only the chosen criteria are judged on each row
+  const chips = await page.locator('.results li').first().locator('.chip').allInnerTexts()
+  expect(chips.every((c) => /Earth|Slope/.test(c))).toBe(true)
+  await page.getByTestId('focus-note').getByRole('button', { name: 'Use every criterion' }).click()
+  await expect(page.getByTestId('focus-note')).toHaveCount(0)
+  await expect(page.getByTestId('finder-summary')).toContainText('meet every constraint')
+  await expect(page.locator('.results li').first().locator('.chip')).not.toHaveCount(2)
+})

@@ -46,7 +46,7 @@ export function applyFilter(rows: Row[], candidates: Candidate[], f: ResultFilte
     && (f.maxKm === null || km <= f.maxKm)
     && (!sites.size || sites.has(candidates[r.candidate].label))
     && (!f.allPass || r.evaluation.fails === 0)
-    && f.mustPass.every((id) => r.evaluation.passes[id] === true))
+    && f.mustPass.every((id) => r.evaluation.passes[id] !== false)) // a constraint the search ignored (F31) does not filter
   if (f.sort === 'soonest') kept.sort((a, b) => a.r.start - b.r.start || a.rank - b.rank)
   return { shown: kept.slice(0, SHOW), matches: kept.length }
 }
@@ -70,3 +70,9 @@ export function pillsOf(f: ResultFilter): Pill[] {
   for (const id of f.mustPass) out.push({ key: `pass:${id}`, text: `${criterion(id)} met`, remove: { ...f, mustPass: f.mustPass.filter((x) => x !== id) } })
   return out
 }
+
+/** "A", "A and B", "A, B and C". */
+export const listOf = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
+
+/** F31: whether two constraint lists name the same constraints. */
+export const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x))

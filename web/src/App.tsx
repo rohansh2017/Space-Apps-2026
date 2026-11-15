@@ -516,7 +516,8 @@ export default function App() {
     writeOnboarded()
   }, [])
 
-  async function runFinder() {
+  /** `only` (F31): rank on these constraints alone; a new search passes null, *Run again* keeps the current results' choice. */
+  async function runFinder(only: string[] | null = null) {
     if (!data || !site || !plan || !planPoint) return
     setBusy(true)
     setFinderError('')
@@ -546,7 +547,7 @@ export default function App() {
       worker.current ??= new Worker(new URL('./engine/finder.worker.ts', import.meta.url), { type: 'module' })
       const slipHours = windowHours(spec, data.startMs + planHour * HOUR_MS) ?? undefined
       const request: FinderRequest = {
-        table: data.ephemeris, tableHours: data.hours, candidates, start: planHour, constraints, options: { order: spec.order, slipHours },
+        table: data.ephemeris, tableHours: data.hours, candidates, start: planHour, constraints, options: { order: spec.order, slipHours, only: only ?? undefined },
       }
       const reply = await new Promise<{ ok: boolean; result?: FinderResult; error?: string }>((resolve) => {
         worker.current!.onmessage = (e) => resolve(e.data)
@@ -567,7 +568,9 @@ export default function App() {
       setViewing(null)
       setStale(false)
       const passing = result.results.filter((r) => r.evaluation.fails === 0).length
-      setAnnounce(copilot || `Search finished: ${result.results.length} alternatives ranked, ${passing} meet every constraint.`)
+      setAnnounce(copilot || (only
+        ? `Recomputed on ${only.length} chosen criteri${only.length === 1 ? 'on' : 'a'}: ${passing} of ${result.results.length} alternatives meet them.`
+        : `Search finished: ${result.results.length} alternatives ranked, ${passing} meet every constraint.`))
       focusResults.current = true // the effect below moves focus once the results have rendered
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
@@ -1043,7 +1046,7 @@ export default function App() {
               }} />
             </div>
             <div className="side-foot">
-              <button type="button" className="primary" data-tour="find" disabled={busy || !site.terrain || !plan} aria-busy={busy} onClick={runFinder}>
+              <button type="button" className="primary" data-tour="find" disabled={busy || !site.terrain || !plan} aria-busy={busy} onClick={() => runFinder()}>
                 {busy ? 'Searching…' : 'Find alternatives'}
               </button>
               {!isDefaultSpec(searchSpec) && specWords && (
@@ -1148,7 +1151,7 @@ export default function App() {
               )}
               {found && !resultsMin && <Results finder={found.finder} fresh={resultsFresh} onMinimize={() => smooth(() => { setResultsMin(true); setResultsFresh(false) }, () => resultsChip.current?.focus())} candidates={found.candidates} opened={openedIndex >= 0 && viewing ? refKey(viewing) : null} date={date} stale={stale}
                 filter={resultFilter} onFilter={setResultFilter} onAnnounce={setAnnounce}
-                headingRef={resultsHeading} onRerun={runFinder} busy={busy} constraints={found.constraints} lead={copilotText}
+                headingRef={resultsHeading} onRerun={() => runFinder(found.finder.only)} onRecompute={(only) => runFinder(only)} busy={busy} constraints={found.constraints} lead={copilotText}
                 pinned={pinnedKeys} onPin={(s) => { const r = resultRef(s); if (r) togglePin(r) }}
                 onMoon={(s) => { const r = resultRef(s); if (r) showOnMoon(r) }}
                 onOpen={(s) => {

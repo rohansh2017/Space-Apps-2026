@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Candidate, Scored } from './engine/finder'
-import { NO_FILTER, SHOW, activeCount, applyFilter, pillsOf, rowsOf } from './resultFilter'
+import { NO_FILTER, SHOW, activeCount, applyFilter, listOf, pillsOf, rowsOf, sameSet } from './resultFilter'
 
 const mask = new Uint16Array(360)
 const cand = (id: string, label: string, lat: number): Candidate => ({ id, label, lat, lon: 0, elevM: 0, slopeDeg: 2, mask })
@@ -55,5 +55,11 @@ describe('F30 result filters', () => {
     expect(pills.map((p) => p.text)).toEqual(['Up to 10 days out', 'Within 2 km', 'Beta', 'Max terrain slope met'])
     expect(pills.map((p) => activeCount(p.remove))).toEqual([3, 3, 3, 3])
     expect(pillsOf({ ...NO_FILTER, minDays: 3 })[0].text).toBe('3+ days out')
+  })
+  it('F31: a criterion the search ignored does not hide results; list words and set equality', () => {
+    expect(applyFilter(rows, candidates, { ...NO_FILTER, mustPass: ['min_continuous_sun_days'] }).matches).toBe(pool.length)
+    expect([listOf(['A']), listOf(['A', 'B']), listOf(['A', 'B', 'C'])]).toEqual(['A', 'A and B', 'A, B and C'])
+    expect(sameSet(['a', 'b'], ['b', 'a'])).toBe(true)
+    expect(sameSet(['a'], ['a', 'b'])).toBe(false)
   })
 })

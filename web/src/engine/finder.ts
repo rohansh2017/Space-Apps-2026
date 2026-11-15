@@ -25,8 +25,12 @@ export interface FinderResult {
   pool: Scored[] // F30: every candidate's best start in the same order: results (refined hourly), then the rest at daily steps
   evaluated: number // (candidate, start) pairs scored
   ms: number
+  only: string[] | null // F31: the constraints this search ranked on (null: all of them)
   planPassStart: number | null // F27: earliest hour, from the planned one, at which the plan's own point meets everything (null: none in the slip range)
 }
+
+// the constraints evaluate() tests (landing_sun_and_earth_visible only when it is switched on)
+export const CRITERIA = ['min_continuous_sun_days', 'max_continuous_dark_hours', 'min_earth_visible_pct', 'max_slope_deg', 'landing_sun_and_earth_visible']
 
 const better = (a: Evaluation, b: Evaluation) => a.fails < b.fails || (a.fails === b.fails && a.score > b.score)
 const REFINE_TOP = 10
@@ -35,6 +39,13 @@ const REFINE_TOP = 10
 export interface FinderOptions {
   order?: 'margin' | 'earliest' // earliest: each point's first start that meets everything, ranked by date
   slipHours?: number // hours after `start` to search (default: slip_range_days × 24)
+  only?: string[] // F31: score, count and report only these constraints; the others are ignored
+}
+
+/** F31: an evaluation narrowed to the chosen constraints (fails and passes); its score already ignores the rest (weight 0). */
+export function focusOn(e: Evaluation, only: string[]): Evaluation {
+  const passes = Object.fromEntries(Object.entries(e.passes).filter(([k]) => only.includes(k)))
+  return { passes, fails: Object.values(passes).filter((p) => !p).length, score: e.score }
 }
 
 /** Earliest ordering: passing results by start date (margin breaks ties), then the failing ones by `better`. */
@@ -66,11 +77,18 @@ export function runFinder(
   const n = lastStart + dur - first
   const minEarthEl = Number(c.min_earth_elevation_deg)
   let evaluated = 0
+  const only = opts.only?.length ? opts.only : null
+  // F31: unchosen constraints weigh nothing in the score and are dropped from pass/fail
+  const w = only ? { ...weights, ...Object.fromEntries(CRITERIA.filter((k) => !only.includes(k)).map((k) => [k, 0])) } : weights
+  const judge = (m: Metrics, slopeDeg: number) => {
+    const e = evaluate(m, slopeDeg, c, w)
+    return only ? focusOn(e, only) : e
+  }
 
   const score = (ci: number, p: ReturnType<typeof buildSeries>, s: number): Scored => {
     evaluated++
     const metrics = windowMetrics(p, s - first, dur)
-    return { candidate: ci, start: s, metrics, evaluation: evaluate(metrics, candidates[ci].slopeDeg, c, weights) }
+    return { candidate: ci, start: s, metrics, evaluation: judge(metrics, candidates[ci].slopeDeg) }
   }
   const frames: SiteFrame[] = candidates.map((k) => siteFrame(k.lat, k.lon, k.elevM))
   const series = (ci: number) => buildSeries(table, first, n, frames[ci], candidates[ci].mask, minEarthEl)
@@ -84,7 +102,7 @@ export function runFinder(
       baseline = score(0, p, start)
       // F27: walk the plan's own point hourly (forward only); windowMetrics walks run segments, so this stays cheap
       for (let s = start; s <= lastStart && planPassStart === null; s++)
-        if (evaluate(windowMetrics(p, s - first, dur), candidates[0].slopeDeg, c, weights).fails === 0) planPassStart = s
+        if (judge(windowMetrics(p, s - first, dur), candidates[0].slopeDeg).fails === 0) planPassStart = s
     }
     let top: Scored | null = null
     for (let s = first; s <= lastStart; s += 24) {
@@ -120,7 +138,7 @@ export function runFinder(
   }
   results.sort(order)
   const pool = results.concat(best.slice(keep))
-  return { baseline: baseline!, results, pool, evaluated, ms: performance.now() - t0, planPassStart }
+  return { baseline: baseline!, results, pool, evaluated, ms: performance.now() - t0, only, planPassStart }
 }
 
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']

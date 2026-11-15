@@ -1,13 +1,13 @@
-import { ArrowUpDown, Globe, ListFilter, Minimize2, Pin, PinOff } from 'lucide-react'
+import { ArrowUpDown, Globe, ListFilter, Minimize2, Pin, PinOff, RefreshCw } from 'lucide-react'
 import type { RefObject } from 'react'
 import { useMemo, useState } from 'react'
 import Chips from './Chips'
 import type { Constraints } from './engine/engine'
 import type { Candidate, FinderResult, Scored } from './engine/finder'
-import { diffParts, relaxations } from './engine/finder'
+import { CRITERIA, diffParts, relaxations } from './engine/finder'
 import ResultFilters, { FilterPills } from './ResultFilters'
 import type { ResultFilter } from './resultFilter'
-import { activeCount, applyFilter, rowsOf } from './resultFilter'
+import { activeCount, applyFilter, criterion, listOf, rowsOf } from './resultFilter'
 import WhyNotLine from './WhyNotLine'
 import { whyNotFacts } from './whynot'
 
@@ -21,6 +21,7 @@ interface Props {
   stale: boolean // constraints changed after this search
   busy: boolean
   onRerun: () => void
+  onRecompute: (only: string[] | null) => void // F31: rank on these constraints alone, or (null) on all of them again
   headingRef: RefObject<HTMLHeadingElement | null> // focused when a search finishes
   constraints: Constraints // the values this search ran with (they may have changed since)
   pinned: Set<string> // keys (point@hour) already in the compare tray
@@ -33,7 +34,7 @@ interface Props {
   onAnnounce: (text: string) => void // the app's one polite live region
 }
 
-export default function Results({ finder, candidates, opened, date, onOpen, onMoon, stale, busy, onRerun, headingRef, constraints, pinned, onPin, onMinimize, fresh, lead = '', filter, onFilter, onAnnounce }: Props) {
+export default function Results({ finder, candidates, opened, date, onOpen, onMoon, stale, busy, onRerun, onRecompute, headingRef, constraints, pinned, onPin, onMinimize, fresh, lead = '', filter, onFilter, onAnnounce }: Props) {
   const passing = finder.results.filter((r) => r.evaluation.fails === 0).length
   const base = finder.baseline
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -46,6 +47,8 @@ export default function Results({ finder, candidates, opened, date, onOpen, onMo
     const n = applyFilter(rows, candidates, f).matches
     onAnnounce(`${n} alternative${n === 1 ? '' : 's'} match${n === 1 ? 'es' : ''} the filters.`)
   }
+  const criteria = CRITERIA.filter((k) => k !== 'landing_sun_and_earth_visible' || constraints.landing_sun_and_earth_visible)
+  const only = finder.only
   const keyOf = (r: Scored) => `${candidates[r.candidate].id}@${r.start}`
   // F27: the plan's own fix, including the earliest later landing at the same point (the engine walked it hourly)
   const planWhy = base.evaluation.fails
@@ -70,7 +73,7 @@ export default function Results({ finder, candidates, opened, date, onOpen, onMo
       </div>
       {filtersOpen && (
         <ResultFilters id="results-filter" filter={filter} onChange={change} onClose={() => setFiltersOpen(false)} sites={sites}
-          criteria={Object.keys(base.evaluation.passes)} maxDays={Number(constraints.slip_range_days)} />
+          criteria={criteria} maxDays={Number(constraints.slip_range_days)} rankedOn={only} busy={busy} onRecompute={onRecompute} />
       )}
       {stale && (
         <p className="stale" data-testid="results-stale">
@@ -82,8 +85,15 @@ export default function Results({ finder, candidates, opened, date, onOpen, onMo
       {planWhy && !stale && <WhyNotLine facts={planWhy} ask testId="plan-whynot" />}
       <p className="note" data-testid="finder-summary">
         {finder.evaluated.toLocaleString('en-US')} site and date pairs across {candidates.length} points in{' '}
-        <span data-testid="finder-ms">{finder.ms.toFixed(0)}</span> ms · {passing} of the top {finder.results.length} meet every constraint
+        <span data-testid="finder-ms">{finder.ms.toFixed(0)}</span> ms · {passing} of the top {finder.results.length} meet {only ? 'the chosen criteria' : 'every constraint'}
       </p>
+      {only && (
+        <p className="focus-note" data-testid="focus-note">
+          <RefreshCw size={13} aria-hidden="true" />
+          <span>Ranked on {listOf(criteria.filter((k) => only.includes(k)).map(criterion))} only; the other criteria are ignored.</span>
+          <button type="button" className="link-button" disabled={busy} onClick={() => onRecompute(null)}>Use every criterion</button>
+        </p>
+      )}
       <div className="results-toolbar">
         <span className="note" data-testid="filter-count">
           {active ? `${matches} of ${rows.length} match${matches > shown.length ? ` · top ${shown.length} shown` : ''}` : `Top ${shown.length} of ${rows.length}`}

@@ -57,6 +57,18 @@ describe('finder', () => {
       expect(a.fails < b.fails || (a.fails === b.fails && a.score >= b.score)).toBe(true)
     }
   })
+  it('F31: ranks on the chosen constraints only; the others neither fail nor score', () => {
+    const cands = [candidate('walled', 5, 0, 300), candidate('steep', 0, 0, 0, 25), candidate('open', 0)]
+    const full = runFinder(table, hours, cands, 24 * 40, C)
+    expect(full.only).toBeNull()
+    expect(cands[full.results[0].candidate].id).toBe('open')
+    const r = runFinder(table, hours, cands, 24 * 40, C, {}, 10, { only: ['min_continuous_sun_days'] })
+    expect(r.only).toEqual(['min_continuous_sun_days'])
+    for (const x of [r.baseline, ...r.pool]) expect(Object.keys(x.evaluation.passes)).toEqual(['min_continuous_sun_days'])
+    const steep = r.pool.find((x) => cands[x.candidate].id === 'steep')!
+    expect(steep.evaluation.fails).toBe(0) // its slope no longer counts
+    expect(r.baseline.evaluation.fails).toBe(1) // the wall still blocks the Sun
+  })
   it('finds a later date at the same site when only the date is wrong', () => {
     // the Sun is behind the wall (azimuths 80..200 seen from this site) at the planned date
     const cands = [candidate('ridge', 5, 80, 200)]

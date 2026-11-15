@@ -1,7 +1,7 @@
 // F30: the Alternatives panel's filter menu (hidden by default) and the removable pills for active filters.
-import { X } from 'lucide-react'
+import { RefreshCw, X } from 'lucide-react'
 import type { ResultFilter } from './resultFilter'
-import { NO_FILTER, criterion, pillsOf } from './resultFilter'
+import { NO_FILTER, criterion, pillsOf, sameSet } from './resultFilter'
 
 const num = (v: string): number | null => (v.trim() === '' || !Number.isFinite(Number(v)) ? null : Math.max(0, Number(v)))
 
@@ -29,11 +29,18 @@ interface Props {
   sites: string[] // site names present in this search's results
   criteria: string[] // constraint ids the results are tested against
   maxDays: number // the search's slip range
+  rankedOn: string[] | null // F31: the constraints the current results were ranked on (null: all)
+  busy: boolean
+  onRecompute: (only: string[] | null) => void
 }
 
 const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
 
-export default function ResultFilters({ id, filter: f, onChange, onClose, sites, criteria, maxDays }: Props) {
+export default function ResultFilters({ id, filter: f, onChange, onClose, sites, criteria, maxDays, rankedOn, busy, onRecompute }: Props) {
+  // F31: recompute ranks on the ticked criteria alone; pressed again, it goes back to every criterion
+  const ticked = f.allPass ? [] : f.mustPass
+  const canFocus = ticked.length > 0 && ticked.length < criteria.length
+  const changed = rankedOn !== null && canFocus && !sameSet(ticked, rankedOn)
   return (
     <div id={id} className="results-filter" role="group" aria-label="Filter the alternatives" data-testid="results-filter">
       <div className="results-filter-head">
@@ -85,6 +92,16 @@ export default function ResultFilters({ id, filter: f, onChange, onClose, sites,
               onChange={() => onChange({ ...f, mustPass: toggle(f.mustPass, c) })} />{criterion(c)}
           </label>
         ))}
+        <div className="recompute">
+          <button type="button" aria-pressed={rankedOn !== null} disabled={busy || (rankedOn === null && !canFocus)} data-testid="recompute" aria-describedby={`${id}-recompute-note`}
+            onClick={() => onRecompute(rankedOn === null ? ticked : null)}>
+            <RefreshCw size={13} aria-hidden="true" />{rankedOn === null ? 'Recompute for ticked' : 'Recomputed · undo'}
+          </button>
+          {changed && <button type="button" className="quiet" disabled={busy} onClick={() => onRecompute(ticked)}>Update</button>}
+          <span className="note" id={`${id}-recompute-note`}>
+            {rankedOn !== null ? 'Ranked on the ticked criteria only.' : canFocus ? 'Rerun the search ranking on the ticked criteria only.' : 'Tick one or more criteria (not all) to rank on them alone.'}
+          </span>
+        </div>
       </fieldset>
       <div className="results-filter-foot">
         <button type="button" className="quiet" onClick={() => onChange({ ...NO_FILTER, sort: f.sort })}>Reset</button>
