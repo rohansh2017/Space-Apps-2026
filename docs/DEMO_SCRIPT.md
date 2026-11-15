@@ -15,7 +15,7 @@
 | **0:25** | "This is real LRO terrain. The Sun and Earth sit exactly where JPL's ephemeris puts them." | Press **Stand here**. Point at the Sun just above the ridge, and at the countdowns: *Sunset in* and *Earthset in*. |
 | **0:45** | "The two numbers a planner lives by: time to sunset, and time to Earthset." | Drag the lunar-day scrubber to about **+200 h**: the Sun drops behind the ridge and the countdown flips to *Sunrise in*. |
 | **1:05** | "Chang'e-7 missed its August window. Suppose the landing slips twelve days." | Set the landing date to **2026-12-01 00:00**. The plan card's tally drops and the chips turn red (*Sun*, *Dark*, *Earth*, *Landing*). |
-| **1:20** | "So we ask what still works. You can just say what you need." | Type *survive 4 days of dark, talk to Earth half the time* → **Interpret with Gemini** → show the proposal (96 h, 50%) → **Apply to the panel**. Press **Find alternatives**: ten ranked options in well under a second, each with a one-line difference. If the slipped plan still fails, point at its **Why not?** line above them: what would make it pass. |
+| **1:20** | "So we ask what still works. You can just say what you need." | Type *survive 4 days of dark, talk to Earth half the time* → **Ask Gemini** → show the proposal (96 h, 50%) → **Apply and find alternatives**: ten ranked options in well under a second, each with a one-line difference. If the slipped plan still fails, point at its **Why not?** line above them: what would make it pass. |
 | **1:50** | "Here's the plan next to the best alternatives." | Press the **pin** on results #1 and #2: they appear in the Compare tray beside the plan. **Open in 3D** on #1 to stand there. |
 | **2:15** | "Mission control isn't one person." | **Mission room** → **Start mission room**, open the link in the second window, change the date there: the first window follows. |
 | **2:40** | "Every number is real JPL ephemeris and real LRO terrain, checked against Horizons to a thousandth of a degree and against NASA's illumination maps at r 0.95 to 0.99. Explorer mode says the same in plain words." | Switch to **Explorer**. Point at the plain-language sentence. Close on *About the data*. |
@@ -24,21 +24,24 @@
 
 ## Alternative 1:20 beat: the slip copilot
 
-Instead of typing constraints, describe the whole slip in one sentence and press **Plan the slip**:
+Instead of typing constraints, describe the whole slip in one sentence and press **Ask Gemini**:
 
-> *"we slip 3 days, move to Haworth, need Earth in view the whole time"*
+> *"my mission slipped by 11 days, stay near the rim"*
 
-The card proposes **Haworth**, **3 days later** and **Earth visibility 100%**. Press **Apply and find alternatives**:
-the app switches site, moves the date, searches, and answers in a sentence built from the results.
+The card shows **11 days later than the original plan** (old → new date) and **Shackleton rim's grid within 5 km**. Press
+**Apply and find alternatives**: the app moves the date, searches only that site's grid, and answers in a sentence built
+from the results. Press it again and the landing stays 11 days after the original, not 22.
 
 ## Sentences to rehearse
 
 | Sentence | Button | Expected result |
 | --- | --- | --- |
-| *survive 4 days of dark, talk to Earth half the time* | Interpret with Gemini | darkness 96 h · Earth 50% |
-| *survive 4 days of dark, talk to Earth half the time, slopes under 8 degrees* | Interpret with Gemini | darkness 96 h · Earth 50% · slope 8° |
-| *we slip 3 days, move to Haworth, need Earth in view the whole time* | Plan the slip | Haworth · 3 days later · Earth 100% |
-| A nonsense or prompt-injection sentence | Either | No values; nothing changes |
+| *survive 4 days of dark, talk to Earth half the time* | Ask Gemini | darkness 96 h · Earth 50% |
+| *survive 4 days of dark, talk to Earth half the time, slopes under 8 degrees* | Ask Gemini | darkness 96 h · Earth 50% · slope 8° |
+| *my mission slipped by 11 days, stay near the rim* | Ask Gemini | 11 days later than the original plan · this site's grid only |
+| *slipped two weeks, anywhere on Nobile, soonest* | Ask Gemini | 14 days later · Nobile Rim 1 and 2 · earliest first |
+| *we slip 3 days, move to Haworth, need Earth in view the whole time* | Ask Gemini | Haworth · 3 days later · Earth 100% |
+| A nonsense or prompt-injection sentence | Ask Gemini | No values; nothing changes |
 
 Each press is one small Gemini call (about 2 s). Gemini only proposes values: nothing changes until you confirm.
 

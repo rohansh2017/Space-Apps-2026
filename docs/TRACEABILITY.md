@@ -1,6 +1,6 @@
 # 🔗 Traceability
 
-Every requirement → where it is built → how it is tested. **31 done · 2 partial · 5 to do**
+Every requirement → where it is built → how it is tested. **32 done · 2 partial · 5 to do**
 (of 38).
 
 - **Status:** `done` needs a passing test or a recorded check; notes in brackets say what differs from the spec.
@@ -29,11 +29,12 @@ Every requirement → where it is built → how it is tested. **31 done · 2 par
 | F18 | Solar array presets for the power index | C | 4 |  |  | todo |
 | F19 | Export scenario summary (CSV/PDF) | C | 7 |  |  | todo |
 | F20 | Lunar Night Survivor game mode | C | 7 |  |  | todo |
-| F21 | Gemini sentence → schema-validated constraint JSON | S | 7 | web/worker/gemini.js, web/src/gemini.ts, SentenceEntry.tsx | gemini.test.ts, e2e p4.spec.ts (mocked route), gemini.spec.ts (live, make e2e-live) | done |
+| F21 | Gemini sentence → schema-validated constraint JSON | S | 7 | web/worker/copilot.js + gemini.js (grounded extraction), web/src/gemini.ts, copilot.ts, SentenceEntry.tsx (*Ask Gemini*, one button with F26/F29, D70) | gemini.test.ts, e2e p4.spec.ts (mocked route), gemini.spec.ts (live, make e2e-live) | done (served by `/api/copilot` since D70) |
 | F22 | Gemini horizon description with template fallback | C | 7 | web/worker/describe.js, web/src/describe.ts, HorizonText.tsx | describe.test.ts, e2e p4.spec.ts (mocked: kept / rejected), gemini.spec.ts (live) | done |
 | F23 | Deploy on Cloudflare: Workers static assets + R2 by region | M | Prize | web/wrangler.jsonc, web/worker/index.js, web/scripts/upload-data.sh | make e2e-live (15 browser tests on the live URL; `x-data-source: r2`) | done |
 | F24 | Mission room (Durable Object, WebSockets) | S | Prize | web/worker/room.js (MissionRoom), worker/index.js /room/{id}, web/src/room.ts, App.tsx | e2e room.spec.ts (make e2e-room, make e2e-live) | done |
 | F26 | Gemini slip copilot: a slip scenario → constraints, later landing and site, confirmed, then the finder runs (one call) | C | 2, 7 | web/worker/copilot.js, worker/gemini-call.js, web/src/copilot.ts, SentenceEntry.tsx, App.tsx applyCopilot, Results.tsx | copilot.test.ts, e2e p4.spec.ts (mocked), gemini.spec.ts (live) | done (D63) |
+| F29 | Smarter slip copilot: slip from the original plan, a where/when search spec read from the sentence (one call), earliest-first ranking, local slip fallback | C | 1, 2, 7 | web/worker/copilot.js (groundPlan), worker/gemini.js (quoted, claim), web/src/copilot.ts, SentenceEntry.tsx, App.tsx (applyCopilot, searchSpec, slipAnchor, chips), engine/finder.ts (order, slipHours) | copilot.test.ts, worker/copilot.test.js, finder.test.ts, finder.perf.test.ts, e2e p4.spec.ts (mocked) | done (D69) |
 | F28 | First-visit quick tour: four real actions, each step advancing when the app's state shows it was done (about 30 s) | C | 7 | web/src/onboarding.ts, Coach.tsx, App.tsx (snapshot, auto-open, Quick tour button), data-tour attributes in App.tsx and MoonView.tsx | onboarding.test.ts, e2e onboarding.spec.ts | done (D65) |
 | F27 | "Why not?": per failing constraint the value that passes, and the plan's earliest passing hour; optional Gemini rewording | C | 2, 7 | web/src/engine/finder.ts (relaxations, planPassStart), whynot.ts, WhyNotLine.tsx, Results.tsx, web/worker/whynot.js | finder.test.ts, whynot.test.ts, e2e p4.spec.ts (mocked), gemini.spec.ts (live) | done (D63) |
 | F25 | Moon view: every site at a glance, fly down to a site's grid, drag the landing point | S | 1, 5 | web/src/MoonView.tsx, moon.ts, App.tsx (stageView, gridStats, loadSitePoint), Tray.tsx, worker/index.js (Range) | moon.test.ts, e2e moon.spec.ts | done (D58; whole-Moon relief and 5 m site layer, D60; stars, Pole button, heat cells, D61; 20 m context maps, D62; 3D relief, real-Sun lighting and shadows, D67; Topo layer, D68) |

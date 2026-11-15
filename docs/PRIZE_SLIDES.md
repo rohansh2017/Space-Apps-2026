@@ -23,12 +23,11 @@ three-browser room test.
 
 ## Slide 2 · Gemini API — Gemini in front of users, the engine behind the numbers
 
-**Four jobs, one rule: Gemini reads and words, and never computes a number.**
+**Three jobs, one rule: Gemini reads and words, and never computes a number.**
 
 | Feature | What the user does | What Gemini returns | What we check |
 | --- | --- | --- | --- |
-| **Interpret with Gemini** | Types *"survive 4 days of dark, talk to Earth half the time"* | `{dark: 96 h, Earth: 50%}`, each value with the user's words it came from | The quote must be in the sentence; values are validated against `constraints.schema.json`; nothing changes until the user presses *Apply* |
-| **Plan the slip** | Types *"we slip 3 days, move to Haworth, need Earth in view the whole time"* | A slip, a site (from a fixed list) and constraints | Same checks; on *Apply* our finder runs and our template writes the answer |
+| **Ask Gemini** | Types requirements, a slip, where and when: *"survive 4 days of dark, talk to Earth half the time"* or *"my mission slipped by 11 days, stay near the rim"* | A search spec: constraints (`{dark: 96 h, Earth: 50%}`), a slip, where (this site, named sites from a fixed list, or all) and when (earliest first, land by), each part with the user's words it came from | The quote must be in the sentence; values are validated against `constraints.schema.json`; nothing changes until the user presses *Apply*, then our finder runs and our template writes the answer |
 | **Say it plainly** | Asks why a plan fails | One or two sentences from the engine's "why not" facts | Kept only if every number in it is one of the facts; otherwise the engine's sentence stays |
 | **Describe with Gemini** | Asks for the horizon in words | Two sentences from eleven engine facts | The same number check, with the template as fallback |
 

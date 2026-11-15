@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CopilotPlan } from './copilot'
+import type { CopilotHooks } from './copilot'
 import type { ConstraintDef } from './data'
 import type { Constraints } from './engine/engine'
 import { LABELS, PRESETS, defaults } from './presets'
@@ -9,8 +9,7 @@ interface Props {
   defs: ConstraintDef[]
   value: Constraints
   onChange: (c: Constraints) => void
-  sites?: { id: string; name: string }[] // F26 copilot: sites it may name
-  onCopilot?: (plan: CopilotPlan) => void
+  copilot?: CopilotHooks // F21/F26/F29: the Gemini sentence box's view of the app (absent while loading)
 }
 
 /** Why a typed value cannot be used, or null when it is valid. */
@@ -22,7 +21,7 @@ function problem(d: ConstraintDef, text: string): string | null {
   return null
 }
 
-export default function ConstraintPanel({ defs, value, onChange, sites, onCopilot }: Props) {
+export default function ConstraintPanel({ defs, value, onChange, copilot }: Props) {
   // what the user typed, kept while it is not a valid value; the engine only ever sees schema-valid values
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   // a value changed from elsewhere (preset, sentence, mission room) replaces any draft for that field
@@ -84,8 +83,7 @@ export default function ConstraintPanel({ defs, value, onChange, sites, onCopilo
         )
       })}
       <p className="note">Defaults are editable placeholders, not NASA requirements.</p>
-      <SentenceEntry defs={defs} onApply={(v) => { setDrafts({}); onChange({ ...value, ...v }) }} sites={sites}
-        onCopilot={onCopilot && ((p) => { setDrafts({}); onCopilot(p) })} />
+      {copilot && <SentenceEntry defs={defs} copilot={{ ...copilot, apply: (p) => { setDrafts({}); copilot.apply(p) } }} />}
     </section>
   )
 }

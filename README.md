@@ -30,7 +30,7 @@ Tranquility Base puts the check in one place and answers the question a planner 
 | 🔎 **Slip finder** | Ranks every grid point near the plan, and every later landing date in the slip range, against your constraints. 5,000 candidates × 60 days in under a second. |
 | ❓ **"Why not?"** | For a failing plan or result: the value each failed constraint would need, and the earliest later landing at the same point that passes everything. |
 | 📌 **Compare tray** | Pin up to four scenarios side by side, each frozen at its point and date. Every column is measured against a baseline you choose. |
-| ✨ **Gemini** | Type requirements in plain words (*Interpret with Gemini*), describe a whole slip (*Plan the slip*), and have results reworded. Gemini only reads and words things, and every number is checked against the engine's. |
+| ✨ **Gemini** | Type requirements, a slip, where and when in plain words (*Ask Gemini*), and have results reworded. Gemini only reads and words things, and every number is checked against the engine's. |
 | 👥 **Mission room** | Share a room link and everyone's view stays in step: site, point, date and constraints. |
 | 🧭 **Quick tour** | A 30-second interactive walkthrough on the first visit. It rings each real control and moves on when you use it. |
 
@@ -63,14 +63,16 @@ A **quick tour** opens on your first visit. *Quick tour* in the top bar replays 
 1. **Pick a plan.** Choose a site and landing date (UTC) in the *Plan* panel, or click a pin on the Moon.
 2. **Look around.** Click a pin to fly to its 10 km search grid, then *Stand here* to stand on that point in 3D.
    Drag the lunar-day scrubber or press *Play*.
-3. **Set constraints.** Edit the fields, pick a preset, or type a sentence and press *Interpret with Gemini*
+3. **Set constraints.** Edit the fields, pick a preset, or type a sentence and press *Ask Gemini*
    (e.g. *"survive 4 days of dark, talk to Earth half the time"*).
 4. **Slip the date** and press *Find alternatives*. Each result says how it differs from the plan; a failing one
    says *why not*.
 5. **Compare.** Pin results to the tray, choose a baseline with *Compare to this*, and *Copy link* to share the exact view.
 
-Or describe the whole slip in one go: *Plan the slip* with *"we slip 3 days, move to Haworth, need Earth in view the
-whole time"* proposes the changes, you confirm, and the finder runs.
+Or describe the whole slip in one go: *Ask Gemini* with *"my mission slipped by 11 days, stay near the rim"* or
+*"slipped two weeks, anywhere on Nobile, soonest"*. The card shows how each part was read: the new landing (always
+measured from the original plan), where to search (this site, named sites, or every site) and when (earliest first, land
+by a date). You confirm, and the finder runs. The search settings stay as removable chips under *Find alternatives*.
 
 <details>
 <summary><b>All controls</b></summary>

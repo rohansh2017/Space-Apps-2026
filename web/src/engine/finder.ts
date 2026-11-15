@@ -30,18 +30,35 @@ export interface FinderResult {
 const better = (a: Evaluation, b: Evaluation) => a.fails < b.fails || (a.fails === b.fails && a.score > b.score)
 const REFINE_TOP = 10
 
+/** F29: how results are ordered, and an optional search window that overrides `slip_range_days`. */
+export interface FinderOptions {
+  order?: 'margin' | 'earliest' // earliest: each point's first start that meets everything, ranked by date
+  slipHours?: number // hours after `start` to search (default: slip_range_days × 24)
+}
+
+/** Earliest ordering: passing results by start date (margin breaks ties), then the failing ones by `better`. */
+const earlier = (a: Scored, b: Scored) => {
+  const pa = a.evaluation.fails === 0
+  const pb = b.evaluation.fails === 0
+  if (pa && pb) return a.start - b.start || b.evaluation.score - a.evaluation.score
+  if (pa !== pb) return pa ? -1 : 1
+  return better(a.evaluation, b.evaluation) ? -1 : better(b.evaluation, a.evaluation) ? 1 : 0
+}
+
 /**
  * Score every candidate at daily start steps from `start` to the end of the slip range (a slipped
  * launch cannot land earlier), keep the best start per candidate, then refine the top results
- * hourly. candidates[0] is the original plan.
+ * hourly. candidates[0] is the original plan. With `order: 'earliest'` (F29) each candidate keeps its
+ * first start that meets everything, found to the hour, and results are ranked by that date.
  */
 export function runFinder(
   table: ArrayLike<number>, tableHours: number, candidates: Candidate[], start: number, c: Constraints,
-  weights: Record<string, number> = {}, keep = 10,
+  weights: Record<string, number> = {}, keep = 10, opts: FinderOptions = {},
 ): FinderResult {
   const t0 = performance.now()
   const dur = Math.round(Number(c.mission_duration_days) * 24)
-  const slip = Math.round(Number(c.slip_range_days) * 24)
+  const slip = opts.slipHours ?? Math.round(Number(c.slip_range_days) * 24)
+  const earliest = opts.order === 'earliest'
   const first = start // forward only: see DECISIONS D19
   const lastStart = Math.min(start + slip, tableHours - dur)
   if (start < 0 || lastStart < first) throw new RangeError('mission window runs past the ephemeris')
@@ -72,22 +89,35 @@ export function runFinder(
     for (let s = first; s <= lastStart; s += 24) {
       if (ci === 0 && s === start) continue // the plan itself is not an alternative
       const r = score(ci, p, s)
+      if (earliest && r.evaluation.fails === 0) {
+        // the first passing day: walk back hourly over the day before it for the first passing hour
+        top = r
+        for (let h = Math.max(first, s - 23); h < s; h++) {
+          if (ci === 0 && h === start) continue
+          const e = score(ci, p, h)
+          if (e.evaluation.fails === 0) { top = e; break }
+        }
+        break
+      }
       if (!top || better(r.evaluation, top.evaluation)) top = r
     }
     if (top) best.push(top)
   })
-  best.sort((a, b) => (better(a.evaluation, b.evaluation) ? -1 : better(b.evaluation, a.evaluation) ? 1 : 0))
+  const order = earliest ? earlier : (a: Scored, b: Scored) => (better(a.evaluation, b.evaluation) ? -1 : better(b.evaluation, a.evaluation) ? 1 : 0)
+  best.sort(order)
 
   const results = best.slice(0, keep)
   for (const r of results.slice(0, REFINE_TOP)) {
+    if (earliest && r.evaluation.fails === 0) continue // already the first passing hour
     const p = series(r.candidate)
     for (let s = Math.max(first, r.start - 23); s <= Math.min(lastStart, r.start + 23); s++) {
       if (r.candidate === 0 && s === start) continue
       const h = score(r.candidate, p, s)
+      if (earliest && h.evaluation.fails === 0) { Object.assign(r, h); break } // the first passing hour wins
       if (better(h.evaluation, r.evaluation)) Object.assign(r, h)
     }
   }
-  results.sort((a, b) => (better(a.evaluation, b.evaluation) ? -1 : better(b.evaluation, a.evaluation) ? 1 : 0))
+  results.sort(order)
   return { baseline: baseline!, results, evaluated, ms: performance.now() - t0, planPassStart }
 }
 

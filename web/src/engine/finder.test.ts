@@ -74,6 +74,24 @@ describe('finder', () => {
     const loosened: Constraints = { ...C, ...Object.fromEntries(relax.map((x) => [x.id, x.needed])) }
     expect(evaluate(b.metrics, cands[0].slopeDeg, loosened).fails).toBe(0)
   })
+  it('F29: earliest order keeps each point\'s first passing hour and ranks passing points by date', () => {
+    const plan = candidate('steep', 0, 0, 0, 25) // never passes, so it is never an earliest result
+    const ridge = candidate('ridge', 5, 80, 200)
+    // the ridge's first passing hour, found by the hourly F27 walk with the ridge as the plan
+    const first = runFinder(table, hours, [ridge], 24 * 40, C).planPassStart!
+    expect(first).toBeGreaterThan(24 * 40)
+    const cands = [plan, ridge, candidate('open', 0)]
+    const r = runFinder(table, hours, cands, 24 * 40, C, {}, 10, { order: 'earliest' })
+    const ids = r.results.map((x) => cands[x.candidate].id)
+    expect(ids).toEqual(['open', 'ridge', 'steep']) // passing by date, then the failing one
+    expect(r.results[0].start).toBe(24 * 40) // open passes at once
+    expect(r.results[1].start).toBe(first)
+  })
+  it('F29: slipHours overrides the slip range', () => {
+    const r = runFinder(table, hours, [candidate('a', 0), candidate('b', 0)], 24 * 40, C, {}, 10, { slipHours: 48 })
+    expect(r.results.every((x) => x.start >= 24 * 40 && x.start <= 24 * 42)).toBe(true)
+    expect(r.results.some((x) => x.start > 24 * 40)).toBe(true)
+  })
   it('refuses a window that runs past the ephemeris', () => {
     expect(() => runFinder(table, hours, [candidate('a', 0)], hours - 10, C)).toThrow(RangeError)
   })

@@ -248,6 +248,8 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .chip { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; padding: 0.1rem 0.5rem 0.1rem 0.4rem; border-radius: 999px; border: 1px solid; white-space: nowrap; }
 .chip.pass { color: var(--ok); border-color: rgb(134 211 161 / 40%); }
 .chip.fail { color: var(--bad); border-color: rgb(255 143 132 / 50%); background: var(--bad-bg); }
+.spec-chips .chip { color: var(--dim); border-color: var(--line-strong); background: var(--raised); cursor: pointer; white-space: normal; text-align: left; }
+.spec-chips .chip:hover { color: var(--text); }
 .tally { font-size: 0.74rem; color: var(--bad); margin-right: 0.15rem; }
 .tally.all { color: var(--ok); }
 .summary { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }

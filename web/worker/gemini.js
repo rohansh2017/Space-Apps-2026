@@ -1,8 +1,7 @@
-// F21: a typed requirement becomes constraint JSON. Gemini lists {quote, field, value} items (fields from
-// constraints.schema.json); the Worker keeps only items whose quote is in the sentence (D64), and the browser
-// validates the values against the schema before anything is applied. Gemini
+// F21 grounded extraction, shared by the copilot route (worker/copilot.js; one route since D70): Gemini lists
+// {quote, field, value} items (fields from constraints.schema.json); the Worker keeps only items whose quote is in
+// the sentence (D64), and the browser validates the values against the schema before anything is applied. Gemini
 // never sees engine results. The key is a Worker secret (GEMINI_API_KEY).
-import { callGemini, gate, readJson } from './gemini-call.js'
 
 const MAX_CHARS = 300
 export const UNITS = 'Phrases: dark/night/no sun -> max_continuous_dark_hours (hours; 4 days = 96); talk to/see/contact Earth, comms -> min_earth_visible_pct '
@@ -28,45 +27,36 @@ export function itemsSchema(defs) {
 }
 
 // lower case, punctuation to spaces; a dot survives only as a decimal point (8.5)
-const norm = (t) => String(t).toLowerCase().replace(/(?<!\d)\.|\.(?!\d)/g, ' ').replace(/[^a-z0-9%.°]+/g, ' ').trim()
+export const norm = (t) => String(t).toLowerCase().replace(/(?<!\d)\.|\.(?!\d)/g, ' ').replace(/[^a-z0-9%.°]+/g, ' ').trim()
+
+/** The quote, normalised, if it is in the sentence as whole words; otherwise null. */
+export function quoted(quote, sentence) {
+  const q = norm(quote ?? '')
+  return q && ` ${norm(sentence)} `.includes(` ${q} `) ? q : null
+}
+
+/** True (and the quote is recorded) unless it shares words with a quote already used: one phrase, one meaning. */
+export function claim(q, used) {
+  if (used.some((u) => u.includes(q) || q.includes(u))) return false
+  used.push(q)
+  return true
+}
 
 /** Keep an item only if its quote is in the sentence and no other kept item uses the same words; ranges are the browser's check. */
-export function groundedValues(items, sentence, defs) {
-  const text = ` ${norm(sentence)} `
-  const used = []
+export function groundedValues(items, sentence, defs, used = []) {
   const values = {}
   for (const it of Array.isArray(items) ? items : []) {
     const d = defs.find((x) => x.id === it?.field)
-    const q = norm(it?.quote ?? '')
-    if (!d || !q || d.id in values || typeof it.value !== 'number' || !text.includes(` ${q} `)) continue
-    if (used.some((u) => u.includes(q) || q.includes(u))) continue // "4 days of dark" cannot also be a 4-day mission
-    used.push(q)
+    const q = quoted(it?.quote, sentence)
+    if (!d || !q || d.id in values || typeof it.value !== 'number') continue
+    if (!claim(q, used)) continue // "4 days of dark" cannot also be a 4-day mission
     values[d.id] = d.type === 'boolean' ? it.value !== 0 : it.value
   }
   return values
 }
 
-export async function readSentence(request) {
-  const sentence = String((await readJson(request))?.sentence ?? '').trim()
+/** The sentence from a parsed request body, or null if it is empty or too long. */
+export function sentenceFrom(body) {
+  const sentence = String(body?.sentence ?? '').trim()
   return sentence && sentence.length <= MAX_CHARS ? sentence : null
-}
-
-export async function constraintsFromSentence(request, env) {
-  const stop = gate(request, env, 'Sentence entry')
-  if (stop) return stop
-  const sentence = await readSentence(request)
-  if (!sentence) return Response.json({ error: `Write 1 to ${MAX_CHARS} characters` }, { status: 400 })
-  const defs = await constraintDefs(request, env)
-  const r = await callGemini(env,
-    `You read a lunar lander mission requirement. ${ITEMS} ${UNITS}\nRequirement: ${sentence}`,
-    { schema: itemsSchema(defs) })
-  if (r.error) return Response.json({ error: r.error }, { status: r.status })
-  let items
-  try {
-    items = JSON.parse(r.text)
-  } catch {
-    return Response.json({ error: 'Gemini did not return JSON' }, { status: 502 })
-  }
-  const values = groundedValues(items, sentence, defs)
-  return Response.json({ values, model: r.model, generated: true })
 }
