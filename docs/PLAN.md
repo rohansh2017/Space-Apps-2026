@@ -99,4 +99,5 @@ Goal: rapid, intuitive comparison of several scenarios, in full screen. Run thro
 - [x] PRODUCT.md (init); harden (D46); clarify (D47); delight (D48)
 - [x] Shape + layout: full-screen layout, compare tray of plan + 3 pins in the share link, drawers, one-line footer with *About the data*, polar-light palette (D49)
 - [ ] Adapt (phones)
-- [ ] Polish, critique
+- [x] Polish from the test screenshots (2026-11-15)
+- [ ] Critique

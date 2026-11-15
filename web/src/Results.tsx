@@ -47,7 +47,7 @@ export default function Results({ finder, candidates, opened, date, onOpen, stal
               <div className="result-head">
                 <div className="result-title">
                   <strong data-testid="result-title">{title}</strong>
-                  <span>{c.label} · lands {date(r.start)} UTC</span>
+                  <span>{c.label} · lands <span className="nowrap">{date(r.start)} UTC</span></span>
                 </div>
                 <div className="result-actions">
                   <button type="button" className="icon-button" aria-label={`${pinned.has(`${c.id}@${r.start}`) ? 'Unpin' : 'Pin'} #${i + 1} ${pinned.has(`${c.id}@${r.start}`) ? 'from' : 'to'} the compare tray`}
@@ -60,7 +60,7 @@ export default function Results({ finder, candidates, opened, date, onOpen, stal
                   </button>
                 </div>
               </div>
-              <div data-testid="result-diff">{d.metrics} <span className="note">vs the plan</span></div>
+              <div data-testid="result-diff">{d.metrics} <span className="note nowrap">vs the plan</span></div>
               <div className="result-foot">
                 <Chips evaluation={r.evaluation} constraints={constraints} />
                 <span className="note">

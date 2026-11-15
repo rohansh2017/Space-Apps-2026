@@ -518,13 +518,13 @@ export default function App() {
     ? `${openedIndex >= 0 ? `#${openedIndex + 1} · ` : ''}${differenceOf(viewed, viewStart, day.metrics)}`
     : ''
   const trayPlan: TrayColumn = {
-    key: 'plan', title: 'Plan', detail: `${plan?.label ?? site.name} · ${date(planHour)} UTC`, viewing: !viewed,
+    key: 'plan', title: 'Plan', detail: plan?.label ?? site.name, when: `${date(planHour)} UTC`, viewing: !viewed,
     day: planDay,
   }
   const trayPins: TrayColumn[] = pinnedDays.map(({ ref, cand, day: d }) => ({
     key: refKey(ref),
     title: cand ? differenceOf(cand, ref.hour, d?.metrics ?? null) : 'Loading…',
-    detail: `${cand?.label ?? ref.point.split(':')[0]} · ${date(ref.hour)} UTC`,
+    detail: cand?.label ?? ref.point.split(':')[0], when: `${date(ref.hour)} UTC`,
     viewing: Boolean(viewing && refKey(viewing) === refKey(ref)),
     day: d,
   }))
@@ -657,6 +657,7 @@ export default function App() {
             </div>
           ) : !view || !day || !observer ? <p className="floating note">Loading terrain…</p> : (
             <>
+              <div className="over-stack">
               <div
                 className="status"
                 ref={viewStatus}
@@ -681,6 +682,7 @@ export default function App() {
                 setPlaying(false)
                 requestAnimationFrame(() => startTourButton.current?.focus()) // the button is re-enabled on the next render
               }} />}
+              </div>
               <Hud sunEl={view.now.sunEl} sunHorizon={view.sunHorizon} earthEl={view.now.earthEl} earthHorizon={view.earthHorizon}
                 lit={view.lit} link={view.link} power={view.power}
                 sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} />

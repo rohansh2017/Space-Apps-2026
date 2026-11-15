@@ -7,7 +7,8 @@ import Summary from './Summary'
 export interface TrayColumn {
   key: string
   title: string // "Plan" or "5.0 km S · +16 days"
-  detail: string // site and landing time
+  detail: string // site
+  when: string // landing time, kept on one line
   viewing: boolean // this scenario is the one in the 3D view
   day: { mask: Uint16Array | null; track: Angles[]; metrics: Metrics | null; evaluation: Evaluation | null } | null // null while its terrain loads
 }
@@ -32,11 +33,11 @@ export const TRAY_MAX = 3 // pinned scenarios beside the plan
 /** The compare tray: the plan plus up to three pinned scenarios, each drawn the same way and scrubbed together. */
 export default function Tray({ plan, pinned, t, constraints, previous, pending, onView, onUnpin, onReplace, onCancelPending, onPinView, canPinView }: Props) {
   const column = (c: TrayColumn, isPlan: boolean) => (
-    <article key={c.key} className={`tray-col${isPlan ? '' : ' pin'}${c.viewing ? ' viewing' : ''}`} aria-label={`${isPlan ? 'Plan' : c.title}, ${c.detail}`}
+    <article key={c.key} className={`tray-col${isPlan ? '' : ' pin'}${c.viewing ? ' viewing' : ''}`} aria-label={`${isPlan ? 'Plan' : c.title}, ${c.detail}, ${c.when}`}
       aria-current={c.viewing ? 'true' : undefined} data-testid={isPlan ? 'tray-plan' : 'tray-pin'}>
       <header>
         <strong>{c.title}</strong>
-        <span>{c.detail}</span>
+        <span>{c.detail} · <span className="nowrap">{c.when}</span></span>
       </header>
       {c.day === null ? <p className="note">Loading terrain…</p> : (
         <>

@@ -45,7 +45,13 @@ export default function Panorama({ mask, track, t, width = 1080, height = 300, c
       g.font = `600 ${px}px "Public Sans", system-ui, sans-serif`
       g.fillStyle = '#9a948a'
       g.textAlign = 'right' // elevations on the right edge, compass points on the left: they never collide
-      for (let el = EL_MIN + 4; el < EL_MAX; el += 4) g.fillText(`${el}°`, W - 6, y(el) - 4)
+      g.strokeStyle = PANO.sky // a dark outline keeps labels readable where they cross the terrain
+      g.lineWidth = Math.max(3, px / 4)
+      g.lineJoin = 'round'
+      for (let el = EL_MIN + 4; el < EL_MAX; el += 4) {
+        g.strokeText(`${el}°`, W - 6, y(el) - 4)
+        g.fillText(`${el}°`, W - 6, y(el) - 4)
+      }
       g.textAlign = 'left'
       ;['N', 'E', 'S', 'W'].forEach((d, i) => g.fillText(d, x(i * 90) + 6, px + 4))
     }
