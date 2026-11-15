@@ -1,4 +1,4 @@
-// F21 grounded extraction, shared by the copilot route (worker/copilot.js; one route since D68): Gemini lists
+// F21 grounded extraction, shared by the copilot route (worker/copilot.js; one route since D70): Gemini lists
 // {quote, field, value} items (fields from constraints.schema.json); the Worker keeps only items whose quote is in
 // the sentence (D64), and the browser validates the values against the schema before anything is applied. Gemini
 // never sees engine results. The key is a Worker secret (GEMINI_API_KEY).

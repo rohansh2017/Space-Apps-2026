@@ -1,7 +1,7 @@
 // Data files under /data/ come from the R2 bucket (same paths as web/public/data); the copy bundled
 // with the static assets is the fallback. /room/{id} is the mission room WebSocket (F24).
 // /api/copilot reads a typed sentence (requirements, a slip, where and when) into a search spec for the finder
-// (F21/F26/F29, one route since D68); /api/describe puts horizon facts into words (F22); /api/whynot rephrases why a plan fails (F27).
+// (F21/F26/F29, one route since D70); /api/describe puts horizon facts into words (F22); /api/whynot rephrases why a plan fails (F27).
 // Everything else is a static asset.
 import { describeHorizon } from './describe.js'
 import { planSlip } from './copilot.js'

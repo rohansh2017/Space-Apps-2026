@@ -1,5 +1,5 @@
 // F26/F29 slip copilot: ONE Gemini call turns a slip scenario into a search spec {slip, where, when, constraints}.
-// Every part quotes the user's words and is kept only if the quote is in the sentence (D64, generalised in D67).
+// Every part quotes the user's words and is kept only if the quote is in the sentence (D64, generalised in D69).
 // The browser validates the values, the user confirms, and the engine's finder does all the work; the answer is a
 // template built from the finder's result, so no second call (D63: tokens are limited, no agent loop).
 import { callGemini, gate, readJson } from './gemini-call.js'
@@ -55,7 +55,7 @@ export function copilotSchema(defs, sites) {
       },
       constraints: itemsSchema(defs),
     },
-    // every part is required (a lite model skips optional objects, D67); quote "" means the message does not state it
+    // every part is required (a lite model skips optional objects, D69); quote "" means the message does not state it
     required: ['slip', 'where', 'when', 'constraints'],
     additionalProperties: false,
   }

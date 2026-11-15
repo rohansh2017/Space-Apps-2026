@@ -10,7 +10,7 @@ interface Props {
 }
 
 /**
- * F21/F26/F29 (D68: one button): type requirements, a slip, where and when in plain words. One Gemini call reads
+ * F21/F26/F29 (D70: one button): type requirements, a slip, where and when in plain words. One Gemini call reads
  * them into a search spec, the card shows how each part was read, and on confirmation the panel is filled and the
  * finder runs. Nothing changes until the user confirms.
  */

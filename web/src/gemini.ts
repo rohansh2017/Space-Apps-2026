@@ -1,5 +1,5 @@
 // Shared Gemini plumbing, browser side: validate constraint values against the schema (F21, used by the copilot's
-// reply since D68) and POST to a Worker route.
+// reply since D70) and POST to a Worker route.
 import type { ConstraintDef } from './data'
 import type { Constraints } from './engine/engine'
 

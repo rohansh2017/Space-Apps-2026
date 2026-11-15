@@ -47,7 +47,9 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 
 .topbar { grid-area: top; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 var(--gap);
   background: linear-gradient(rgb(5 6 8 / 92%), rgb(5 6 8 / 70%)); border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: baseline; gap: 0.75rem; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.brand h1 { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.brand-logo { display: block; width: 48px; height: 48px; object-fit: contain; }
 .brand span { color: var(--dim); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topbar-actions { display: flex; align-items: center; gap: 0.4rem; }
 .topbar-actions > button { background: none; border-color: transparent; color: var(--dim); }
@@ -61,6 +63,8 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 
 .rail { grid-area: rail; display: flex; flex-direction: column; gap: 4px; padding: 8px 6px; background: rgb(5 6 8 / 80%); border-right: 1px solid var(--line); }
 .rail-button { flex-direction: column; gap: 3px; padding: 7px 2px; background: none; border-color: transparent; color: var(--dim); font-size: 0.7rem; line-height: 1.15; white-space: normal; text-align: center; }
+.rail-button svg { flex-shrink: 0; }
+.rail-image { display: block; width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; }
 .rail-button:hover:not(:disabled), .rail-button[aria-expanded='true'] { color: var(--text); background: rgb(224 216 200 / 8%); border-color: transparent; }
 
 .side { grid-area: side; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--line); }
@@ -519,6 +523,13 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
 .moon-bar .primary { padding: 0.36rem 0.8rem; }
 .moon-legend { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.2rem 0.35rem; }
 .moon-foot { view-transition-name: moon-foot; }
+/* relief height slider (D67) and the Topo layer's legend (D68): violet is the height ramp's own hue */
+.moon-exag { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--dim); }
+.moon-exag input { width: 5.5rem; accent-color: var(--text); }
+.moon-exag-value { min-width: 2.2em; color: var(--text); font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { .moon-exag { display: none; } } /* phones keep x3; the bar stays clear of the pins (PLAN: Adapt) */
+.moon-topo { pointer-events: auto; padding: 0.3rem 0.6rem; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; text-align: center; text-wrap: pretty; font-variant-numeric: tabular-nums; }
+.moon-topo .legend i.topo-ramp { width: 5rem; background: linear-gradient(90deg, #2b1c54, #cbc2f3); }
 .tray-letter { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; margin-right: 0.35rem; border-radius: 4px; background: var(--text); color: #141416; font-size: 0.68rem; font-weight: 700; vertical-align: 1px; }
 @media (max-width: 860px) {
   .moon, .app.side-closed .moon { left: 0; }

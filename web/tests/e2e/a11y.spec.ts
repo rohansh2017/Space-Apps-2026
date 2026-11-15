@@ -69,7 +69,7 @@ test('tour takes focus, closes on Escape and returns focus; glossary text is rea
 test('scrubber speaks its date, not a bare number', async ({ page }) => {
   await page.goto('/')
   await expandPanels(page)
-  await expect(page.getByRole('slider')).toHaveAttribute('aria-valuetext', /^2026-11-19 00:00 UTC, landing plus 0 hours$/)
+  await expect(page.getByRole('slider', { name: /^Lunar day/ })).toHaveAttribute('aria-valuetext', /^2026-11-19 00:00 UTC, landing plus 0 hours$/)
 })
 
 test('a failed search is reported in place and the app keeps working', async ({ page }) => {

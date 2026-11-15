@@ -51,9 +51,9 @@ test('Moon view: pins with engine verdicts, fly-down, drag the landing point, st
   const hour = Number((await observer(page)).hour)
   await expect(page.getByTestId('moon-sun')).toHaveText(expectedPole(hour).sun)
   await expect(page.getByTestId('moon-earth')).toHaveText(expectedPole(hour).earth)
-  await page.getByRole('slider').fill('200')
+  await page.getByRole('slider', { name: /^Lunar day/ }).fill('200')
   await expect(page.getByTestId('moon-sun')).toHaveText(expectedPole(hour + 200).sun)
-  await page.getByRole('slider').fill('0')
+  await page.getByRole('slider', { name: /^Lunar day/ }).fill('0')
   await page.waitForTimeout(800)
   await page.screenshot(shot('18-moon-pole'))
 
@@ -142,13 +142,15 @@ test('Moon view: pins with engine verdicts, fly-down, drag the landing point, st
   expect(errors).toEqual([])
 })
 
-test('Moon view: the whole Moon is textured from LOLA, fetched only after the polar map', async ({ page }) => {
+test('Moon view: the whole Moon has LOLA relief, fetched only after the polar map', async ({ page }) => {
   const order: string[] = []
   page.on('request', (r) => { const f = r.url().split('/data/basemaps/')[1]; if (f) order.push(f) })
   await page.goto('/')
   await expect(page.getByTestId('moon-view')).toBeVisible()
-  await expect.poll(() => order.includes('globe.png')).toBe(true)
-  expect(order.indexOf('pole.png')).toBeLessThan(order.indexOf('globe.png'))
+  // with the relief (D67) the whole Moon is shaded from LOLA heights, and globe.png is not fetched
+  await expect.poll(() => order.includes('relief/globe.png'), { timeout: 20_000 }).toBe(true)
+  expect(order.indexOf('pole.png')).toBeLessThan(order.indexOf('relief/globe.png'))
+  expect(order).not.toContain('globe.png')
   // the BSC5 stars, turned for the hour, behind the Moon at both levels (D61)
   await expect(page.getByTestId('moon-view')).toHaveAttribute('data-stars', /^9\d{3}$/)
   // the Pole button at pole level brings the camera home after an orbit
@@ -163,10 +165,10 @@ test('Moon view: the whole Moon is textured from LOLA, fetched only after the po
   await expect.poll(async () => Math.hypot(...(await at()).map((v, i) => v - home[i]))).toBeGreaterThan(30)
   await page.getByTestId('moon-back').click()
   await expect.poll(async () => Math.hypot(...(await at()).map((v, i) => v - home[i])), { timeout: 5000 }).toBeLessThan(2)
-  // flying to a site fetches its 20 m context map (D62); its 5 m heightmap waits until the camera comes close
+  // flying to a site fetches its context relief (D62, D67); its 5 m heightmap waits until the camera comes close
   const fetched: string[] = []
   page.on('request', (r) => fetched.push(r.url()))
-  const context = page.waitForRequest((r) => r.url().includes('/data/basemaps/context/connecting-ridge.jpg'))
+  const context = page.waitForRequest((r) => r.url().includes('/data/basemaps/relief/context/connecting-ridge.png'))
   await page.getByTestId('moon-pin-connecting-ridge').click()
   await context
   await page.waitForTimeout(1500)
@@ -179,13 +181,57 @@ test('Moon view: the whole Moon is textured from LOLA, fetched only after the po
   await expect(page.getByTestId('moon-view')).toHaveAttribute('data-stars', /^9\d{3}$/) // the stars stay
 })
 
+// D67/D68: LOLA relief raised in 3D after the polar map, a height slider, and the Topo layer with its legend
+test('Moon view: relief in 3D, the Height slider and the Topo layer', async ({ page }) => {
+  test.slow()
+  const order: string[] = []
+  page.on('request', (r) => { const f = r.url().split('/data/basemaps/')[1]; if (f) order.push(f) })
+  await page.goto('/')
+  const moon = page.getByTestId('moon-view')
+  await expect(moon).toHaveAttribute('data-relief', 'loaded', { timeout: 20_000 })
+  expect(order.indexOf('pole.png')).toBeLessThan(order.indexOf('relief/pole.png'))
+  await expect.poll(() => order.includes('relief/globe.png'), { timeout: 20_000 }).toBe(true)
+  expect(order.indexOf('relief/pole.png')).toBeLessThan(order.indexOf('relief/globe.png'))
+  await expect(page.getByTestId('moon-note')).toContainText('Real Sun on LOLA terrain')
+
+  // Topo: legend with the level's contour spacing, and the LOLA height under the pointer
+  await expect(page.getByTestId('moon-topo-legend')).toHaveCount(0)
+  await page.getByTestId('moon-topo').click()
+  await expect(moon).toHaveAttribute('data-topo', 'on')
+  const legend = page.getByTestId('moon-topo-legend')
+  await expect(legend).toContainText('contours every 1000 m, heavy every 5,000 m')
+  const box = (await moon.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.55)
+  await expect(page.getByTestId('moon-topo-height')).toHaveText(/^−?[\d,]+ m under the pointer$/)
+
+  // flown down: the site's context relief, finer contours; the landing point is picked on the raised ground
+  const ctx = page.waitForRequest((r) => r.url().includes('/data/basemaps/relief/context/connecting-ridge.png'))
+  await page.getByTestId('moon-pin-connecting-ridge').click()
+  await ctx
+  await expect(legend).toContainText('contours every 100 m (20 m on the 5 km site patch)')
+  const marker = page.getByTestId('moon-marker')
+  for (const exag of ['1', '5']) {
+    await page.getByTestId('moon-exag').fill(exag)
+    await expect(moon).toHaveAttribute('data-exag', exag)
+    await page.waitForTimeout(600)
+    const id = await marker.getAttribute('data-point')
+    const m = (await marker.boundingBox())!
+    // a click on the marker's own spot (not a drag) lands on the same grid point: the pick follows the drawn terrain
+    await page.mouse.click(m.x + m.width / 2 + 2, m.y + m.height / 2 + 2)
+    await page.waitForTimeout(300)
+    await expect(marker).toHaveAttribute('data-point', id!)
+  }
+  await page.getByTestId('moon-topo').click()
+  await expect(legend).toHaveCount(0)
+})
+
 test('Moon view: reduced motion jumps instead of flying; a link to an exact point opens on the ground', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
   await page.getByTestId('moon-pin-connecting-ridge').click()
   await expect(page.getByTestId('view')).toContainText('Plan: Connecting Ridge')
   await expect(page.getByTestId('moon-marker')).toBeVisible() // placed by the first frame
-  await expect(page.getByRole('slider')).toBeVisible() // the band arrives with the terrain and resizes the stage
+  await expect(page.getByRole('slider', { name: /^Lunar day/ })).toBeVisible() // the band arrives with the terrain and resizes the stage
   await page.waitForTimeout(200) // well inside the 1.1 s flight, had there been one
   const a = await centreOf(page, 'moon-marker') // already in place: no flight to wait for
   await page.waitForTimeout(400)

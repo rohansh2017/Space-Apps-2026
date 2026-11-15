@@ -63,3 +63,12 @@ The PGDA 78 files are 5 m/px GeoTIFFs in the same south polar stereographic proj
 ## Per-site context maps (D62)
 
 `basemaps/context/{site}.jpg` (`make data-context`, `build/scripts/build_context.py`): for each of the 9 terrain sites, a window of ±32 km around the site (south polar stereographic, centred on its x/y) read from `LDEM_80S_20MPP_ADJ.TIF` (the same file as above; SHA-256 re-checked on 2026-11-15 after a fresh download on a second machine), shaded with `export.hillshade` at the full 20 m (3200 × 3200 px, the region maps' light and relief), written as 8-bit greyscale JPEG at quality 85 with Pillow: 1.37–1.58 MB each, 13.5 MB for all nine. They load one at a time, when the Moon view flies to a site. Same axes as the region maps (row 0 = +y, col 0 = −x).
+
+## Moon view relief (D67)
+
+`basemaps/relief/` (`make data-relief`, `build/scripts/build_relief.py`, a few seconds): 16-bit greyscale heights above the 1,737,400 m sphere, in 0.5 m steps (`offset_m + value × scale_m`; `max_m` is the highest height), every row PNG filter 2 (Up), which halves the files on smooth terrain; the web decoder handles filters 0 and 2 only.
+- `globe.png`: LDEM_16 (the file above) minus the sphere, resampled bilinearly to 2048 × 1024 like `globe.png`, then averaged 2 × 2 to 1024 × 512 (about 10.7 km per pixel at the equator), 0.90 MB. Same axes as `basemaps/globe.png`.
+- `pole.png`: `LDEM_80S_20MPP_ADJ.TIF` over ±304 km, read decimated to 1024 × 1024 with rasterio's average resampling (about 594 m per pixel), 1.51 MB. Same axes as `basemaps/pole.png`.
+- `context/{site}.png`: the same DEM over ±32 km around each of the 9 terrain sites, averaged to 1024 × 1024 (62.5 m per pixel), 0.77–0.80 MB each. Same axes as the context maps.
+
+Checked against `points.json` (`build/tests/test_relief.py`): at the nine site centres the context grids agree with `elev_m` within 1.4 m and the polar grid within 29.1 m (its pixels are 594 m wide). With the relief in place the Moon view no longer fetches `basemaps/globe.png` or the context JPEGs; they stay for builds without it.
