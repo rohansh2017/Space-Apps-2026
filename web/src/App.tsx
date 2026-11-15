@@ -3,6 +3,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { flushSync } from 'react-dom'
 import Chips from './Chips'
 import ConstraintPanel from './ConstraintPanel'
+import type { CopilotPlan } from './copilot'
+import { copilotSummary } from './copilot'
 import type { Dataset, Region, SitePoint, Sky } from './data'
 import { loadDataset, loadRegion, loadSitePoint } from './data'
 import { horizonFacts } from './describe'
@@ -125,6 +127,9 @@ export default function App() {
   const room = useRef<Room | null>(null)
   const lastRoomKey = useRef('') // the state most recently sent or received, so nothing echoes
   const worker = useRef<Worker | null>(null)
+  const [copilotPending, setCopilotPending] = useState(false) // F26: a confirmed copilot plan waits for its site's terrain, then searches
+  const [copilotText, setCopilotText] = useState('') // F26: the template answer for the search the copilot ran
+  const copilotRun = useRef(false)
 
   useEffect(() => {
     loadDataset().then((d) => {
@@ -179,6 +184,7 @@ export default function App() {
     setPlaying(false)
     setNudgeFrom(null)
     setStale(false)
+    setCopilotText('')
   }, [])
 
   const selectSite = useCallback((id: string, index: number | null = null) => {
@@ -511,12 +517,15 @@ export default function App() {
       if (!reply.ok) throw new Error(reply.error)
       const result = reply.result!
       setFound({ finder: result, candidates, constraints })
+      const copilot = copilotRun.current ? copilotSummary(result, candidates, (h) => `${iso(data.startMs + h * HOUR_MS).replace('T', ' ')}`) : ''
+      copilotRun.current = false
+      setCopilotText(copilot)
       setResultsMin(false)
       setResultsFresh(true)
       setViewing(null)
       setStale(false)
       const passing = result.results.filter((r) => r.evaluation.fails === 0).length
-      setAnnounce(`Search finished: ${result.results.length} alternatives ranked, ${passing} meet every constraint.`)
+      setAnnounce(copilot || `Search finished: ${result.results.length} alternatives ranked, ${passing} meet every constraint.`)
       focusResults.current = true // the effect below moves focus once the results have rendered
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
@@ -526,6 +535,25 @@ export default function App() {
       setBusy(false)
     }
   }
+
+  /** F26: apply a confirmed copilot plan (site, later landing, constraints), then search once the plan is ready. */
+  const applyCopilot = (p: CopilotPlan) => {
+    if (!data) return
+    if (p.site && p.site !== siteId) selectSite(p.site)
+    else clearResults()
+    if (p.slipDays) setPlanHour((h) => Math.min(data.hours - 1, h + Math.round(p.slipDays! * 24))) // forward only (D19)
+    setConstraints((c) => ({ ...c, ...p.values }))
+    setStale(false)
+    setCopilotPending(true)
+    setAnnounce('Copilot plan applied; searching for alternatives…')
+  }
+  useEffect(() => {
+    if (!copilotPending || !plan || busy) return
+    setCopilotPending(false)
+    copilotRun.current = true
+    runFinder() // this render's runFinder, so it sees the applied site, date and constraints
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [copilotPending, plan, busy])
 
   // F17: keep the address bar shareable (the room id from F24 is kept)
   useEffect(() => {
@@ -920,7 +948,7 @@ export default function App() {
                 <p className="note">{site.mission} · {site.agency}<br />{(plan?.lat ?? site.lat).toFixed(3)}°, {(plan?.lon ?? site.lon).toFixed(3)}°E · {site.coord_source}</p>
                 {mode === 'explorer' && site.blurb && <p className="note">{site.blurb}</p>}
               </section>
-              <ConstraintPanel defs={data.constraintDefs} value={constraints} onChange={(c) => {
+              <ConstraintPanel defs={data.constraintDefs} value={constraints} sites={terrain} onCopilot={applyCopilot} onChange={(c) => {
                 setConstraints(c)
                 setNudgeFrom(null)
                 if (found && !stale) {
@@ -1014,7 +1042,7 @@ export default function App() {
                 </button>
               )}
               {found && !resultsMin && <Results finder={found.finder} fresh={resultsFresh} onMinimize={() => smooth(() => { setResultsMin(true); setResultsFresh(false) }, () => resultsChip.current?.focus())} candidates={found.candidates} opened={openedIndex >= 0 ? openedIndex : null} date={date} stale={stale}
-                headingRef={resultsHeading} onRerun={runFinder} busy={busy} constraints={found.constraints}
+                headingRef={resultsHeading} onRerun={runFinder} busy={busy} constraints={found.constraints} lead={copilotText}
                 pinned={pinnedKeys} onPin={(i) => { const r = resultRef(i); if (r) togglePin(r) }}
                 onMoon={(i) => { const r = resultRef(i); if (r) showOnMoon(r) }}
                 onOpen={(i) => {
@@ -1124,6 +1152,8 @@ export default function App() {
             <p>Terrain relief (5 m where PGDA has a site DEM, otherwise 20 m); the distant ranges' outline and their lighting from the LOLA slope at each crest; the Sun's and Earth's positions; the stars' positions and brightness for this site and hour.</p>
             <h3>What the Moon view takes from data</h3>
             <p>Site and grid positions on the true sphere; LOLA relief draped on it: the whole Moon from the global 16 px/degree grid, 80–90°S from the 80 m polar DEM, 64 × 64 km around each site and its 10 km box from the 20 m DEM, and its 5 × 5 km patch from the same 5 m (or 20 m) heightmap as the 3D view; the Sun's direction for the day/night line; the stars' positions and brightness for the hour (as in the 3D view); pin, cell and dot colours, tooltips and bearing labels, all from the engine.</p>
+            <h3>What Gemini does</h3>
+            <p>Gemini (on the deployed site only) reads typed sentences into constraint values, a later landing and a site, which you confirm before anything changes; it may also reword the horizon and "why not" sentences on request, and that wording is kept only if every number in it came from the engine. It never computes a number: the finder, the metrics and the "why not" fixes are the engine's.</p>
             <h3>What the views invent, for legibility</h3>
             <ul>
               <li>Moon view: the day/night line is drawn on a smooth sphere, so terrain shadows are not shown there; the night side is kept at a quarter of the day side's brightness; the relief's shading uses a fixed, illustrative light (the same for every layer), not the real Sun.</li>

@@ -1,54 +1,72 @@
-// F21: a typed requirement becomes constraint JSON. Gemini gets constraints.schema.json as the response
-// schema; the browser validates the reply against the same schema before anything is applied. Gemini
+// F21: a typed requirement becomes constraint JSON. Gemini lists {quote, field, value} items (fields from
+// constraints.schema.json); the Worker keeps only items whose quote is in the sentence (D64), and the browser
+// validates the values against the schema before anything is applied. Gemini
 // never sees engine results. The key is a Worker secret (GEMINI_API_KEY).
-const MODEL = 'gemini-4-hydrogen'
-const MAX_CHARS = 300
-const PER_MINUTE = 10 // per client IP, per isolate: a cap, not an accounting system
-const recent = new Map()
+import { callGemini, gate, readJson } from './gemini-call.js'
 
-const PROMPT = 'You turn a lunar lander mission requirement into constraint values. Include only the fields the sentence '
-  + 'states and leave every other field out. Units: days for durations, hours for darkness, percent for Earth '
-  + 'visibility, degrees for elevation and slope, km for the search radius.\nRequirement: '
+const MAX_CHARS = 300
+export const UNITS = 'Phrases: dark/night/no sun -> max_continuous_dark_hours (hours; 4 days = 96); talk to/see/contact Earth, comms -> min_earth_visible_pct '
+  + '(percent; half the time = 50); sunlight/power -> min_continuous_sun_days (days); mission length -> mission_duration_days; '
+  + 'slope -> max_slope_deg (degrees); launch delay -> slip_range_days only if a search range is stated.'
+export const ITEMS = 'List one item per constraint the text states: quote = the exact words from the text that state it, field, value in '
+  + 'the unit of that field (true/false as 1/0). Never list a field the text does not state, and never use one phrase for two fields.'
+
+export async function constraintDefs(request, env) {
+  return (await (await env.ASSETS.fetch(new URL('/data/constraints.schema.json', request.url))).json()).constraints
+}
+
+/** Grounded extraction (D64): each value must quote the user's words, so a lite model cannot invent fields. */
+export function itemsSchema(defs) {
+  return {
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: { quote: { type: 'string' }, field: { type: 'string', enum: defs.map((d) => d.id) }, value: { type: 'number' } },
+      required: ['quote', 'field', 'value'],
+    },
+  }
+}
+
+// lower case, punctuation to spaces; a dot survives only as a decimal point (8.5)
+const norm = (t) => String(t).toLowerCase().replace(/(?<!\d)\.|\.(?!\d)/g, ' ').replace(/[^a-z0-9%.°]+/g, ' ').trim()
+
+/** Keep an item only if its quote is in the sentence and no other kept item uses the same words; ranges are the browser's check. */
+export function groundedValues(items, sentence, defs) {
+  const text = ` ${norm(sentence)} `
+  const used = []
+  const values = {}
+  for (const it of Array.isArray(items) ? items : []) {
+    const d = defs.find((x) => x.id === it?.field)
+    const q = norm(it?.quote ?? '')
+    if (!d || !q || d.id in values || typeof it.value !== 'number' || !text.includes(` ${q} `)) continue
+    if (used.some((u) => u.includes(q) || q.includes(u))) continue // "4 days of dark" cannot also be a 4-day mission
+    used.push(q)
+    values[d.id] = d.type === 'boolean' ? it.value !== 0 : it.value
+  }
+  return values
+}
+
+export async function readSentence(request) {
+  const sentence = String((await readJson(request))?.sentence ?? '').trim()
+  return sentence && sentence.length <= MAX_CHARS ? sentence : null
+}
 
 export async function constraintsFromSentence(request, env) {
-  if (request.method !== 'POST') return Response.json({ error: 'POST a JSON body {sentence}' }, { status: 405 })
-  if (!env.GEMINI_API_KEY) return Response.json({ error: 'Sentence entry is not configured on this deployment' }, { status: 503 })
-  const ip = request.headers.get('cf-connecting-ip') ?? 'local'
-  const now = Date.now()
-  const hits = (recent.get(ip) ?? []).filter((t) => now - t < 60_000)
-  if (hits.length >= PER_MINUTE) return Response.json({ error: 'Too many requests; try again in a minute' }, { status: 429 })
-  recent.set(ip, [...hits, now])
-
-  let sentence
+  const stop = gate(request, env, 'Sentence entry')
+  if (stop) return stop
+  const sentence = await readSentence(request)
+  if (!sentence) return Response.json({ error: `Write 1 to ${MAX_CHARS} characters` }, { status: 400 })
+  const defs = await constraintDefs(request, env)
+  const r = await callGemini(env,
+    `You read a lunar lander mission requirement. ${ITEMS} ${UNITS}\nRequirement: ${sentence}`,
+    { schema: itemsSchema(defs) })
+  if (r.error) return Response.json({ error: r.error }, { status: r.status })
+  let items
   try {
-    sentence = String((await request.json()).sentence ?? '').trim()
-  } catch {
-    return Response.json({ error: 'Body must be JSON' }, { status: 400 })
-  }
-  if (!sentence || sentence.length > MAX_CHARS) return Response.json({ error: `Write 1 to ${MAX_CHARS} characters` }, { status: 400 })
-
-  // one schema for the panel, Gemini and the validator: read our own published copy
-  const schema = await (await env.ASSETS.fetch(new URL('/data/constraints.schema.json', request.url))).json()
-  const properties = Object.fromEntries(schema.constraints.map((c) => [
-    c.id, c.type === 'boolean' ? { type: 'boolean' } : { type: 'number', minimum: c.min, maximum: c.max },
-  ]))
-  const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-    method: 'POST',
-    headers: { 'x-goog-api-key': env.GEMINI_API_KEY, 'content-type': 'application/json', 'api-revision': '2026-05-20' },
-    body: JSON.stringify({
-      model: MODEL,
-      input: PROMPT + sentence,
-      response_format: { type: 'text', mime_type: 'application/json', schema: { type: 'object', properties, additionalProperties: false } },
-    }),
-  })
-  if (!upstream.ok) return Response.json({ error: `Gemini answered ${upstream.status}` }, { status: 502 })
-  const reply = await upstream.json()
-  const text = reply.steps?.flatMap((s) => (s.type === 'model_output' ? s.content ?? [] : [])).find((c) => c.type === 'text')?.text
-  let values
-  try {
-    values = JSON.parse(text)
+    items = JSON.parse(r.text)
   } catch {
     return Response.json({ error: 'Gemini did not return JSON' }, { status: 502 })
   }
-  return Response.json({ values, model: MODEL, generated: true })
+  const values = groundedValues(items, sentence, defs)
+  return Response.json({ values, model: r.model, generated: true })
 }

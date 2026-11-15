@@ -146,6 +146,55 @@ test('F21: a typed sentence fills the panel only after the user confirms, and ba
   await expect(page.getByLabel('Mission duration')).toHaveValue('7')
 })
 
+test('F26 + F27: the copilot plans a slip in one call, the engine answers, and "why not" costs nothing until asked', async ({ page }) => {
+  // routes are mocked: no Gemini tokens are spent here (gemini.spec.ts makes the live calls under make e2e-live)
+  const calls: string[] = []
+  await page.route('**/api/copilot', async (route) => {
+    calls.push('copilot')
+    await route.fulfill({ json: { plan: { constraints: { min_earth_visible_pct: 100 }, slip_days: 3, site: 'haworth' }, model: 'mock', generated: true } })
+  })
+  let invent = false
+  await page.route('**/api/whynot', async (route) => {
+    calls.push('whynot')
+    const { facts } = route.request().postDataJSON()
+    const text = invent ? 'It fails; land 999 days later.' : `It fails on ${facts.fails[0].constraint}; the engine's limit is ${facts.fails[0].limit}${facts.fails[0].unit}.`
+    await route.fulfill({ json: { text, model: 'mock', generated: true } })
+  })
+  await page.goto('/')
+  await expandPanels(page)
+  await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  const before = await page.getByLabel('Landing date and time (UTC)').inputValue()
+  await page.getByPlaceholder(/survive 4 days of dark/).fill('we slip 3 days, move to Haworth, and need Earth in view the whole time')
+  await page.getByRole('button', { name: 'Plan the slip' }).click()
+  const suggestion = page.getByTestId('suggestion')
+  await expect(page.getByTestId('copilot-site')).toContainText('Haworth')
+  await expect(page.getByTestId('copilot-slip')).toContainText('3 days later')
+  await expect(suggestion).toContainText('Min Earth visibility: 100 %')
+  await expect(page.getByRole('combobox', { name: 'Site' })).not.toHaveValue('haworth') // nothing applied yet
+  await page.getByRole('button', { name: 'Apply and find alternatives' }).click()
+  await expect(page.getByTestId('copilot-summary')).toContainText(/alternatives|slipped plan/, { timeout: 30_000 })
+  await expect(page.getByRole('combobox', { name: 'Site' })).toHaveValue('haworth')
+  await expect(page.getByLabel('Min Earth visibility')).toHaveValue('100')
+  const after = await page.getByLabel('Landing date and time (UTC)').inputValue()
+  expect(Date.parse(`${after}Z`) - Date.parse(`${before}Z`)).toBe(3 * 24 * 3600 * 1000) // exactly 3 days later
+  // F27: the engine's "why not" is on screen without any Gemini call
+  const why = page.getByTestId('plan-whynot')
+  await expect(why).toContainText('Fails on')
+  await expect(why).toContainText('Earth visibility')
+  expect(calls).toEqual(['copilot'])
+  await page.getByRole('button', { name: 'Say it plainly' }).click()
+  await expect(page.getByTestId('plan-whynot-note')).toContainText('every number checked')
+  invent = true
+  await page.getByLabel('Mission duration').fill('8') // marks the results stale; the line goes
+  await expect(why).toHaveCount(0)
+  await page.getByRole('button', { name: 'Run again' }).click()
+  await expect(why).toBeVisible({ timeout: 30_000 })
+  await page.getByRole('button', { name: 'Say it plainly' }).click()
+  await expect(page.getByTestId('plan-whynot-note')).toContainText('did not match the facts')
+  await expect(page.getByTestId('plan-whynot-text')).not.toContainText('999')
+  expect(calls).toEqual(['copilot', 'whynot', 'whynot']) // one call per press, none otherwise
+})
+
 test('F17: the URL carries site, point, date, constraints and mode, and reopens to the same state', async ({ page, context }) => {
   await page.goto('/')
   await expandPanels(page)

@@ -3,7 +3,9 @@ import type { RefObject } from 'react'
 import Chips from './Chips'
 import type { Constraints } from './engine/engine'
 import type { Candidate, FinderResult } from './engine/finder'
-import { diffParts } from './engine/finder'
+import { diffParts, relaxations } from './engine/finder'
+import WhyNotLine from './WhyNotLine'
+import { whyNotFacts } from './whynot'
 
 interface Props {
   finder: FinderResult
@@ -21,10 +23,17 @@ interface Props {
   onPin: (i: number) => void // toggles the result in the compare tray
   onMinimize: () => void // folds the panel into its top-right corner
   fresh: boolean // just searched: play the entrance
+  lead?: string // F26: the copilot's answer, when the copilot ran this search
 }
 
-export default function Results({ finder, candidates, opened, date, onOpen, onMoon, stale, busy, onRerun, headingRef, constraints, pinned, onPin, onMinimize, fresh }: Props) {
+export default function Results({ finder, candidates, opened, date, onOpen, onMoon, stale, busy, onRerun, headingRef, constraints, pinned, onPin, onMinimize, fresh, lead = '' }: Props) {
   const passing = finder.results.filter((r) => r.evaluation.fails === 0).length
+  const base = finder.baseline
+  // F27: the plan's own fix, including the earliest later landing at the same point (the engine walked it hourly)
+  const planWhy = base.evaluation.fails
+    ? whyNotFacts(relaxations(base.metrics, candidates[0].slopeDeg, constraints, base.evaluation),
+      finder.planPassStart === null ? null : finder.planPassStart - base.start)
+    : null
   return (
     <section className={fresh ? 'results-panel fresh' : 'results-panel'} aria-labelledby="results-heading">
       <div className="results-head">
@@ -39,6 +48,8 @@ export default function Results({ finder, candidates, opened, date, onOpen, onMo
           <button type="button" onClick={onRerun} disabled={busy}>{busy ? 'Searching…' : 'Run again'}</button>
         </p>
       )}
+      {lead && <p className="copilot-lead" data-testid="copilot-summary">{lead} <span className="note">Copilot answer from the engine's results.</span></p>}
+      {planWhy && !stale && <WhyNotLine facts={planWhy} ask testId="plan-whynot" />}
       <p className="note" data-testid="finder-summary">
         {finder.evaluated.toLocaleString('en-US')} site and date pairs across {candidates.length} points in{' '}
         <span data-testid="finder-ms">{finder.ms.toFixed(0)}</span> ms · {passing} of the top {finder.results.length} meet every constraint
@@ -78,6 +89,9 @@ export default function Results({ finder, candidates, opened, date, onOpen, onMo
                   sun {r.metrics.sunlitPct.toFixed(0)}% · longest dark {r.metrics.longestDarkH} h · Earth {r.metrics.earthPct.toFixed(0)}% · slope {c.slopeDeg}°
                 </span>
               </div>
+              {r.evaluation.fails > 0 && !stale && (
+                <WhyNotLine facts={whyNotFacts(relaxations(r.metrics, c.slopeDeg, constraints, r.evaluation), null)} testId="result-whynot" />
+              )}
             </li>
           )
         })}

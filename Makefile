@@ -13,7 +13,7 @@ RAW_URLS := $(PGDA)/LDEM_80S_20MPP_ADJ.TIF $(PGDA)/LDEM_80S_80MPP_ADJ.TIF \
   $(NAIF)/fk/satellites/a_old_versions/moon_de440_220930.tf \
   $(ILLUM)/AVGVISIB_85S_060M_201608.TIF $(ILLUM)/AVGVISIB_75S_120M_201608.TIF $(PGDA)/LDSM_80S_20MPP_ADJ.TIF
 
-.PHONY: setup data-download data data-globe data-context data-fixtures test parity validate e2e e2e-live e2e-room perf check check-changed dev build deploy
+.PHONY: setup data-download data data-globe data-context data-fixtures test parity validate e2e e2e-live e2e-room perf check check-changed dev dev-api build deploy
 
 setup:
 	cd build && uv sync
@@ -94,6 +94,12 @@ check-changed:
 
 dev:
 	cd web && npm run dev
+
+# The Worker locally (Gemini routes, mission room) on 8788; `make dev` proxies /api and /room to it. Run both, in two terminals.
+# The Gemini key goes from .env into web/.dev.vars (gitignored), which wrangler dev reads. Every press spends real tokens.
+dev-api: build
+	@grep '^GEMINI_API_KEY=' .env > web/.dev.vars || echo "no GEMINI_API_KEY in .env: the Gemini routes will answer 503"
+	cd web && npx wrangler dev --port 8788
 
 build:
 	cd web && npm run build

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Constraints } from './engine'
 import type { Candidate, Scored } from './finder'
-import { diffParts, diffText, runFinder } from './finder'
+import { diffParts, diffText, relaxations, runFinder } from './finder'
+import { evaluate } from './engine'
 
 const C: Constraints = {
   mission_duration_days: 7, min_continuous_sun_days: 6, max_continuous_dark_hours: 80, min_earth_visible_pct: 40,
@@ -52,6 +53,26 @@ describe('finder', () => {
     expect(r.results[0].candidate).toBe(0)
     expect(r.results[0].start).toBeGreaterThan(24 * 40)
     expect(r.results[0].evaluation.fails).toBe(0)
+  })
+  it('F27: finds the earliest hour the plan itself passes, forward only, and none when no date can help', () => {
+    const r = runFinder(table, hours, [candidate('ridge', 5, 80, 200)], 24 * 40, C)
+    expect(r.planPassStart).not.toBeNull()
+    expect(r.planPassStart!).toBeGreaterThan(24 * 40)
+    expect(r.planPassStart!).toBeLessThanOrEqual(r.results[0].start) // earliest pass, not the best-scoring one
+    const open = runFinder(table, hours, [candidate('open', 0)], 24 * 40, C)
+    expect(open.planPassStart).toBe(24 * 40) // it already passes at the planned hour
+    const steep = runFinder(table, hours, [candidate('steep', 0, 0, 0, 25)], 24 * 40, C)
+    expect(steep.planPassStart).toBeNull() // slope never changes with the date
+  })
+  it('F27: each relaxation, applied, makes that constraint pass', () => {
+    const cands = [candidate('walled', 5, 0, 300, 14)]
+    const r = runFinder(table, hours, cands, 24 * 40, C)
+    const b = r.baseline
+    const relax = relaxations(b.metrics, cands[0].slopeDeg, C, b.evaluation)
+    expect(relax.map((x) => x.id).sort()).toEqual(Object.entries(b.evaluation.passes).filter(([, p]) => !p).map(([k]) => k).sort())
+    expect(relax.find((x) => x.id === 'max_slope_deg')).toEqual({ id: 'max_slope_deg', actual: 14, limit: 10, needed: 14 })
+    const loosened: Constraints = { ...C, ...Object.fromEntries(relax.map((x) => [x.id, x.needed])) }
+    expect(evaluate(b.metrics, cands[0].slopeDeg, loosened).fails).toBe(0)
   })
   it('refuses a window that runs past the ephemeris', () => {
     expect(() => runFinder(table, hours, [candidate('a', 0)], hours - 10, C)).toThrow(RangeError)

@@ -15,7 +15,7 @@ Two slides, one per prize, plus the evidence judges can check live. Copy into th
 
 ## Slide: Gemini API — Gemini in front of users, the engine behind the numbers
 
-**What Gemini does**: under the constraint panel, a planner types a requirement in words: *"survive 4 days of dark, talk to Earth half the time."* The Worker calls the Gemini Interactions API (`gemini-4-hydrogen`) with our `constraints.schema.json` as the response schema. Gemini returns `{"max_continuous_dark_hours": 96, "min_earth_visible_pct": 50}`.
+**What Gemini does**: under the constraint panel, a planner types a requirement in words: *"survive 4 days of dark, talk to Earth half the time."* The Worker calls the Gemini Interactions API (`gemini-3.5-flash-lite`, about 2 s per answer; chosen by benchmark, D64) with our `constraints.schema.json` as the response schema. Gemini returns `{"max_continuous_dark_hours": 96, "min_earth_visible_pct": 50}`.
 
 **What we do with it**: the browser re-validates the reply against the same schema (unknown fields and out-of-range values are listed and rejected, never coerced), shows the proposal labelled as generated, and changes nothing until the user presses *Apply*. The finder runs only when the user presses it. Gemini never receives or returns engine results.
 

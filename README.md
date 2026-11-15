@@ -27,6 +27,16 @@ You need [uv](https://docs.astral.sh/uv/) and Node 22+. The app's data files are
 make setup && make dev        # http://localhost:5173
 ```
 
+The Gemini buttons and the mission room run in a Cloudflare Worker, which `make dev` (Vite alone) does not start.
+To use them locally, run this in a second terminal while `make dev` is running:
+
+```sh
+make dev-api                  # the Worker on http://localhost:8788; Vite forwards /api and /room to it
+```
+
+It reads `GEMINI_API_KEY` from `.env` (copied into the gitignored `web/.dev.vars`) and rebuilds the app first.
+Every Gemini press spends real tokens. Without it those buttons say how to start it, and everything else works.
+
 The full pipeline, from raw data to a tested app, is `make setup && make data-download && make data && make check`.
 
 ### What to try
@@ -70,9 +80,13 @@ the 3D view invents.
 
 On the deployed site two more things work that need the Cloudflare Worker: the *Mission room* header
 button (start a room, open its link in a second browser; both follow each other), *Interpret with Gemini* under the
-constraints ("survive 4 days of dark, talk to Earth half the time") and *Describe with Gemini* under
-the panorama. Locally those report an error and everything else still works; the horizon sentence
-then stays the engine's own template.
+constraints ("survive 4 days of dark, talk to Earth half the time"), *Plan the slip* beside it ("we slip 3 days,
+move to Haworth, need Earth in view the whole time": one Gemini call, you confirm, the finder runs), *Say it plainly*
+on the "Why not?" line of a failing plan, and *Describe with Gemini* under the panorama. Gemini only reads and
+words things; every number is the engine's. To use them locally, run `make dev-api` in a second terminal beside
+`make dev`: it runs the Worker on port 8788 with `GEMINI_API_KEY` from `.env`, and Vite forwards `/api` and `/room` to it
+(each press spends real tokens). Without it those buttons say so in place and everything else still works; the horizon
+sentence then stays the engine's own template.
 
 ## Architecture in five lines
 
@@ -150,6 +164,7 @@ contract-shaped files for development; the app then shows a banner, and such fil
 | `make e2e-room` | Starts the Worker locally (`wrangler dev`) and checks that three browsers in one mission room stay in step | ~25 s |
 | `make check-changed` | Only the checks the files changed since `main` can affect (docs only: nothing; Python: ruff + pytest; engines or fixtures: parity + browser tests; web code: lint, typecheck, the unit tests that import the changed files, browser tests; mission room files: the room test). `PLAN=1` prints the plan without running it. **Run this before every push.** | 0 s to ~3 min |
 | `make check` | Lint + typecheck + all of the above. **Run this before merging to `main` and before a deploy.** | ~4 min |
+| `make dev-api` | Not a check: runs the Worker locally on port 8788 (Gemini routes, mission room) for use beside `make dev`; spends real Gemini tokens | until stopped |
 | `make e2e-live` | The browser tests, mission room and Gemini included, against the deployed site | ~50 s |
 | `make validate` | Engine vs Horizons, sunlit % vs PGDA, slopes vs LOLA; rewrites `docs/VALIDATION.md`. The last two need `make data-download` | ~40 s |
 | `make perf` | Finder timing, 3D frame rate on this machine's GPU, download sizes; rewrites `docs/PERF.md` | ~40 s |
