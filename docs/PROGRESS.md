@@ -1,4 +1,8 @@
-# Progress (append-only)
+# 📈 Progress
+
+A dated log of what was done, tested and decided, **newest at the bottom**. Append-only: earlier entries are never
+edited. To pick up the work, read the last three entries, then [PLAN.md](PLAN.md) and
+[TRACEABILITY.md](TRACEABILITY.md).
 
 ## 2026-11-14 13:35 EST — P0 setup
 
@@ -378,3 +382,8 @@ Pushed at the team's call (2026-11-15) on that evidence, with the 8-worker check
 ## 2026-11-15 — Deployed the quick tour (F28) (branch `redesign/new-visual-identity`)
 
 `make check` again failed only on timeouts (6 browser tests; OneDrive still using about 1.4 cores while paused); Python (27), TS (83 + 41) and parity passed. Every browser test passed with `--workers=2` (33), and `make e2e-room` passed. Deployed at the team's request (version fdbfa146). `make e2e-live`: 35 passed, 2 failed on the same load timeouts (the tour's search step and a screenshot); both passed when rerun alone against the live site (the tour's four actions took 14.3 s). The live Gemini specs passed, with both rewordings kept by the number checks.
+
+## 2026-11-15 — Markdown tidy-up and `.gitignore` (branch `redesign/new-visual-identity`)
+
+Team request (D66). Removed `SUPER_PROMPT.md`, `DESIGN.md`, `PRODUCT.md` and the tracked `.DS_Store`; restored `Space Apps Doc.pdf`, which had been deleted locally. Rewrote `README.md` (features table, walkthrough, collapsible controls table, layers table, docs index) and corrected what was out of date. Updated `ONE_PAGER.md`, `DEMO_SCRIPT.md` and `PRIZE_SLIDES.md` to today's UI and numbers. Added the DECISIONS index, the PLAN status table, the TRACEABILITY summary and intros. All relative links and anchors in the touched files resolve (checked with a script). Docs and config only; no code changed.
+

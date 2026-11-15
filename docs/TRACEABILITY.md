@@ -1,6 +1,11 @@
-# Traceability
+# 🔗 Traceability
 
-Status: todo / partial / done. `done` needs a passing test or a recorded check.
+Every requirement → where it is built → how it is tested. **31 done · 2 partial · 5 to do**
+(of 38).
+
+- **Status:** `done` needs a passing test or a recorded check; notes in brackets say what differs from the spec.
+- **Priority:** M = must · S = should · C = could · Prize = sponsor prize.
+- **Objective(s):** the challenge objectives in [spec/SPEC.md](spec/SPEC.md).
 
 | ID | Requirement (short) | Priority | Objective(s) | Implemented in | Tested by | Status |
 | --- | --- | --- | --- | --- | --- | --- |
