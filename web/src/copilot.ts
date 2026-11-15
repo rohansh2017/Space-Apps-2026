@@ -4,7 +4,7 @@ import type { ConstraintDef } from './data'
 import type { Candidate, FinderResult } from './engine/finder'
 import { diffText } from './engine/finder'
 import type { Suggestion } from './gemini'
-import { parseSuggestion } from './gemini'
+import { parseSuggestion, postApi } from './gemini'
 
 export interface CopilotPlan extends Suggestion {
   slipDays: number | null // land this many days after the current plan (forward only)
@@ -36,9 +36,7 @@ const cache = new Map<string, unknown>() // the same sentence is never sent twic
 
 export async function askCopilot(sentence: string): Promise<unknown> {
   if (cache.has(sentence)) return cache.get(sentence)
-  const r = await fetch('/api/copilot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sentence }) })
-  const body = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
+  const body = await postApi('/api/copilot', { sentence })
   cache.set(sentence, body.plan)
   return body.plan
 }

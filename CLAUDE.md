@@ -23,7 +23,7 @@ Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC
 ## Commands
 
 `make setup` · `make data-download` · `make data` (real) · `make data-fixtures` (synthetic) ·
-`make data-globe` (whole-Moon hillshade, needs only the LOLA global DEM) · `make data-context` (per-site 20 m context maps, needs only the 20 m DEM) · `make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` ·
+`make data-globe` (whole-Moon hillshade, needs only the LOLA global DEM) · `make data-context` (per-site 20 m context maps, needs only the 20 m DEM) · `make dev-api` (local Worker on 8788 for Gemini and the room; run beside `make dev`) · `make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` ·
 `make e2e-room` (mission room on a local Worker) · `make perf` ·
 `make check` (lint + typecheck + test + parity + e2e + e2e-room) · `make check-changed` (only what the changes since `main` can affect; `PLAN=1` prints the plan) · `make dev` · `make build` ·
 `make deploy` (uploads `web/public/data` to R2, then publishes) · `make e2e-live` (all browser tests, room and Gemini included, against the live site).

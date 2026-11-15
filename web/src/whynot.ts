@@ -2,6 +2,7 @@
 // says it in words at zero tokens. Gemini may rephrase it on request, kept only if every number is a fact.
 import type { Relaxation } from './engine/finder'
 import { allowedFrom, looksLikeProse } from './describe'
+import { postApi } from './gemini'
 
 const NAMES: Record<string, { what: string; unit: string; allow: (v: number) => string }> = {
   min_continuous_sun_days: { what: 'continuous sunlight', unit: ' days', allow: (v) => `${v} days of continuous sunlight` },
@@ -54,9 +55,7 @@ export async function askWhyNot(facts: WhyNotFacts): Promise<string> {
   const key = JSON.stringify(facts)
   const hit = cache.get(key)
   if (hit !== undefined) return hit
-  const r = await fetch('/api/whynot', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ facts }) })
-  const body = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
+  const body = await postApi('/api/whynot', { facts })
   const text = String(body.text ?? '')
   cache.set(key, text)
   return text

@@ -2,6 +2,7 @@
 // the reply that is not one of the facts means the template sentence is used instead.
 import type { Angles, Prepared } from './engine/engine'
 import { nextChange } from './engine/engine'
+import { postApi } from './gemini'
 
 const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
 export const compass = (azDeg: number) => COMPASS[Math.round((((azDeg % 360) + 360) % 360) / 45) % 8]
@@ -109,8 +110,6 @@ export function looksLikeProse(text: string, subject: RegExp): boolean {
 export const looksLikeDescription = (text: string) => looksLikeProse(text, /\b(sun|earth|ridge|skyline|horizon)\b/i)
 
 export async function askDescription(facts: HorizonFacts): Promise<string> {
-  const r = await fetch('/api/describe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ facts }) })
-  const body = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
+  const body = await postApi('/api/describe', { facts })
   return String(body.text ?? '')
 }
