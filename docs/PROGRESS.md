@@ -349,3 +349,7 @@ Team request (D63). *Plan the slip* under the sentence box: one Gemini call turn
 
 Team report: *Interpret with Gemini* showed "HTTP 404" locally, because `make dev` is Vite alone and `/api/*` lives in the Worker. New `make dev-api` builds the app and runs `wrangler dev` on 8788, with `GEMINI_API_KEY` copied from `.env` into the gitignored `web/.dev.vars`. `vite.config.ts` proxies `/api` and `/room` there. Without the Worker, the four Gemini buttons now say how to start it instead of a bare status code (`gemini.ts` `postApi`, shared by all four). Checked without spending tokens: through the proxy, a GET to `/api/constraints` reaches the Worker (405 JSON), `wrangler dev` reports the key loaded, and Vite alone answers 502, which shows the new message.
 
+## 2026-11-15 — Fix: "Gemini returned no text" (branch `redesign/new-visual-identity`)
+
+First live use of the D63 settings failed. Two direct API calls showed that `thinking_level: "minimal"` answers 400 on `gemini-4-hydrogen`, so every request was sent twice. The retry then hit the 120-token `max_output_tokens`, which thinking counts against: 117 thought tokens, 3 text tokens, status `incomplete`. Now: `"low"` thinking (the lowest the model takes), a 1024-token runaway cap, one request per press, and a distinct message for an `incomplete` reply or a 503 (busy).
+

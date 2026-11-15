@@ -12,7 +12,7 @@ export async function explainWhyNot(request, env) {
     'In one or two plain sentences for a lunar mission planner, say why this landing plan fails and the simplest change that makes it pass. '
       + 'Use only these facts and quote numbers exactly as given; later_* is how much later the same point passes (null: not within the slip range). '
       + 'No other numbers, no comments on the task.\nFacts: ' + clean,
-    { maxTokens: 120 })
+  )
   if (r.error) return Response.json({ error: r.error }, { status: r.status })
   return Response.json({ text: r.text.trim().slice(0, 500), model: MODEL, generated: true })
 }

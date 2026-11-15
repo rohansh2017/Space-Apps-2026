@@ -20,7 +20,7 @@ export async function describeHorizon(request, env) {
       + 'Use only the facts below and quote every number exactly as given (no other numbers, no unit conversions). hours_to_* are hours; '
       + 'null means no change within 30 days. Compass directions are as seen from the site. Never comment on the task or the facts; '
       + 'if something is unknown, leave it out.\nFacts: ' + JSON.stringify(clean),
-    { maxTokens: 160 })
+  )
   if (r.error) return Response.json({ error: r.error }, { status: r.status })
   return Response.json({ text: r.text.trim().slice(0, 600), model: MODEL, generated: true })
 }

@@ -24,7 +24,7 @@ export async function planSlip(request, env) {
     `A lunar south-pole landing is being replanned. From the message, give: constraints (only fields it states), slip_days `
       + `(how many days later the earliest landing now is; leave out if not stated), site (only if it names one of: `
       + `${sites.map((s) => `${s.id}=${s.name}`).join('; ')}). ${UNITS}\nMessage: ${sentence}`,
-    { schema, maxTokens: 160 })
+    { schema })
   if (r.error) return Response.json({ error: r.error }, { status: r.status })
   let plan
   try {
