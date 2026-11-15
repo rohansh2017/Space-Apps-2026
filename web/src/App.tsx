@@ -1,10 +1,10 @@
-import { ChevronDown, ChevronUp, Info, ListOrdered, LayoutGrid, Link2, Map as MapIcon, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
+import { ChevronDown, ChevronUp, Globe, Info, ListOrdered, LayoutGrid, Link2, Map as MapIcon, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Chips from './Chips'
 import ConstraintPanel from './ConstraintPanel'
-import type { Dataset, Region } from './data'
-import { loadDataset, loadRegion } from './data'
+import type { Dataset, Region, SitePoint } from './data'
+import { loadDataset, loadRegion, loadSitePoint } from './data'
 import { horizonFacts } from './describe'
 import HorizonText from './HorizonText'
 import type { Constraints, Metrics } from './engine/engine'
@@ -17,6 +17,9 @@ import type { Mode } from './guide'
 import { Guide } from './guide'
 import Hud from './Hud'
 import Matrix from './Matrix'
+import { gridStats, verdict } from './moon'
+import type { MoonBadge, MoonPin } from './MoonView'
+import MoonView from './MoonView'
 import Panorama from './Panorama'
 import { defaults } from './presets'
 import Results from './Results'
@@ -35,6 +38,7 @@ const PLAYBACK_S = 20 // one lunar day of playback
 const SNAP_LIMIT_M = 500 // a custom coordinate farther than this from every grid point is outside the regions
 const HOUR_MS = 3_600_000
 const START_HOUR = 7728 // 2026-11-19 00:00 UTC
+const TRAY_LETTERS = 'ABCD' // pinned scenarios, as the tray and the Moon view mark them
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16)
 
 // locations survive a refresh or a bare URL (storage can be blocked: private windows, previews)
@@ -78,6 +82,11 @@ export default function App() {
   const [pins, setPins] = useState<ScenarioRef[]>([]) // the compare tray's pinned scenarios
   const [planInTray, setPlanInTray] = useState(false) // the live plan is a tray column only when the user adds it
   const [baseline, setBaseline] = useState<string | null>(null) // the column the others are compared to; null = the first
+  const [stageView, setStageView] = useState<'moon' | 'ground'>('moon') // the stage: the orbitable Moon, or the first-person ground view
+  const [sitePoints, setSitePoints] = useState<Record<string, SitePoint>>({}) // each site's own mask row and slope, for the Moon view's pins
+  const asked = useRef(new Set<string>())
+  const [overlays, setOverlays] = useState<HTMLDivElement | null>(null) // the Moon view draws its bar here, above the cards
+  const [moonZoom, setMoonZoom] = useState(false) // Moon view: down on a site's search grid (false = the whole polar region)
   const [pendingPin, setPendingPin] = useState<ScenarioRef | null>(null) // waiting for a free column
   const [matrix, setMatrix] = useState(false)
   const [drawer, setDrawer] = useState<'map' | 'matrix' | 'room' | null>(null)
@@ -126,6 +135,8 @@ export default function App() {
       const site = d.sites.find((x) => x.id === s.site) ?? d.sites[0]
       setSiteId(site.id)
       if (s.point !== undefined && s.point !== d.centreIndex && d.points.some((p) => p.region === site.id && p.index === s.point)) setPointIndex(s.point)
+      // a link to an exact point opens standing on it; a point only remembered by this browser keeps the Moon view
+      if (new URLSearchParams(window.location.search).has('point')) setStageView('ground')
       const h = s.utc ? Math.round((Date.parse(s.utc) - d.startMs) / HOUR_MS) : NaN
       if (h >= 0 && h < d.hours) setPlanHour(h)
       setConstraints(validConstraints(d.constraintDefs, { ...defaults(d.constraintDefs), ...s.constraints }))
@@ -269,20 +280,13 @@ export default function App() {
     return { ref, cand, day: cand ? dayOf(cand, ref.hour) : null }
   }), [pins, candidateOf, dayOf])
 
-  /** F15: sunlit % at every grid point of the selected region over the mission window from the landing hour. */
-  const illumination = useMemo(() => {
-    if (!data || !site?.terrain || !regions[site.id] || constraints.mission_duration_days === undefined) return null
-    const r = regions[site.id]
-    const dur = Math.round(Number(constraints.mission_duration_days) * 24)
-    if (planHour + dur > data.hours) return null
-    const out = new Float32Array(2 * data.centreIndex + 1) // n x n grid with the site at the middle index
-    for (const p of data.points) {
-      if (p.region !== site.id) continue
-      const s = buildSeries(data.ephemeris, planHour, dur, siteFrame(p.lat, p.lon, p.elev_m), r.masks.subarray(p.index * 360, (p.index + 1) * 360), Number(constraints.min_earth_elevation_deg))
-      out[p.index] = (s.cumFrac[dur] / dur) * 100
-    }
-    return out
-  }, [data, site, regions, planHour, constraints])
+  /** F15 and the Moon view's grid: sunlit %, Earth % and pass/fail at every grid point of the plan's region, over the mission window from the landing hour. */
+  const planRegion = site?.terrain ? regions[site.id] : undefined
+  const planGrid = useMemo(() => {
+    if (!data || !site || !planRegion || constraints.mission_duration_days === undefined) return null
+    return gridStats(data.points, site.id, 2 * data.centreIndex + 1, planRegion.masks, planRegion.slopes, data.ephemeris, data.hours, planHour, constraints, siteFrame)
+  }, [data, site, planRegion, planHour, constraints])
+  const illumination = planGrid?.sun ?? null
 
   /** F14: the grid neighbours one 500 m step away in each compass direction (null at the grid edge). */
   const neighbours = useMemo(
@@ -364,6 +368,83 @@ export default function App() {
     setRegions((all) => ({ ...all, ...loaded }))
     return loaded
   }, [terrain])
+
+  // --- Moon view: every curated site as a pin, the grid of the site on show, and where the tray pins and results are
+  // a pin needs its site's own horizon mask and slope only: one 720-byte row per site, not the whole region (D58)
+  useEffect(() => {
+    if (!data || stageView !== 'moon') return
+    for (const s of terrain) {
+      if (asked.current.has(s.id)) continue
+      asked.current.add(s.id)
+      loadSitePoint(s.id, data.centreIndex).then((p) => setSitePoints((all) => ({ ...all, [s.id]: p })), () => asked.current.delete(s.id))
+    }
+  }, [data, stageView, terrain])
+  /** Each site's own point, evaluated like the plan for the planned landing hour: solid pin = passes, hollow = fails. */
+  const moonPins = useMemo((): MoonPin[] => {
+    if (!data || stageView !== 'moon') return []
+    const i = data.centreIndex
+    return terrain.map((s) => {
+      const r = regions[s.id]
+      const own = r ? { mask: r.masks.subarray(i * 360, (i + 1) * 360), slopeDeg: r.slopes[i] } : sitePoints[s.id]
+      const c = pointById.get(`${s.id}:${i}`)
+      const ready = own && c && constraints.mission_duration_days !== undefined
+      return { site: s, verdict: ready ? verdict(data.ephemeris, data.hours, planHour, siteFrame(s.lat, s.lon, c.elev_m), own.mask, own.slopeDeg, constraints) : null }
+    })
+  }, [data, stageView, terrain, regions, sitePoints, pointById, planHour, constraints])
+  const moonBadges = useMemo((): MoonBadge[] => {
+    const out: MoonBadge[] = []
+    found?.finder.results.forEach((r, i) => {
+      const c = found.candidates[r.candidate]
+      out.push({ key: `result-${i}`, kind: 'result', text: String(i + 1), lat: c.lat, lon: c.lon })
+    })
+    pins.forEach((ref, i) => {
+      const p = pointById.get(ref.point)
+      if (p) out.push({ key: `tray-${i}`, kind: 'tray', text: TRAY_LETTERS[i], lat: p.lat, lon: p.lon })
+    })
+    return out
+  }, [found, pins, pointById])
+  // an alternative in another region (or at another hour) gets its own grid while it is on show
+  const viewedRegionId = viewing ? viewing.point.split(':')[0] : ''
+  const viewedRegion = viewing ? regions[viewedRegionId] : undefined
+  const moonGrid = useMemo(() => {
+    if (!viewing) return planGrid
+    if (stageView !== 'moon' || !moonZoom || !data || !viewedRegion || constraints.mission_duration_days === undefined) return null
+    return gridStats(data.points, viewedRegionId, 2 * data.centreIndex + 1, viewedRegion.masks, viewedRegion.slopes, data.ephemeris, data.hours, viewing.hour, constraints, siteFrame)
+  }, [viewing, viewedRegionId, viewedRegion, planGrid, stageView, moonZoom, data, constraints])
+  const moonHour = view ? viewStart + view.t : planHour
+  /** Sun and Earth as the engine sees them from the pole itself, for the pole-level bearing lines. */
+  const poleAngles = useMemo(() => (data ? siteAngles(data.ephemeris, moonHour, siteFrame(-90, 0, 0)) : null), [data, moonHour])
+  const focusId = observer ? observer.id.split(':')[0] : siteId
+  const flyToSite = useCallback((id: string) => {
+    if (id !== focusId) {
+      if (id !== siteId) {
+        selectSite(id) // a pin picks its site, like the Site list
+        setSnapNote('')
+      } else {
+        setViewing(null) // back from an alternative elsewhere to the plan's own site
+        setOffset(0)
+      }
+    }
+    setMoonZoom(true)
+    setAnnounce(`Flying down to ${data?.sites.find((s) => s.id === id)?.name ?? 'the site'}: its 10 km search grid.`)
+  }, [data, focusId, siteId, selectSite])
+  /** Moon view drags and dot clicks: the same snap as `locate`, kept inside the site on show (invariant 9). */
+  const pickOnMoon = useCallback((lat: number, lon: number, outside: boolean) => {
+    if (!data || viewing) return
+    const { point, distanceM } = snapToGrid(data.points.filter((p) => p.region === siteId), lat, lon)
+    const name = data.sites.find((s) => s.id === siteId)!.name
+    const where = `${point.lat.toFixed(4)}°, ${point.lon.toFixed(3)}°E (${name})`
+    setSnapNote(outside
+      ? `Outside the 10 km search grid: kept the nearest edge point, ${distanceM >= 1000 ? `${(distanceM / 1000).toFixed(1)} km` : `${distanceM.toFixed(0)} m`} away, at ${where}.`
+      : `Snapped ${distanceM.toFixed(0)} m to the nearest grid point, at ${where}.`)
+    const index = point.index === data.centreIndex ? null : point.index
+    if (index !== pointIndex) selectSite(siteId, index)
+  }, [data, viewing, siteId, pointIndex, selectSite])
+  const backToPole = useCallback(() => setMoonZoom(false), [])
+  const standHere = useCallback(() => {
+    setStageView('ground')
+    focusView.current = true
+  }, [])
 
   async function runFinder() {
     if (!data || !site || !plan || !planPoint) return
@@ -487,18 +568,30 @@ export default function App() {
       setBandOpen(true) // the replace prompt lives in the tray
     }
   }, [pins, planInTray])
-  const showScenario = (ref: ScenarioRef | null) => {
+  const viewScenario = (ref: ScenarioRef | null) => {
     setViewing(ref)
     setOffset(0)
     setPlaying(false)
     focusView.current = true // the effect below moves focus to the view once it shows this scenario
+  }
+  /** "View in 3D" / "Open in 3D": stand on the scenario's point. */
+  const showScenario = (ref: ScenarioRef | null) => {
+    viewScenario(ref)
+    setStageView('ground')
+  }
+  /** "Show on the Moon": the Moon view, down on the scenario's site. */
+  const showOnMoon = (ref: ScenarioRef | null) => {
+    if ((ref ? refKey(ref) : '') !== (viewing ? refKey(viewing) : '')) viewScenario(ref)
+    focusView.current = true
+    setStageView('moon')
+    setMoonZoom(true)
   }
   useEffect(() => {
     if (focusView.current && viewStatus.current) {
       focusView.current = false
       viewStatus.current.focus()
     }
-  }, [viewing, observer])
+  }, [viewing, observer, stageView, moonZoom])
   const resultRef = (i: number): ScenarioRef | null => {
     if (!found) return null
     const r = found.finder.results[i]
@@ -653,21 +746,34 @@ export default function App() {
     key: 'plan', title: 'Plan', detail: plan?.label ?? site.name, when: `${date(planHour)} UTC`, viewing: !viewed,
     day: planDay,
   }
-  const trayPins: TrayColumn[] = pinnedDays.map(({ ref, cand, day: d }) => ({
-    key: refKey(ref),
+  const trayPins: TrayColumn[] = pinnedDays.map(({ ref, cand, day: d }, i) => ({
+    key: refKey(ref), letter: TRAY_LETTERS[i],
     title: cand ? differenceOf(cand, ref.hour, d?.metrics ?? null) : 'Loading…',
     detail: cand?.label ?? ref.point.split(':')[0], when: `${date(ref.hour)} UTC`,
     viewing: Boolean(viewing && refKey(viewing) === refKey(ref)),
     day: d,
   }))
   const trayCount = pins.length + (planInTray ? 1 : 0)
+  const focusSite = data.sites.find((s) => s.id === focusId) ?? site
+  const onGrid = moonZoom && focusSite.terrain && view && observer && pointById.has(observer.id) ? view : null // bearings start at the landing point
   const levelGround = Boolean(day && site.heightmap && Math.max(Math.abs(day.east), Math.abs(day.north)) >= site.heightmap.span_m / 2 - 20)
 
   return (
     <Guide.Provider value={guide}>
       <div className={`app ${mode}${found ? ' has-results' : ''}${sideOpen ? '' : ' side-closed'}${fullscreen ? ' cinematic' : ''}${fullscreen && idle ? ' idle' : ''}`}>
         <div className="stage">
-          {site.terrain && view && day && observer && (
+          {/* one WebGL context at a time: the Moon view and the ground view replace each other */}
+          {stageView === 'moon' ? (
+            <MoonView data={data} hour={moonHour} when={date(planHour)} zoomed={moonZoom && focusSite.terrain} focus={focusSite}
+              marker={observer ? pointById.get(observer.id) ?? null : null} draggable={!viewed} pins={moonPins} grid={moonGrid} badges={moonBadges}
+              constraints={constraints} sunEl={(onGrid?.now ?? poleAngles!).sunEl} earthEl={(onGrid?.now ?? poleAngles!).earthEl}
+              onSite={flyToSite} onBack={backToPole} onPick={pickOnMoon} onNudge={nudge} onStand={standHere} host={overlays}>
+              {/* invariant 9: the snap note stays in sight when the Plan panel and the map are closed */}
+              {snapNote && !sideOpen && drawer !== 'map' && <p className="tag" role="status" data-testid="snap-note">{snapNote}</p>}
+              {viewed && moonZoom && <p className="tag">An alternative is on show, so its landing point is fixed. Show the plan to move the point.</p>}
+              <p className="tag" data-testid="moon-note">Day/night line on a smooth sphere: no terrain shadows · night side brightened</p>
+            </MoonView>
+          ) : site.terrain && view && day && observer && (
             <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
               sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky!} stars={data.stars}
               ridges={regions[observer.id.split(':')[0]]?.ridges ?? null} />
@@ -706,6 +812,10 @@ export default function App() {
         <nav className="rail" aria-label="Tools">
           <button type="button" className="rail-button" aria-expanded={sideOpen} onClick={() => openPanel('plan')}>
             <PanelLeftOpen size={18} aria-hidden="true" /><span>Plan</span>
+          </button>
+          <button type="button" className="rail-button" aria-pressed={stageView === 'moon'} onClick={() => setStageView(stageView === 'moon' ? 'ground' : 'moon')}
+            title={stageView === 'moon' ? 'Back to the ground view' : 'The south polar region with every site'}>
+            <Globe size={18} aria-hidden="true" /><span>Moon</span>
           </button>
           <button type="button" className="rail-button" ref={mapButton} aria-expanded={drawer === 'map'} onClick={() => openPanel('map')}>
             <MapIcon size={18} aria-hidden="true" /><span>Map</span>
@@ -779,7 +889,7 @@ export default function App() {
           </aside>
         )}
 
-        <div className="over">
+        <div className="over" ref={setOverlays}>
           {loadError ? (
             <div className="inline-error floating" role="alert" data-testid="load-error">
               <p>{loadError} Pick another site, or try again.</p>
@@ -821,12 +931,12 @@ export default function App() {
                 lit={view.lit} link={view.link} power={view.power}
                 sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} open={hudOpen} onToggle={() => smooth(() => setHudOpen(!hudOpen))} />
               <div className="stage-notes">
-                {levelGround && (
+                {stageView === 'ground' && levelGround && (
                   <p className="tag" data-testid="level-ground-note">
                     Outside the 5 × 5 km terrain patch: the 3D ground is drawn level; the skyline, panorama and every number use this point's own terrain.
                   </p>
                 )}
-                {site.terrain && view.lit < 0.5 && (
+                {stageView === 'ground' && site.terrain && view.lit < 0.5 && (
                   <p className="tag" data-testid="fill-tag">In shadow · view brightened so the terrain stays visible</p>
                 )}
               </div>
@@ -842,7 +952,8 @@ export default function App() {
                 onOpen={(i) => {
                   const r = i === null ? null : resultRef(i)
                   if (r && !pinnedKeys.has(refKey(r)) && pins.length + (planInTray ? 1 : 0) < TRAY_MAX) setPins([...pins, r]) // opening also pins it, room permitting
-                  showScenario(r)
+                  if (r) showScenario(r)
+                  else viewScenario(null) // back to the plan, in whichever view is on the stage
                 }} />}
             </>
           )}
@@ -891,14 +1002,16 @@ export default function App() {
             </div>
             {bandOpen && <Tray plan={planInTray ? trayPlan : null} pinned={trayPins} baseline={baseline} t={view.t} constraints={constraints} previous={nudgeFrom}
               pending={pendingPin ? { title: (() => { const c = candidateOf(pendingPin.point); return c ? differenceOf(c, pendingPin.hour, null) : 'this scenario' })() } : null}
+              stage={stageView}
               onView={(key) => showScenario(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
+              onMoon={(key) => showOnMoon(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
               onAdopt={adoptPin}
               onSetBaseline={(key) => { setBaseline(key); setAnnounce('Baseline changed: the other columns are now compared to it.') }}
               onRemovePlan={() => { setPlanInTray(false); if (baseline === 'plan') setBaseline(null) }}
               onUnpin={(key) => {
                 setPins(pins.filter((p) => refKey(p) !== key))
                 if (baseline === key) setBaseline(null)
-                if (viewing && refKey(viewing) === key) showScenario(null)
+                if (viewing && refKey(viewing) === key) viewScenario(null)
               }}
               onReplace={(key) => {
                 if (pendingPin) setPins(pins.map((p) => (refKey(p) === key ? pendingPin : p)))
@@ -938,8 +1051,11 @@ export default function App() {
             <p>NASA/JPL DE440 ephemeris and NAIF lunar kernels; LRO LOLA terrain from NASA GSFC PGDA (20 m and 80 m polar DEMs, 5 m site DEMs); the Yale Bright Star Catalogue (BSC5).</p>
             <h3>What the 3D view takes from data</h3>
             <p>Terrain relief (5 m where PGDA has a site DEM, otherwise 20 m); the distant ranges' outline and their lighting from the LOLA slope at each crest; the Sun's and Earth's positions; the stars' positions and brightness for this site and hour.</p>
-            <h3>What it invents, for legibility</h3>
+            <h3>What the Moon view takes from data</h3>
+            <p>Site and grid positions on the true sphere; the LOLA hillshade draped on it; the Sun's direction for the day/night line; pin and grid colours, tooltips and bearing labels, all from the engine.</p>
+            <h3>What the views invent, for legibility</h3>
             <ul>
+              <li>Moon view: the day/night line is drawn on a smooth sphere, so terrain shadows are not shown there; the night side is kept at a quarter of the day side's brightness; the hillshade's own lighting direction is fixed and illustrative; beyond the 80°S basemap the sphere is plain grey.</li>
               <li>Soil texture finer than about 1.5 m, and the rock texture on the distant ranges.</li>
               <li>The ground colour, the Sun's glare and Earth's surface pattern.</li>
               <li>Star colours, approximated from each star's B−V index.</li>

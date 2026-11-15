@@ -138,6 +138,39 @@ export function loadRegion(region: string): Promise<Region> {
   return r
 }
 
+export interface SitePoint {
+  mask: Uint16Array // 360 bins, the point's own horizon
+  slopeDeg: number
+}
+
+const sitePoints = new Map<string, Promise<SitePoint>>()
+
+/**
+ * One grid point's horizon mask and slope without the rest of its region: a ranged request for the 720-byte mask row
+ * (the Moon view's pins need each site's own point, not nine 317 KB regions). A server that ignores Range answers 200
+ * with the whole file, and the row is cut from it. Cached; a failed load is not.
+ */
+export function loadSitePoint(region: string, index: number): Promise<SitePoint> {
+  const key = `${region}:${index}`
+  let p = sitePoints.get(key)
+  if (!p) {
+    const row = 360 * 2
+    p = Promise.all([
+      fetch(`${BASE}masks/${region}.bin`, { headers: { Range: `bytes=${index * row}-${(index + 1) * row - 1}` } }),
+      get(`slopes/${region}.bin`),
+    ]).then(async ([m, s]) => {
+      if (!m.ok) throw new Error(`masks/${region}.bin: HTTP ${m.status}`)
+      const bytes = await m.arrayBuffer()
+      const mask = m.status === 206 && bytes.byteLength === row ? new Uint16Array(bytes) : new Uint16Array(bytes).subarray(index * 360, (index + 1) * 360)
+      if (mask.length !== 360) throw new Error(`masks/${region}.bin: unexpected size`)
+      return { mask, slopeDeg: new Uint8Array(await s.arrayBuffer())[index] }
+    })
+    p.catch(() => sitePoints.delete(key))
+    sitePoints.set(key, p)
+  }
+  return p
+}
+
 /** Decode a 16-bit greyscale PNG written by horizonwalk.export.write_png16. */
 export async function loadHeightmap(file: string, size: number): Promise<Uint16Array> {
   const bytes = new Uint8Array(await (await get(file)).arrayBuffer())

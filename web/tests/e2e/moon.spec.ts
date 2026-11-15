@@ -1,0 +1,189 @@
+import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { expandPanels, expectedHud, expectedPole, shot } from './hud'
+
+const observer = (page: Page) => page.getByTestId('view').evaluate((el: HTMLElement) => ({ ...el.dataset }) as Record<string, string>)
+const centreOf = async (page: Page, testId: string) => {
+  const b = (await page.getByTestId(testId).boundingBox())!
+  return [b.x + b.width / 2, b.y + b.height / 2] as const
+}
+/** The marker has stopped moving: the fly-down is over. */
+const settled = async (page: Page) => {
+  await expect(page.getByTestId('moon-marker')).toBeVisible()
+  let last = [-1, -1] as readonly number[]
+  await expect.poll(async () => {
+    const now = await centreOf(page, 'moon-marker')
+    const still = Math.hypot(now[0] - last[0], now[1] - last[1]) < 0.5
+    last = now
+    return still
+  }, { intervals: [250] }).toBe(true)
+}
+
+// F25: the page opens on the Moon; a pin flies down to its site's grid; the landing point is dragged; "Stand here" hands off to the ground view.
+test('Moon view: pins with engine verdicts, fly-down, drag the landing point, stand on it', async ({ page }) => {
+  test.slow()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto('/')
+  const moon = page.getByTestId('moon-view')
+  const view = page.getByTestId('view')
+  await expect(moon).toBeVisible()
+  await expandPanels(page) // the first view is quiet (D54, team): open the card, the HUD and the tray, with the plan in it
+  await expect(moon).toHaveAttribute('data-level', 'pole')
+  await expect(view).toContainText('Plan: Shackleton rim') // the status card and HUD stay
+  await expect(page.locator('.stage canvas[data-engine]')).toHaveCount(1) // one WebGL context
+
+  // every curated site is a pin; solid or hollow is the engine's verdict for the planned landing hour
+  await expect(page.locator('[data-testid^="moon-pin-"]')).toHaveCount(9)
+  const rim = page.getByTestId('moon-pin-change7-shackleton-rim')
+  await expect(rim).toHaveAttribute('data-verdict', 'pass') // the plan's own site: the status card shows no failing chip
+  await expect(view.locator('.chip.fail')).toHaveCount(0)
+  await expect(rim).toHaveAttribute('aria-label', /solid pin, meets every constraint .* landing 2026-11-19 00:00 UTC/)
+  const haworth = page.getByTestId('moon-pin-haworth')
+  await expect(haworth).toHaveAttribute('data-verdict', 'fail')
+  await expect(haworth).toHaveAttribute('aria-label', /hollow pin, fails \d of 5 constraints/)
+  await haworth.hover()
+  await expect(haworth.locator('.moon-tip')).toContainText(/Sunlit \d+\.\d% · Earth \d+\.\d% · longest dark \d+ h/)
+  await expect(haworth.locator('.moon-tip')).toContainText('Fails: ')
+  await page.mouse.move(5, 5)
+
+  // bearing labels at pole level are the engine's angles for the pole; scrubbing moves the Sun
+  const hour = Number((await observer(page)).hour)
+  await expect(page.getByTestId('moon-sun')).toHaveText(expectedPole(hour).sun)
+  await expect(page.getByTestId('moon-earth')).toHaveText(expectedPole(hour).earth)
+  await page.getByRole('slider').fill('200')
+  await expect(page.getByTestId('moon-sun')).toHaveText(expectedPole(hour + 200).sun)
+  await page.getByRole('slider').fill('0')
+  await page.waitForTimeout(800)
+  await page.screenshot(shot('18-moon-pole'))
+
+  // a pin flies down onto its site's search grid
+  await rim.click()
+  await expect(moon).toHaveAttribute('data-level', 'site')
+  await expect(page.getByTestId('moon-back')).toBeVisible()
+  const marker = page.getByTestId('moon-marker')
+  await expect(marker).toBeVisible()
+  await expect(marker).toHaveAttribute('data-point', 'change7-shackleton-rim:220')
+  await settled(page)
+  // once zoomed in, the bearings start at the landing point and read what the HUD reads
+  await expect(page.getByTestId('moon-sun')).toHaveText(`Sun ${await page.getByTestId('hud-sun-el').textContent()}`)
+  await expect(page.getByTestId('moon-legend')).toContainText('Sunlit')
+  await page.screenshot(shot('19-moon-region'))
+
+  // hovering a grid dot shows that point's engine numbers
+  const [mx, my] = await centreOf(page, 'moon-marker')
+  await page.mouse.move(mx - 60, my + 45)
+  await expect(page.getByTestId('moon-dot-tip')).toContainText(/Sunlit \d+\.\d% · Earth \d+\.\d% · longest dark \d+ h/)
+
+  // dragging the marker beats the orbit controls, snaps to the grid, and moves the plan live
+  await page.mouse.move(mx, my)
+  await page.mouse.down()
+  await page.mouse.move(mx + 60, my - 20, { steps: 6 })
+  await page.mouse.move(mx + 110, my - 45, { steps: 6 })
+  await page.mouse.up()
+  await expect(page.getByTestId('snap-note')).toContainText(/Snapped \d+ m to the nearest grid point/)
+  expect(Number((await page.getByTestId('snap-note').textContent())!.match(/Snapped (\d+) m/)![1])).toBeLessThanOrEqual(360) // half a grid diagonal
+  await expect(page).toHaveURL(/point=\d+/)
+  const dragged = await observer(page)
+  expect(dragged.point).toMatch(/^change7-shackleton-rim:\d+$/)
+  expect(dragged.point).not.toBe('change7-shackleton-rim:220')
+  await expect(marker).toHaveAttribute('data-point', dragged.point)
+  await expect(view).toContainText('custom point')
+  expect({ sunEl: await page.getByTestId('hud-sun-el').textContent(), earthEl: await page.getByTestId('hud-earth-el').textContent(), lit: await page.getByTestId('hud-lit').textContent() })
+    .toEqual(expectedHud(dragged))
+  // the camera did not orbit, and the marker sits under the pointer (within one grid step on screen)
+  const [nx, ny] = await centreOf(page, 'moon-marker')
+  expect(Math.hypot(nx - (mx + 110), ny - (my - 45))).toBeLessThan(30)
+
+  // a click on a dot moves the marker there
+  await page.mouse.click(nx - 120, ny + 30)
+  await expect.poll(async () => (await observer(page)).point).not.toBe(dragged.point)
+  const clicked = await observer(page)
+  await expect(marker).toHaveAttribute('data-point', clicked.point)
+  await settled(page) // the marker has been drawn at its new point
+
+  // far outside the grid: the nearest edge point is kept, and the note says so
+  const [cx, cy] = await centreOf(page, 'moon-marker')
+  await page.mouse.move(cx, cy)
+  await page.mouse.down()
+  await page.mouse.move(cx + 200, cy, { steps: 5 })
+  await page.mouse.move(cx + 520, cy + 10, { steps: 8 })
+  await page.mouse.up()
+  await expect(page.getByTestId('snap-note')).toContainText('Outside the 10 km search grid: kept the nearest edge point')
+  expect((await observer(page)).point).not.toBe(clicked.point)
+
+  // keyboard: arrows nudge one grid step, like the nudge buttons; Enter stands on the point
+  await marker.focus()
+  const before = await observer(page)
+  await page.keyboard.press('ArrowRight') // east; the drag ended on the grid's edge, where not every direction has a neighbour
+  await expect.poll(async () => (await observer(page)).point).not.toBe(before.point)
+  const nudged = await observer(page)
+  expect(Number(nudged.east)).toBeGreaterThan(Number(before.east) + 300)
+  await expect(page.getByTestId('nudge-note')).toBeVisible()
+  await page.keyboard.press('Enter')
+  await expect(moon).toHaveCount(0)
+  await expect(page.locator('.stage > .scene canvas[data-engine]')).toHaveCount(1) // the ground view took the stage
+  await expect(view).toBeFocused()
+  expect((await observer(page)).point).toBe(nudged.point)
+
+  // back from the tray; the grid can also be coloured by verdict; then out to the pole
+  await page.getByTestId('tray-plan').getByRole('button', { name: 'Show the plan on the Moon' }).click()
+  await expect(moon).toHaveAttribute('data-level', 'site')
+  await page.getByRole('button', { name: 'Verdict' }).click()
+  await expect(page.getByTestId('moon-legend')).toContainText('meets every constraint')
+  await page.getByTestId('moon-back').click()
+  await expect(moon).toHaveAttribute('data-level', 'pole')
+  await expect(marker).toHaveCount(0)
+  await page.getByTestId('moon-stand').click() // "Stand here" from the bar
+  await expect(moon).toHaveCount(0)
+  await page.getByRole('button', { name: 'Moon', exact: true }).click() // and the rail brings the Moon back
+  await expect(moon).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+test('Moon view: reduced motion jumps instead of flying; a link to an exact point opens on the ground', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await page.getByTestId('moon-pin-connecting-ridge').click()
+  await expect(page.getByTestId('view')).toContainText('Plan: Connecting Ridge')
+  await expect(page.getByTestId('moon-marker')).toBeVisible() // placed by the first frame
+  await expect(page.getByRole('slider')).toBeVisible() // the band arrives with the terrain and resizes the stage
+  await page.waitForTimeout(200) // well inside the 1.1 s flight, had there been one
+  const a = await centreOf(page, 'moon-marker') // already in place: no flight to wait for
+  await page.waitForTimeout(400)
+  const b = await centreOf(page, 'moon-marker')
+  expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeLessThan(0.5)
+
+  await page.goto('/?site=connecting-ridge&point=100')
+  await expect(page.getByTestId('view')).toContainText('custom point')
+  await expect(page.getByTestId('moon-view')).toHaveCount(0)
+  await expect(page.locator('.stage > .scene')).toBeVisible()
+})
+
+test('Moon view: finder results and tray pins are marked, and a pinned scenario can be shown on the Moon', async ({ page }) => {
+  await page.goto('/')
+  await expandPanels(page)
+  await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  await expect(page.getByTestId('moon-pin-change7-shackleton-rim')).toHaveAttribute('data-verdict', 'fail') // the slipped date fails here too
+  await page.getByRole('button', { name: 'Find alternatives' }).click()
+  await expect(page.getByTestId('result').first()).toBeVisible()
+  await expect(page.getByTestId('moon-view')).toBeVisible() // searching keeps the Moon on the stage
+  await page.getByRole('button', { name: 'Pin #1 to the compare tray' }).click()
+  const pin = page.getByTestId('tray-pin')
+  await expect(pin.locator('.tray-letter')).toHaveText('A')
+  await pin.getByRole('button', { name: /^Show .* on the Moon$/ }).click()
+  await expect(page.getByTestId('moon-view')).toHaveAttribute('data-level', 'site')
+  await expect(page.getByTestId('view')).toContainText('Alternative:')
+  await expect(page.getByTestId('moon-marker')).toHaveAttribute('aria-label', /^Landing point of the alternative on show/)
+  await expect(pin).toContainText('On the Moon view')
+  // an alternative's point is fixed: a drag orbits instead of moving it
+  const before = await page.getByTestId('view').getAttribute('data-point')
+  const [x, y] = await centreOf(page, 'moon-marker')
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 80, y + 10, { steps: 5 })
+  await page.mouse.up()
+  expect(await page.getByTestId('view').getAttribute('data-point')).toBe(before)
+  await page.waitForTimeout(600)
+  await page.screenshot(shot('20-moon-alternative'))
+})
