@@ -1,16 +1,32 @@
+# Raw downloads (DEMs and kernels, ~7.3 GB; fetched by `make data-download`)
 data/raw/
-node_modules/
-.venv/
-__pycache__/
-dist/
-.wrangler/
-*.log
+
+# Secrets (Cloudflare R2 keys, GEMINI_API_KEY; `make dev-api` copies the key into web/.dev.vars)
 .env*
 .dev.vars
-*.egg-info/
-test-results/
 
-# AI tool folders (local only)
+# Node and the web build
+node_modules/
+dist/
+.wrangler/
+
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Test output (screenshots in web/tests/screenshots/ are kept on purpose)
+test-results/
+playwright-report/
+
+# Logs and OS clutter
+*.log
+.DS_Store
+Thumbs.db
+
+# AI tool folders (local only; each contributor keeps their own)
 .claude/
 .cursor/
 .gemini/

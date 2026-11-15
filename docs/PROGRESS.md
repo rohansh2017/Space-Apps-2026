@@ -1,4 +1,8 @@
-# Progress (append-only)
+# 📈 Progress
+
+A dated log of what was done, tested and decided, **newest at the bottom**. Append-only: earlier entries are never
+edited. To pick up the work, read the last three entries, then [PLAN.md](PLAN.md) and
+[TRACEABILITY.md](TRACEABILITY.md).
 
 ## 2026-11-14 13:35 EST — P0 setup
 
@@ -374,3 +378,12 @@ Team request (D65): an interactive tutorial, 30 seconds at most. It has four ste
 
 Merged `origin/main` (Hasan's commit stops tracking `.claude`, `.cursor`, `.gemini`, `.impeccable` and `.opencode`). The folders were backed up and put back as local, ignored copies, since a merge that deletes tracked files also deletes them on disk. The playback test (`p3.spec.ts`) counted hours from the Play click and read the scrubber after the window, so a busy machine's delays were added (232 and 285 h against an expected 100–200); it now reads the scrubber at the first and last frame of its own 4 s window. With OneDrive paused but still using about 1.5 cores, `make check-changed` (8 workers) still failed on search timeouts (the search took 10–17 s instead of 6 s); lint, typecheck, 124 unit tests and parity passed, and every browser test passed with `--workers=2`.
 Pushed at the team's call (2026-11-15) on that evidence, with the 8-worker check still failing on timeouts only.
+
+## 2026-11-15 — Deployed the quick tour (F28) (branch `redesign/new-visual-identity`)
+
+`make check` again failed only on timeouts (6 browser tests; OneDrive still using about 1.4 cores while paused); Python (27), TS (83 + 41) and parity passed. Every browser test passed with `--workers=2` (33), and `make e2e-room` passed. Deployed at the team's request (version fdbfa146). `make e2e-live`: 35 passed, 2 failed on the same load timeouts (the tour's search step and a screenshot); both passed when rerun alone against the live site (the tour's four actions took 14.3 s). The live Gemini specs passed, with both rewordings kept by the number checks.
+
+## 2026-11-15 — Markdown tidy-up and `.gitignore` (branch `redesign/new-visual-identity`)
+
+Team request (D66). Removed `SUPER_PROMPT.md`, `DESIGN.md`, `PRODUCT.md` and the tracked `.DS_Store`; restored `Space Apps Doc.pdf`, which had been deleted locally. Rewrote `README.md` (features table, walkthrough, collapsible controls table, layers table, docs index) and corrected what was out of date. Updated `ONE_PAGER.md`, `DEMO_SCRIPT.md` and `PRIZE_SLIDES.md` to today's UI and numbers. Added the DECISIONS index, the PLAN status table, the TRACEABILITY summary and intros. All relative links and anchors in the touched files resolve (checked with a script). Docs and config only; no code changed.
+

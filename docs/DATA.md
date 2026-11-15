@@ -1,4 +1,7 @@
-# Data
+# 🗂️ Data
+
+Every data file the app is built from: where it comes from, its size and SHA-256 hash, its credit, and what it is used
+for. The app's own generated files are described by the data contracts in [CLAUDE.md](../CLAUDE.md).
 
 Raw files live in `data/raw/` (gitignored). Fetch with `make data-download`. Downloaded 2026-11-14.
 

@@ -1,6 +1,21 @@
-# Plan
+# 🗺️ Plan
 
 Phases and exit gates are copied from `docs/spec/SPEC.md`. Tick only after verification.
+
+## Status at a glance
+
+| Phase | Done | State |
+| --- | --- | --- |
+| P0 Setup | 8 / 8 | ✅ done |
+| P1 Engine + skeletons | 4 / 4 | ✅ done |
+| P2 Core on real data | 4 / 4 | ✅ done |
+| P3 Complete demo | 10 / 12 | 🟡 2 open |
+| P4 Should-haves | 8 / 9 | 🟡 1 open |
+| P5 Submission | 3 / 7 | 🟡 4 open |
+| P6 Visual fidelity | 6 / 6 | ✅ done |
+| P7 UI redesign for the challenge objective | 7 / 8 | 🟡 1 open |
+
+Open items are the `- [ ]` lines below; most need a person (rehearsals, the video, submission steps).
 
 ## P0 Setup
 
@@ -100,7 +115,7 @@ Goal: replace illustrative 3D assets with real data where a source exists. Exit:
 
 Goal: rapid, intuitive comparison of several scenarios, in full screen. Run through impeccable in this order: init, harden, clarify, delight, shape, layout, adapt, polish, critique. Exit: `make check` passes, screenshots viewed at desktop and phone widths, PR to `main` for the team.
 
-- [x] PRODUCT.md (init); harden (D46); clarify (D47); delight (D48)
+- [x] PRODUCT.md (init; removed 2026-11-15 with the other AI-tool files); harden (D46); clarify (D47); delight (D48)
 - [x] Shape + layout: full-screen layout, compare tray of plan + 3 pins in the share link, drawers, one-line footer with *About the data*, polar-light palette (D49)
 - [x] Moon view: orbitable polar region with site pins, fly-down to the search grid, draggable landing point (D58)
 - [x] Pins as snapshots, tray reorder, labelled band tab (D59); whole-Moon relief and 5 m site layer (D60)
