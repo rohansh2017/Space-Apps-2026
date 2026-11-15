@@ -34,10 +34,14 @@ def test_relief_round_trip_within_half_a_step(tmp_path):
     (tmp_path / "basemap.json").write_text(json.dumps({"synthetic": False}))
     globe, pole = rng.normal(0, 3000, (8, 16)), rng.normal(0, 3000, (16, 16))
     ctx = {"a": rng.normal(1500, 400, (16, 16))}
-    export.write_relief(tmp_path, globe, pole, ctx, {"globe": "t", "polar": "t"}, synthetic=False)
+    cap = rng.normal(0, 3000, (24, 24))
+    src = {"globe": "t", "polar": "t", "cap": "t"}
+    export.write_relief(tmp_path, globe, pole, ctx, src, synthetic=False, cap_m=cap)
     rel = json.loads((tmp_path / "basemap.json").read_text())["relief"]
+    assert rel["cap"]["half_width_m"] == export.CAP_HALF_M and rel["cap"]["size_px"] == 24
     for entry, want in [
         (rel["globe"], globe),
+        (rel["cap"], cap),
         (rel["pole"], pole),
         (rel["context"]["files"]["a"], ctx["a"]),
     ]:
@@ -66,7 +70,9 @@ def test_relief_agrees_with_the_grid_heights_at_each_site():
         top = h[r0, c0] * (1 - fc) + h[r0, c0 + 1] * fc
         return top * (1 - fr) + (h[r0 + 1, c0] * (1 - fc) + h[r0 + 1, c0 + 1] * fc) * fr
 
-    worst = [0.0, 0.0]
+    cap = rel.get("cap")
+    capH = read_png16(data / cap["file"]) * cap["scale_m"] + cap["offset_m"] if cap else None
+    worst = [0.0, 0.0, 0.0]
     for sid, entry in rel["context"]["files"].items():
         p = next(q for q in pts if q["region"] == sid and q["index"] == 220)
         ch = read_png16(data / entry["file"]) * entry["scale_m"] + entry["offset_m"]
@@ -75,5 +81,8 @@ def test_relief_agrees_with_the_grid_heights_at_each_site():
         worst[1] = max(
             worst[1], abs(at(ph, p["x"], p["y"], 0, 0, pole["half_width_m"]) - p["elev_m"])
         )
-    print(f"context within {worst[0]:.2f} m, polar within {worst[1]:.1f} m")
-    assert worst[0] < 2.0 and worst[1] < 100.0
+        if capH is not None:  # D71: the 75S 240 m DEM, averaged to 480 m
+            d = abs(at(capH, p["x"], p["y"], 0, 0, cap["half_width_m"]) - p["elev_m"])
+            worst[2] = max(worst[2], d)
+    print(f"context within {worst[0]:.2f} m, polar {worst[1]:.1f} m, cap {worst[2]:.1f} m")
+    assert worst[0] < 2.0 and worst[1] < 100.0 and worst[2] < 150.0

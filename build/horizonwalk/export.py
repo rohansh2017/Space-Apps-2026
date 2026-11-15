@@ -153,13 +153,13 @@ def globe_hillshade(radius_m: np.ndarray, exaggeration: float = 4.0) -> np.ndarr
     return np.round(globe_resample(np.clip(shade, 0.0, 1.0) * 255.0))
 
 
-def globe_resample(grid: np.ndarray) -> np.ndarray:
-    """Bilinear resample of a global equirectangular grid to GLOBE_W x GLOBE_H (pixel centres to
-    pixel centres), wrapping in longitude."""
+def globe_resample(grid: np.ndarray, out_w: int = GLOBE_W, out_h: int = GLOBE_H) -> np.ndarray:
+    """Bilinear resample of a global equirectangular grid to out_w x out_h (default GLOBE_W x GLOBE_H,
+    pixel centres to pixel centres), wrapping in longitude."""
     h, w = grid.shape
     shade = grid.astype(np.float64)
-    sr = (np.arange(GLOBE_H) + 0.5) * h / GLOBE_H - 0.5
-    sc = (np.arange(GLOBE_W) + 0.5) * w / GLOBE_W - 0.5
+    sr = (np.arange(out_h) + 0.5) * h / out_h - 0.5
+    sc = (np.arange(out_w) + 0.5) * w / out_w - 0.5
     r0 = np.clip(np.floor(sr).astype(int), 0, h - 2)
     fr = np.clip(sr - r0, 0.0, 1.0)[:, None]
     c0 = np.floor(sc).astype(int)
@@ -235,6 +235,9 @@ def write_context(
 
 
 RELIEF_PX = 1024  # pole and context elevation grids (D67): ~594 m and 62.5 m per pixel
+RELIEF_GLOBE_W = 3072  # whole-Moon elevation grid (D71): LDEM_16, ~3.55 km at the equator
+CAP_HALF_M = 456_000.0  # polar cap elevation grid (D71): the 75S 240 m DEM covers +-457.4 km
+CAP_PX = 1900  # 480 m per pixel: 2 x 2 source pixels of the 240 m DEM
 
 
 RELIEF_STEP_M = (
@@ -259,10 +262,11 @@ def write_relief(
     contexts_m: dict[str, np.ndarray],
     sources: dict[str, str],
     synthetic: bool,
+    cap_m: np.ndarray | None = None,
 ) -> None:
     """Elevation for the Moon view's 3D relief, real-Sun shading and Topo layer (D67): heights in metres
-    above R = 1,737,400 m. The globe is equirectangular (like globe.png); the pole and context grids
-    use the pole and context hillshades' stereographic axes (row 0 = +y, col 0 = -x)."""
+    above R = 1,737,400 m. The globe is equirectangular (like globe.png); the cap (D71), pole and context
+    grids use the pole and context hillshades' stereographic axes (row 0 = +y, col 0 = -x)."""
     rel = out / "basemaps" / "relief"
     assert globe_m.shape[1] == 2 * globe_m.shape[0]
     assert pole_m.shape[0] == pole_m.shape[1]
@@ -270,6 +274,11 @@ def write_relief(
              **_png16_heights(rel / "globe.png", globe_m), "source": sources["globe"]}  # fmt: skip
     pole = {"file": "basemaps/relief/pole.png", "half_width_m": POLE_HALF_M, "size_px": pole_m.shape[0],
             **_png16_heights(rel / "pole.png", pole_m), "source": sources["polar"]}  # fmt: skip
+    cap = None
+    if cap_m is not None:
+        assert cap_m.shape[0] == cap_m.shape[1]
+        cap = {"file": "basemaps/relief/cap.png", "half_width_m": CAP_HALF_M, "size_px": cap_m.shape[0],
+               **_png16_heights(rel / "cap.png", cap_m), "source": sources["cap"]}  # fmt: skip
     files = {}
     for sid, h in contexts_m.items():
         assert h.shape[0] == h.shape[1]
@@ -283,6 +292,7 @@ def write_relief(
     meta["relief"] = {
         "globe": globe,
         "pole": pole,
+        **({"cap": cap} if cap else {}),
         "context": {"half_width_m": CONTEXT_HALF_M, "size_px": size.pop() if size else 0,
                     "source": sources["polar"], "files": files},
     }  # fmt: skip

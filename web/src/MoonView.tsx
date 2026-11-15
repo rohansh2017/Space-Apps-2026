@@ -109,6 +109,7 @@ const RELIEF_GLSL = `
   uniform vec2 osGlobe; uniform vec2 osPole; uniform vec2 osCtx; uniform vec2 osSite; // offset_m, scale_m
   uniform vec4 cells; // pixel size in metres: globe, pole, context, site
   uniform float hwPole; uniform float hwContext; uniform vec2 centre;
+  uniform sampler2D rCap; uniform float hasRCap; uniform vec2 osCap; uniform float hwCap; uniform float cellCap; // the 75S cap (D71)
   uniform vec3 siteC; uniform vec3 siteE; uniform vec3 siteN; uniform float sitePx; uniform float siteSpan;
   float rg(sampler2D t, vec2 uv, vec2 os) { vec2 c = texture2D(t, uv).rg; return os.x + (c.r * 65280.0 + c.g * 255.0) * os.y; }
   // height in metres above R of a unit MOON_ME direction: the finest loaded grid, blended over its edge; cell = its pixel size
@@ -118,9 +119,13 @@ const RELIEF_GLSL = `
     if (hasRGlobe > 0.5) h = rg(rGlobe, vec2(fract(atan(me.y, me.x) / 6.2831853), 0.5 - asin(clamp(me.z, -1.0, 1.0)) / 3.1415927), osGlobe);
     if (me.z > -0.5) return h;
     vec2 st = 2.0 * vec2(me.y, me.x) / (1.0 - me.z);
-    vec2 uv = (st + hwPole) / (2.0 * hwPole);
+    vec2 uv = (st + hwCap) / (2.0 * hwCap);
     vec2 e = min(uv, 1.0 - uv);
-    float w = hasRPole * smoothstep(0.0, 0.04, min(e.x, e.y));
+    float w = hasRCap * smoothstep(0.0, 0.04, min(e.x, e.y));
+    if (w > 0.0) { h = mix(h, rg(rCap, vec2(uv.x, 1.0 - uv.y), osCap), w); cell = mix(cell, cellCap, w); }
+    uv = (st + hwPole) / (2.0 * hwPole);
+    e = min(uv, 1.0 - uv);
+    w = hasRPole * smoothstep(0.0, 0.04, min(e.x, e.y));
     if (w > 0.0) { h = mix(h, rg(rPole, vec2(uv.x, 1.0 - uv.y), osPole), w); cell = mix(cell, cells.y, w); }
     uv = (st - centre + hwContext) / (2.0 * hwContext);
     e = min(uv, 1.0 - uv);
@@ -147,6 +152,7 @@ const globeShader = () => ({
     siteN: { value: new THREE.Vector3() }, sitePx: { value: 1 }, siteSpan: { value: 1 },
     rGlobe: { value: null as THREE.Texture | null }, rPole: { value: null as THREE.Texture | null }, rCtx: { value: null as THREE.Texture | null }, rSite: { value: null as THREE.Texture | null },
     hasRGlobe: { value: 0 }, hasRPole: { value: 0 }, hasRCtx: { value: 0 }, hasRSite: { value: 0 },
+    rCap: { value: null as THREE.Texture | null }, hasRCap: { value: 0 }, osCap: { value: new THREE.Vector2() }, hwCap: { value: 1 }, cellCap: { value: 480 }, capMesh: { value: 0 },
     osGlobe: { value: new THREE.Vector2() }, osPole: { value: new THREE.Vector2() }, osCtx: { value: new THREE.Vector2() }, osSite: { value: new THREE.Vector2() },
     cells: { value: new THREE.Vector4(10_000, 600, 62.5, 5) },
     exag: { value: 1 }, steps: { value: 40 }, ctxMesh: { value: 0 },
@@ -167,7 +173,7 @@ const globeShader = () => ({
     uniform float hwRegion; uniform vec3 sunDir; varying vec3 p; varying vec3 wpos;
     uniform sampler2D globeMap; uniform float hasGlobe; uniform sampler2D contextMap; uniform float hasContext;
     uniform sampler2D siteMap; uniform float hasSite;
-    uniform float clip; uniform float ctxMesh; uniform int steps; uniform float topo; uniform float contour; uniform vec2 topoRange;
+    uniform float clip; uniform float ctxMesh; uniform float capMesh; uniform int steps; uniform float topo; uniform float contour; uniform vec2 topoRange;
     const float R = ${R_M.toFixed(1)};
     // visible fraction of the Sun's 0.53 degree disk over the terrain toward it (the same disk model as the engine's masks)
     float sunVisible(vec3 me, float h0, vec3 sun, float alt, float cell) {
@@ -190,9 +196,10 @@ const globeShader = () => ({
       vec3 q = normalize(p);
       vec3 me = vec3(q.x, -q.z, q.y); // three.js axes to MOON_ME
       vec2 st = 2.0 * vec2(me.y, me.x) / max(1.0 - me.z, 0.25); // south polar stereographic, units of R
-      // each mesh leaves the inside of the next finer one to it (D67): globe < polar patch < context patch
-      if (clip < 0.5 && me.z < 0.0 && max(abs(st.x), abs(st.y)) < hwPole * 0.97) discard;
-      if (clip > 0.5 && clip < 1.5 && ctxMesh > 0.5 && max(abs(st.x - centre.x), abs(st.y - centre.y)) < hwContext * 0.97) discard;
+      // each mesh leaves the inside of the next finer one to it (D67, D71): globe < 75S cap < polar patch < context patch
+      if (clip < 0.5 && me.z < 0.0 && max(abs(st.x), abs(st.y)) < (capMesh > 0.5 ? hwCap : hwPole) * 0.97) discard;
+      if (clip > 0.5 && clip < 1.5 && max(abs(st.x), abs(st.y)) < hwPole * 0.97) discard;
+      if (clip > 1.5 && clip < 2.5 && ctxMesh > 0.5 && max(abs(st.x - centre.x), abs(st.y - centre.y)) < hwContext * 0.97) discard;
       // the whole Moon (LOLA LDEM_16, equirectangular): of two longitude seams take the one that does not jump here,
       // so mipmapping draws no line along 0 or 180 degrees (moon.ts globeUV)
       float lon = atan(me.y, me.x) / 6.2831853;
@@ -342,6 +349,7 @@ function stereoPatch(cx: number, cy: number, half: number, n: number): THREE.Buf
 /** The relief grids loaded so far, coarse to fine, for picking and placing things on the raised terrain. */
 export interface ReliefGrids {
   globe: ReliefGrid | null
+  cap: ReliefGrid | null // the 75S polar DEM (D71)
   pole: ReliefGrid | null
   context: ReliefGrid | null
   site: ReliefGrid | null
@@ -353,13 +361,10 @@ function Globe({ data, hour, region, exag, topo, grids, onGrids }: {
   const relief = data.basemap.relief
   const materials = useMemo(() => {
     const base = globeShader()
-    // one uniform set, three clip modes: each mesh leaves the inside of the next finer one to it
-    return [0, 1, 2].map((clip) => new THREE.ShaderMaterial({ ...base, uniforms: { ...base.uniforms, clip: { value: clip } }, side: clip ? THREE.DoubleSide : THREE.FrontSide }))
+    // one uniform set, four clip modes (globe, 75S cap, polar patch, context): each leaves the inside of the next finer one to it
+    return [0, 1, 2, 3].map((clip) => new THREE.ShaderMaterial({ ...base, uniforms: { ...base.uniforms, clip: { value: clip } }, side: clip ? THREE.DoubleSide : THREE.FrontSide }))
   }, [])
   const material = materials[0]
-  // Rotated so the mesh's own poles (where its triangles pinch) sit on the lunar equator, not under the view. 2 degree
-  // facets are enough for the whole Moon; the polar cap and a site's context have their own dense patches (D67).
-  const geometry = useMemo(() => new THREE.SphereGeometry(1, 180, 90).rotateX(Math.PI / 2), [])
   // a software renderer (CI, old machines) gets coarser patches and a short shadow march; GPUs get the full detail
   const gl = useThree((s) => s.gl)
   const soft = useMemo(() => {
@@ -368,6 +373,10 @@ function Globe({ data, hour, region, exag, topo, grids, onGrids }: {
     return /swiftshader|llvmpipe|software/i.test(String(info ? ctx.getParameter(info.UNMASKED_RENDERER_WEBGL) : ctx.getParameter(ctx.RENDERER)))
   }, [gl])
   const segs = soft ? 160 : 512
+  // Rotated so the mesh's own poles (where its triangles pinch) sit on the lunar equator, not under the view. 1 degree
+  // facets for the whole Moon (2 on software renderers); the polar caps and a site's context have dense patches (D67, D71).
+  const geometry = useMemo(() => (soft ? new THREE.SphereGeometry(1, 180, 90) : new THREE.SphereGeometry(1, 360, 180)).rotateX(Math.PI / 2), [soft])
+  const capPatch = useMemo(() => (relief?.cap ? stereoPatch(0, 0, relief.cap.half_width_m, segs) : null), [relief, segs])
   const polePatch = useMemo(() => stereoPatch(0, 0, data.basemap.pole.half_width_m, segs), [data, segs])
   const ctxPatch = useMemo(() => {
     if (!region) return null
@@ -375,6 +384,7 @@ function Globe({ data, hour, region, exag, topo, grids, onGrids }: {
     return stereoPatch(x, y, data.basemap.context?.half_width_m ?? relief?.context.half_width_m ?? 32_000, segs)
   }, [region, data, relief, segs])
   useEffect(() => () => ctxPatch?.dispose(), [ctxPatch])
+  useEffect(() => () => capPatch?.dispose(), [capPatch])
   useEffect(() => () => {
     geometry.dispose()
     polePatch.dispose()
@@ -397,6 +407,8 @@ function Globe({ data, hour, region, exag, topo, grids, onGrids }: {
     u.hwPole.value = data.basemap.pole.half_width_m / R_M
     u.hwRegion.value = data.basemap.regions.half_width_m / R_M
     u.hwContext.value = (data.basemap.context?.half_width_m ?? relief?.context.half_width_m ?? 1) / R_M
+    u.hwCap.value = (relief?.cap?.half_width_m ?? R_M) / R_M
+    u.capMesh.value = relief?.cap ? 1 : 0
     // the ephemeris is already in MOON_ME: only the change of axes is applied
     const i = hour * EPHEM_STRIDE
     u.sunDir.value.set(...meToThree([data.ephemeris[i], data.ephemeris[i + 1], data.ephemeris[i + 2]]))
@@ -438,8 +450,23 @@ function Globe({ data, hour, region, exag, topo, grids, onGrids }: {
     setPoleRelief(true)
     onGrids()
   })
+  // then the 75S cap (D71), about 5 MB, which carries the terrain out to 75S at 480 m
+  const [capRelief, setCapRelief] = useState(false)
+  useRelief(poleRelief ? relief?.cap?.file : undefined, relief?.cap?.size_px ?? 0, relief?.cap?.size_px ?? 0, (v) => {
+    const u = uniforms()
+    const c = relief!.cap!
+    const t = reliefTexture(v, c.size_px, c.size_px, false)
+    textures.current.push(t)
+    u.rCap.value = t
+    u.osCap.value.set(c.offset_m, c.scale_m)
+    u.cellCap.value = (2 * c.half_width_m) / c.size_px
+    u.hasRCap.value = 1
+    grids.current.cap = { kind: 'stereo', values: v, n: c.size_px, cx: 0, cy: 0, half: c.half_width_m, offset: c.offset_m, scale: c.scale_m }
+    setCapRelief(true)
+    onGrids()
+  })
   const [gw, gh] = relief ? globeSize(relief) : [0, 0]
-  useRelief(poleRelief ? relief?.globe.file : undefined, gw, gh, (v) => {
+  useRelief((relief?.cap ? capRelief : poleRelief) ? relief?.globe.file : undefined, gw, gh, (v) => {
     const u = uniforms()
     const g = relief!.globe
     const t = reliefTexture(v, gw, gh, true)
@@ -552,8 +579,9 @@ function Globe({ data, hour, region, exag, topo, grids, onGrids }: {
   return (
     <>
       <mesh geometry={geometry} material={materials[0]} frustumCulled={false} />
-      <mesh geometry={polePatch} material={materials[1]} frustumCulled={false} />
-      {ctxPatch && <mesh geometry={ctxPatch} material={materials[2]} frustumCulled={false} />}
+      {capPatch && <mesh geometry={capPatch} material={materials[1]} frustumCulled={false} />}
+      <mesh geometry={polePatch} material={materials[2]} frustumCulled={false} />
+      {ctxPatch && <mesh geometry={ctxPatch} material={materials[3]} frustumCulled={false} />}
     </>
   )
 }
@@ -762,19 +790,19 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
   const markerAt = useRef<[number, number] | null>(null)
   const dotAt = useRef<(index: number) => readonly [number, number] | null>(() => null)
   const [layer, setLayer] = useState<Layer>('verdict')
-  const [exag, setExag] = useState(3) // relief height exaggeration (D67): geometry only, never a number
+  const [exag, setExag] = useState(1) // relief height exaggeration (D67; true height by default, D71): geometry only, never a number
   const [topo, setTopo] = useState(false) // Topo layer (D68)
   const cursorEl = useRef<HTMLSpanElement>(null)
   // the relief grids loaded so far (Globe fills them), and a counter that re-places everything when one arrives
-  const grids = useRef<ReliefGrids>({ globe: null, pole: null, context: null, site: null })
+  const grids = useRef<ReliefGrids>({ globe: null, cap: null, pole: null, context: null, site: null })
   const [gridsVersion, setGridsVersion] = useState(0)
   const onGrids = useCallback(() => setGridsVersion((k) => k + 1), [])
-  const raised = gridsVersion > 0 && Boolean(grids.current.pole || grids.current.globe)
+  const raised = gridsVersion > 0 && Boolean(grids.current.pole || grids.current.cap || grids.current.globe)
   const lift = raised ? exag : 0 // the exaggeration the meshes are drawn with right now
   /** Height in metres of the finest loaded grid under a MOON_ME direction. */
   const heightAt = useCallback((me: Vec3) => {
     const g = grids.current
-    return reliefAt([g.globe, g.pole, g.context, g.site], me)
+    return reliefAt([g.globe, g.cap, g.pole, g.context, g.site], me)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gridsVersion])
   /** A unit-sphere point raised onto the drawn terrain, by a known height in metres or the grids' own. */

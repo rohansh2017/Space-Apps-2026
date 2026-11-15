@@ -24,7 +24,8 @@ echo
 echo "## Initial load (target: under 10 MB for the demo regions)"
 echo
 echo "- App bundle (HTML + JS + CSS): $(mb dist/index.html dist/assets/*)"
-echo "- Data fetched at start for the Moon view (sites, points, schema, tour, polar basemap, polar and whole-Moon relief (D67), ephemeris 2026-2035): $(mb $d/sites.json $d/points.json $d/constraints.schema.json $d/tour.json $d/basemap.json $d/basemaps/pole.png $d/basemaps/relief/pole.png $d/basemaps/relief/globe.png $d/ephemeris.json $d/ephemeris/* $d/stars.json)"
+echo "- Data fetched at start for the Moon view (sites, points, schema, tour, polar basemap, polar relief (D67), ephemeris 2026-2035): $(mb $d/sites.json $d/points.json $d/constraints.schema.json $d/tour.json $d/basemap.json $d/basemaps/pole.png $d/basemaps/relief/pole.png $d/ephemeris.json $d/ephemeris/* $d/stars.json)"
+echo "- Terrain detail streamed after the first view is drawn (the 75S cap and whole-Moon relief, D71): $(mb $d/basemaps/relief/cap.png $d/basemaps/relief/globe.png)"
 echo "- Star field, after the first frame (stars and one year of orientation, D61): $(mb $d/stars.bin $d/orientation/2026.bin)"
 echo "- Flying down to one site (masks + slopes + ridges + region map + its context relief, D67): $(mb $d/masks/change7-shackleton-rim.bin $d/slopes/change7-shackleton-rim.bin $d/ridges/change7-shackleton-rim.bin $d/basemaps/change7-shackleton-rim.png $d/basemaps/relief/context/change7-shackleton-rim.png)"
 echo "- Zooming within about 8 km of it, or standing in 3D (its 5 m heightmap): $(mb $d/heightmaps/change7-shackleton-rim.png)"
