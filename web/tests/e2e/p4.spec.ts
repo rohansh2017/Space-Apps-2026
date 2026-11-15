@@ -299,18 +299,18 @@ test('the first view is quiet, and locations survive a reload from the bare addr
   // a site, a date and a pinned scenario are stored; nothing else is
   await page.getByRole('combobox', { name: 'Site' }).selectOption('connecting-ridge')
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
-  await expandPanels(page)
-  await page.getByRole('button', { name: 'Pin this view' }).click()
+  await expandPanels(page) // pins the plan's live column
   await page.getByRole('button', { name: 'Explorer' }).click()
   const stored = await page.evaluate(() => localStorage.getItem('tranquility-base:locations'))
   expect(stored).toContain('site=connecting-ridge')
-  expect(stored).toContain('pins=')
+  expect(stored).toContain('pins=plan')
   expect(stored).not.toContain('mode')
   await page.goto('/') // no query string: the stored locations fill in
   await expect(page.getByTestId('view')).toContainText('Plan: Connecting Ridge')
   await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('2026-12-01 00:00 UTC landing')
-  await expect(page.getByTestId('tray-pin')).toHaveCount(1)
+  await expect(page.getByTestId('tray-plan')).toBeVisible() // restored from storage, not re-pinned
+  await expect(page.getByRole('button', { name: 'Pin this view' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Planner' })).toHaveAttribute('aria-pressed', 'true') // mode is not stored
 })
 
@@ -320,14 +320,16 @@ test('the tray starts empty; the plan is optional; any column can be the baselin
   await page.getByRole('button', { name: 'Expand the timeline and comparison panel' }).click()
   const tray = page.getByTestId('tray')
   await expect(tray.locator('.tray-col')).toHaveCount(0) // nothing pinned, the plan included
+  await expect(tray.locator('.tray-labels')).toContainText('Mean elevation while lit') // the row labels show anyway
+  await expect(page.getByRole('button', { name: 'Add the plan' })).toHaveCount(0)
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
   await page.getByRole('button', { name: 'Find alternatives' }).click()
   await page.getByRole('button', { name: 'Pin #1 to the compare tray' }).click()
   await page.getByRole('button', { name: 'Pin #2 to the compare tray' }).click()
   await expect(tray.getByTestId('tray-pin')).toHaveCount(2)
   await expect(tray.getByTestId('tray-pin').first().getByTestId('baseline')).toBeVisible() // the first column is the baseline
-  // the plan joins as a column, and can leave again
-  await page.getByRole('button', { name: 'Add the plan' }).click()
+  // with the plan in view, Pin this view adds the plan's live column; it can leave again
+  await page.getByRole('button', { name: 'Pin this view' }).click()
   await expect(tray.getByTestId('tray-plan')).toBeVisible()
   // compare everything to #2 instead: its column carries no differences, the others are measured against it
   await page.getByRole('button', { name: /^Compare the others to 165 km/ }).click()
