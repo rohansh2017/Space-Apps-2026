@@ -98,8 +98,9 @@ def main() -> None:
         rng.normal(0, 500, (64, 128)),
         rng.normal(0, 500, (128, 128)),
         {k: rng.normal(0, 100, (64, 64)) for k in regions},
-        {"globe": "synthetic fixture", "polar": "synthetic fixture"},
+        {"globe": "synthetic fixture", "polar": "synthetic fixture", "cap": "synthetic fixture"},
         synthetic=True,
+        cap_m=rng.normal(0, 500, (128, 128)),
     )
     export.write_json(OUT / "tour.json", {
         "synthetic": True,

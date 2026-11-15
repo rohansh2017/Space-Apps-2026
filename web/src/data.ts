@@ -62,6 +62,7 @@ export interface ReliefFile {
 export interface Relief {
   globe: ReliefFile & { width_px: number; source: string } // equirectangular, 2:1
   pole: ReliefFile & { half_width_m: number; size_px: number; source: string }
+  cap?: ReliefFile & { half_width_m: number; size_px: number; source: string } // LOLA 75S polar DEM, wider than the pole grid (D71)
   context: { half_width_m: number; size_px: number; source: string; files: Record<string, ReliefFile> }
 }
 
