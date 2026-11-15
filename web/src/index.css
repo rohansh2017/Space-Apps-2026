@@ -47,7 +47,9 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 
 .topbar { grid-area: top; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 var(--gap);
   background: linear-gradient(rgb(5 6 8 / 92%), rgb(5 6 8 / 70%)); border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: baseline; gap: 0.75rem; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.brand h1 { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.brand-logo { display: block; width: 48px; height: 48px; object-fit: contain; }
 .brand span { color: var(--dim); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topbar-actions { display: flex; align-items: center; gap: 0.4rem; }
 .topbar-actions > button { background: none; border-color: transparent; color: var(--dim); }
@@ -61,6 +63,8 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 
 .rail { grid-area: rail; display: flex; flex-direction: column; gap: 4px; padding: 8px 6px; background: rgb(5 6 8 / 80%); border-right: 1px solid var(--line); }
 .rail-button { flex-direction: column; gap: 3px; padding: 7px 2px; background: none; border-color: transparent; color: var(--dim); font-size: 0.7rem; line-height: 1.15; white-space: normal; text-align: center; }
+.rail-button svg { flex-shrink: 0; }
+.rail-image { display: block; width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; }
 .rail-button:hover:not(:disabled), .rail-button[aria-expanded='true'] { color: var(--text); background: rgb(224 216 200 / 8%); border-color: transparent; }
 
 .side { grid-area: side; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--line); }
