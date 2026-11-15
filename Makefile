@@ -28,11 +28,13 @@ data-download:
 	  for i in 1 2 3 4 5 6; do curl -fSL -C - --retry 5 -O $(PGDA5)/$$s/$${s}_final_adj_5mpp_surf.tif && break; \
 	    [ $$? -eq 22 ] && break; sleep 20; done; sleep 5; done; ls -l .. .; \
 	mkdir -p ../globe && cd ../globe && for f in ldem_16.lbl ldem_16.img; do \
-	  for i in 1 2 3 4 5; do curl -fSL -C - --retry 5 -O $(LOLA_GDR)/$$f && break; [ $$? -eq 22 ] && break; sleep 10; done; done
+	  for i in 1 2 3 4 5; do curl -fSL -C - --retry 5 -O $(LOLA_GDR)/$$f && break; [ $$? -eq 22 ] && break; sleep 10; done; done; 	mkdir -p ../polar && cd ../polar && for f in ldem_75s_240m.lbl ldem_75s_240m.img; do 	  for i in 1 2 3 4 5; do curl -fSL -C - --retry 5 -O $(LOLA_POLAR)/$$f && break; [ $$? -eq 22 ] && break; sleep 10; done; done
 # curl exit 22 with -C - means HTTP 416: the file is already complete.
 
 # The LOLA global DEM for the whole-Moon hillshade (D60), 33 MB.
 LOLA_GDR := https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img
+# The LOLA 75S polar DEM for the Moon view's polar cap relief beyond 80S (D71), 29 MB.
+LOLA_POLAR := https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img
 
 # Real ephemeris, orientation, stars, masks, slopes and heightmaps into web/public/data/ (about 15 s).
 data:
@@ -42,7 +44,7 @@ data:
 data-context:
 	cd build && uv run python scripts/build_context.py 1
 
-# Only the Moon view's elevation grids (basemaps/relief/), from the 20 m polar DEM and LDEM_16 (a few seconds, D67).
+# Only the Moon view's elevation grids (basemaps/relief/), from the 20 m polar DEM, the 75S polar DEM and LDEM_16 (a few seconds, D67, D71).
 data-relief:
 	cd build && uv run python scripts/build_relief.py
 

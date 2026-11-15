@@ -143,6 +143,10 @@ def test_relief_is_16bit_heights_in_the_hillshade_axes():
         w == h == rel["pole"]["size_px"]
         and rel["pole"]["half_width_m"] == meta["pole"]["half_width_m"]
     )
+    if "cap" in rel:  # D71: the 75S cap, wider than the 20 m polar grid
+        w, h = png(rel["cap"])
+        assert w == h == rel["cap"]["size_px"]
+        assert rel["cap"]["half_width_m"] > rel["pole"]["half_width_m"]
     assert rel["context"]["half_width_m"] == meta["context"]["half_width_m"]
     assert set(rel["context"]["files"]) == set(meta["regions"]["files"])
     for entry in rel["context"]["files"].values():

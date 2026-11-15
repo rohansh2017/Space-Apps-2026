@@ -45,10 +45,10 @@
  "relief": {
   "globe": {
    "file": "basemaps/relief/globe.png",
-   "width_px": 1024,
-   "offset_m": -8477.145263671875,
+   "width_px": 3072,
+   "offset_m": -8955.49609375,
    "scale_m": 0.5,
-   "max_m": 10009.325561523438,
+   "max_m": 10535.3359375,
    "source": "LOLA LDEM_16 (LRO-L-LOLA-4-GDR-V1.0, 16 px/deg)"
   },
   "pole": {
@@ -59,6 +59,15 @@
    "scale_m": 0.5,
    "max_m": 7007.287109375,
    "source": "LOLA 20 m polar DEM (LDEM_80S_20MPP_ADJ), averaged"
+  },
+  "cap": {
+   "file": "basemaps/relief/cap.png",
+   "half_width_m": 456000.0,
+   "size_px": 1900,
+   "offset_m": -7757.25,
+   "scale_m": 0.5,
+   "max_m": 7014.125,
+   "source": "LOLA 75S polar DEM (LDEM_75S_240M, LRO-L-LOLA-4-GDR-V1.0, 240 m), averaged"
   },
   "context": {
    "half_width_m": 32000.0,
