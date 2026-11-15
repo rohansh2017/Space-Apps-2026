@@ -356,3 +356,7 @@ First live use of the D63 settings failed. Two direct API calls showed that `thi
 ## 2026-11-15 — Gemini about 10–50× faster: `gemini-3.5-flash-lite` (branch `redesign/new-visual-identity`)
 
 Team report: Gemini answers were slow (20–96 s on `gemini-4-hydrogen`). Listed the models the key can use (`GET /v1beta/models`, no tokens) and benchmarked three on the real Worker routes. `gemini-3.5-flash-lite` answered F21, F26 and F27 correctly in 1.6–2.0 s with zero thought tokens (D64 table); `gemini-3.8-flash` took 252 s and was stopped. The model, thinking level and a fallback (`gemini-flash-lite-latest`, tried once only on 429/503) are now Worker vars in `wrangler.jsonc`. The fallback and thinking-retry paths were checked offline with a fake `fetch`. 8 benchmark calls in total. Then a harder sentence showed the lite model inventing fields and missing the slope. F21 and F26 now ask for `{quote, field, value}` items, and the Worker keeps only those whose quote is in the sentence and does not reuse another item's words (D64). Seven offline cases checked the filter; live, all three sentences came back exactly right in 1.7–3.5 s. 14 live calls today for this work.
+
+## 2026-11-15 — README: `make dev-api` (branch `redesign/new-visual-identity`)
+
+Quick start now says the Gemini buttons and the mission room need the local Worker (`make dev-api` beside `make dev`), and the Test table lists the target. Docs only.
