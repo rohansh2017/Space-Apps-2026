@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Compass, Globe, Info, Pin, PinOff, ListOrdered, LayoutGrid, Link2, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
+import { ChevronDown, ChevronUp, Compass, Globe, Info, Pin, PinOff, ListOrdered, Link2, Maximize2, Minimize2, PanelLeftClose, Pause, Play, Users } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Chips from './Chips'
@@ -883,7 +883,7 @@ export default function App() {
 
         <header className="topbar">
           <div className="brand">
-            <h1>Tranquility Base</h1>
+            <h1><img className="brand-logo" src="/tranquility-base.png" alt="" width="48" height="48" />Tranquility Base</h1>
             <span>Lunar south-pole landing site navigator</span>
           </div>
           <div className="topbar-actions">
@@ -915,14 +915,14 @@ export default function App() {
 
         <nav className="rail" aria-label="Tools">
           <button type="button" className="rail-button" aria-expanded={sideOpen} onClick={() => openPanel('plan')}>
-            <PanelLeftOpen size={18} aria-hidden="true" /><span>Plan</span>
+            <img className="rail-image" src="/plan-checklist.png" alt="" width="22" height="22" /><span>Plan</span>
           </button>
           <button type="button" className="rail-button" aria-pressed={stageView === 'moon'} onClick={() => setStageView(stageView === 'moon' ? 'ground' : 'moon')}
             title={stageView === 'moon' ? 'Back to the ground view' : 'The south polar region with every site'}>
-            <Globe size={18} aria-hidden="true" /><span>Moon</span>
+            <img className="rail-image" src="/moon-navigation.png" alt="" width="22" height="22" /><span>Moon</span>
           </button>
           <button type="button" className="rail-button" ref={matrixButton} aria-expanded={drawer === 'matrix'} onClick={() => openPanel('matrix')}>
-            <LayoutGrid size={18} aria-hidden="true" /><span>Scenario matrix</span>
+            <img className="rail-image" src="/scenario-matrix.png" alt="" width="22" height="22" /><span>Scenario matrix</span>
           </button>
         </nav>
 
