@@ -259,3 +259,7 @@ Audit of every doc against the repo. Fixed: CLAUDE.md commands (e2e-room, e2e-li
 ## 2026-11-15 — Callout borders
 
 The snap-note and Gemini-proposal callouts lose their yellow left bar (a design-review finding) for a 1 px full border, so the accent colour is freed for sunlight. Screenshot 14 viewed. Replacing Inter waits for the redesign decision (the face must be bundled: no runtime font requests).
+
+## 2026-11-15 — PRODUCT.md: comparison-first
+
+`/impeccable init` updated PRODUCT.md with the challenge objective as the primary purpose: rapid comparison of multiple landing scenarios when constraints shift. Confirmed with the user: planning teams are the primary users and the judges' demo is the proof; full screen means the interface fills the window and a Fullscreen-API toggle exists; how many scenarios can be compared at once is left open for `/impeccable shape`. Kept: truth-first data, labelled decoration, no numbers from the renderer, screening-grade statement on screen, no runtime network calls.
