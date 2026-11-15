@@ -263,3 +263,14 @@ The snap-note and Gemini-proposal callouts lose their yellow left bar (a design-
 ## 2026-11-15 — PRODUCT.md: comparison-first
 
 `/impeccable init` updated PRODUCT.md with the challenge objective as the primary purpose: rapid comparison of multiple landing scenarios when constraints shift. Confirmed with the user: planning teams are the primary users and the judges' demo is the proof; full screen means the interface fills the window and a Fullscreen-API toggle exists; how many scenarios can be compared at once is left open for `/impeccable shape`. Kept: truth-first data, labelled decoration, no numbers from the renderer, screening-grade statement on screen, no runtime network calls.
+
+## 2026-11-15 — `/impeccable harden` (branch `redesign/new-visual-identity`)
+
+- Results: each "Open in 3D" / "Back to plan" button has its own accessible name (`Open in 3D: #1, 5.0 km S, 16 days later, Shackleton rim, …`; visible text unchanged); search start/finish announced; focus moves to the "Alternatives" heading when a search finishes.
+- Constraint edits mark results out of date with "Run again" instead of deleting them; out-of-range input shows an inline error and keeps the last valid value (D46).
+- Tour takes focus, closes on Escape, returns focus to "Start tour"; Next turns into Finish in place so focus is not lost.
+- Glossary definitions linked with `aria-describedby` (the visual tooltip is CSS content, which screen readers skip).
+- Finder and terrain-load failures are inline with retry; failed region loads are no longer cached.
+- Scrubber and Play: already keyboard-operable (probe); scrubber now has `aria-valuetext`.
+- Tests: new `a11y.spec.ts` (5 tests) and screenshots 16–17 (viewed); demo test updated for the out-of-date behaviour and marked slow. `make check` passes.
+- Not deployed: this branch is the redesign branch, so the live site still runs `build/tranquility-base`.

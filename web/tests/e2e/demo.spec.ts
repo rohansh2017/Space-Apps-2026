@@ -4,6 +4,8 @@ import { expectedHud, shot } from './hud'
 // The spec's demo script up to the must-have steps, and the P2 gate (M2):
 // a slipped date returns ranked alternatives in under 3 s and opens in 3D with HUD values equal to engine values.
 test('demo path: site, scrub to sunset, slip the date, find alternatives, open the best in 3D', async ({ page }) => {
+  // the whole demo story in one test: its run time depends on how many other tests share the machine
+  test.slow()
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   const view = page.getByTestId('view')
@@ -72,6 +74,11 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   // the other presets apply and the finder still answers
   await page.getByRole('button', { name: 'Rover' }).click()
   await expect(page.getByLabel('Mission duration')).toHaveValue('14')
-  await expect(results).toHaveCount(0) // changing constraints clears stale results
+  // changing constraints keeps the results but marks them out of date, with a way to run the search again
+  await expect(results.first()).toBeVisible()
+  await expect(page.getByTestId('results-stale')).toContainText('Out of date')
+  await page.getByTestId('results-stale').getByRole('button', { name: 'Run again' }).click()
+  await expect(page.getByTestId('results-stale')).toHaveCount(0)
+  await expect(page.getByTestId('announcer')).toContainText('Search finished')
   expect(errors).toEqual([])
 })

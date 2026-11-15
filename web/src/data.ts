@@ -132,6 +132,7 @@ export function loadRegion(region: string): Promise<Region> {
       slopes: new Uint8Array(await s.arrayBuffer()),
       ridges: new Int8Array(await g.arrayBuffer()),
     }))
+    r.catch(() => regions.delete(region)) // a failed load is not cached, so "Try again" really retries
     regions.set(region, r)
   }
   return r

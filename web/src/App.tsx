@@ -52,6 +52,14 @@ export default function App() {
   const [nudgeFrom, setNudgeFrom] = useState<Metrics | null>(null) // F14: metrics before the last nudge
   const [tour, setTour] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [stale, setStale] = useState(false) // constraints changed after the last search; results kept but marked out of date
+  const [finderError, setFinderError] = useState('')
+  const [loadError, setLoadError] = useState('') // one site's terrain failed to load; the rest of the app keeps working
+  const [retry, setRetry] = useState(0)
+  const [announce, setAnnounce] = useState('') // polite live region for screen readers
+  const resultsHeading = useRef<HTMLHeadingElement | null>(null)
+  const focusResults = useRef(false)
+  const startTourButton = useRef<HTMLButtonElement | null>(null)
   const [roomId, setRoomId] = useState<string | null>(roomIdFromUrl)
   const [roomCount, setRoomCount] = useState(0)
   const room = useRef<Room | null>(null)
@@ -78,23 +86,35 @@ export default function App() {
   useEffect(() => {
     if (!site?.terrain) return
     let live = true
-    loadRegion(site.id).then((r) => live && setRegions((all) => ({ ...all, [site.id]: r })), (e) => setError(String(e)))
+    loadRegion(site.id).then(
+      (r) => live && setRegions((all) => ({ ...all, [site.id]: r })),
+      (e) => live && setLoadError(`Couldn't load the terrain for ${site.name} (${e instanceof Error ? e.message : String(e)}).`),
+    )
     return () => {
       live = false
     }
-  }, [site])
+  }, [site, retry])
+
+  useEffect(() => {
+    if (found && focusResults.current) {
+      focusResults.current = false
+      resultsHeading.current?.focus()
+    }
+  }, [found])
 
   const clearResults = useCallback(() => {
     setFound(null)
     setOpened(null)
     setPlaying(false)
     setNudgeFrom(null)
+    setStale(false)
   }, [])
 
   const selectSite = useCallback((id: string, index: number | null = null) => {
     setSiteId(id)
     setPointIndex(index)
     setOffset(0)
+    setLoadError('')
     clearResults()
   }, [clearResults])
 
@@ -254,6 +274,8 @@ export default function App() {
   async function runFinder() {
     if (!data || !site || !plan || !planPoint) return
     setBusy(true)
+    setFinderError('')
+    setAnnounce('Searching for alternatives…')
     try {
       // candidates: the plan first, then its grid within the search radius, then the other curated sites
       const loaded = await loadAll()
@@ -275,10 +297,17 @@ export default function App() {
         worker.current!.postMessage(request)
       })
       if (!reply.ok) throw new Error(reply.error)
-      setFound({ finder: reply.result!, candidates })
+      const result = reply.result!
+      setFound({ finder: result, candidates })
       setOpened(null)
+      setStale(false)
+      const passing = result.results.filter((r) => r.evaluation.fails === 0).length
+      setAnnounce(`Search finished: ${result.results.length} alternatives ranked, ${passing} meet every constraint.`)
+      focusResults.current = true // the effect below moves focus once the results have rendered
     } catch (e) {
-      setError(String(e))
+      const message = e instanceof Error ? e.message : String(e)
+      setFinderError(`The search failed (${message}). Your plan and constraints are unchanged; try again.`)
+      setAnnounce('The search failed.')
     } finally {
       setBusy(false)
     }
@@ -356,7 +385,13 @@ export default function App() {
     [mode, data],
   )
 
-  if (error) return <main><p role="alert">Something went wrong: {error}</p></main>
+  if (error)
+    return (
+      <main>
+        <p role="alert">Tranquility Base couldn't load its data ({error}). Check the connection and reload.</p>
+        <button type="button" onClick={() => window.location.reload()}>Reload</button>
+      </main>
+    )
   if (!data || !site) return <main><p>Loading…</p></main>
 
   const date = (hour: number) => iso(data.startMs + hour * HOUR_MS).replace('T', ' ')
@@ -375,7 +410,7 @@ export default function App() {
           <div>
             <h1>Tranquility Base</h1>
             <p className="note">Lunar south-pole landing site navigator</p>
-            {mode === 'explorer' && <button type="button" disabled={tour} onClick={() => setTour(true)}>Start tour</button>}
+            {mode === 'explorer' && <button type="button" ref={startTourButton} disabled={tour} onClick={() => setTour(true)}>Start tour</button>}
             <button type="button" onClick={copyLink}>Copy link</button>
             {copied && <span className="note" role="status">Link copied</span>}
           </div>
@@ -386,6 +421,7 @@ export default function App() {
           </div>
         </header>
         {data.synthetic && <p className="banner" role="status">Synthetic data: development fixtures, not real terrain or ephemeris.</p>}
+        <p className="sr-only" aria-live="polite" data-testid="announcer">{announce}</p>
         <div className="layout">
           <aside>
             <section className="panel" aria-label="Plan">
@@ -426,10 +462,18 @@ export default function App() {
               <p className="note">{site.mission} · {site.agency}<br />{(plan?.lat ?? site.lat).toFixed(3)}°, {(plan?.lon ?? site.lon).toFixed(3)}°E · {site.coord_source}</p>
               {mode === 'explorer' && site.blurb && <p className="note">{site.blurb}</p>}
             </section>
-            <ConstraintPanel defs={data.constraintDefs} value={constraints} onChange={(c) => { setConstraints(c); clearResults() }} />
-            <button type="button" className="primary" disabled={busy || !site.terrain || !plan} onClick={runFinder}>
+            <ConstraintPanel defs={data.constraintDefs} value={constraints} onChange={(c) => {
+              setConstraints(c)
+              setNudgeFrom(null)
+              if (found && !stale) {
+                setStale(true)
+                setAnnounce('Constraints changed: the alternatives below are out of date. Run the search again.')
+              }
+            }} />
+            <button type="button" className="primary" disabled={busy || !site.terrain || !plan} aria-busy={busy} onClick={runFinder}>
               {busy ? 'Searching…' : 'Find alternatives'}
             </button>
+            {finderError && <p className="inline-error" role="alert" data-testid="finder-error">{finderError}</p>}
             {!site.terrain && <p className="note">This site has no terrain (angle validation only), so the finder is off.</p>}
             <SiteMap data={data} site={site} point={planPoint} illumination={illumination} onPick={locate} />
             <section className="panel room" aria-label="Mission room">
@@ -452,7 +496,12 @@ export default function App() {
             </section>
           </aside>
           <div className="stage">
-            {!view || !day || !observer ? <p>Loading terrain…</p> : (
+            {loadError ? (
+              <div className="inline-error" role="alert" data-testid="load-error">
+                <p>{loadError} Pick another site, or try again.</p>
+                <button type="button" onClick={() => { setLoadError(''); setRetry((n) => n + 1) }}>Try again</button>
+              </div>
+            ) : !view || !day || !observer ? <p>Loading terrain…</p> : (
               <>
                 <div
                   className="status"
@@ -469,7 +518,11 @@ export default function App() {
                   <span>{date(viewStart)} UTC landing</span>
                   {day.evaluation ? <Chips evaluation={day.evaluation} /> : <span className="note">Mission window runs past 2035</span>}
                 </div>
-                {tour && <Tour steps={data.tour.steps} onStep={tourStep} onClose={() => { setTour(false); setPlaying(false) }} />}
+                {tour && <Tour steps={data.tour.steps} onStep={tourStep} onClose={() => {
+                  setTour(false)
+                  setPlaying(false)
+                  requestAnimationFrame(() => startTourButton.current?.focus()) // the button is re-enabled on the next render
+                }} />}
                 <div className="viewport">
                   {site.terrain
                     ? <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
@@ -491,7 +544,8 @@ export default function App() {
                   </button>
                   <label>
                     <span>Lunar day scrubber · {date(viewStart + view.t)} UTC (landing +{view.t} h)</span>
-                    <input type="range" min={0} max={last} value={view.t} onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
+                    <input type="range" min={0} max={last} value={view.t} aria-valuetext={`${date(viewStart + view.t)} UTC, landing plus ${view.t} hours`}
+                      onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
                   </label>
                 </div>
                 {!alt && site.terrain && (
@@ -514,12 +568,19 @@ export default function App() {
                       <HorizonText facts={horizonFacts(day.mask, day.series, day.track, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
                     </>
                   )}
-                {found && <Results finder={found.finder} candidates={found.candidates} opened={opened} date={date}
+                {found && <Results finder={found.finder} candidates={found.candidates} opened={opened} date={date} stale={stale}
+                  headingRef={resultsHeading} onRerun={runFinder} busy={busy}
                   onOpen={(i) => { setOpened(i); setOffset(0); setPlaying(false) }} />}
                 {matrix && allLoaded
                   ? <Matrix data={data} regions={regions} start={planHour} constraints={constraints} selected={site.id} onOpen={openCell} />
                   : (
-                    <button type="button" className="secondary" disabled={matrix} onClick={() => { setMatrix(true); loadAll().catch((e) => setError(String(e))) }}>
+                    <button type="button" className="secondary" disabled={matrix} onClick={() => {
+                      setMatrix(true)
+                      loadAll().catch((e) => {
+                        setMatrix(false)
+                        setLoadError(`Couldn't load every site for the matrix (${e instanceof Error ? e.message : String(e)}).`)
+                      })
+                    }}>
                       {matrix ? 'Loading every site…' : 'Show scenario matrix (all sites × landing dates)'}
                     </button>
                   )}
