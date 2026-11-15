@@ -1,39 +1,59 @@
-# Tranquility Base — one-page summary
+# PROJECT ONE-PAGER FOR LOCAL JUDGES
 
-**NASA Space Apps 2026 · Lunar Landing Site Navigator** · Live: https://tranquility-base.rohansh2017.workers.dev
-
-![First-person view from the Shackleton rim with the HUD, 19 Nov 2026](../web/tests/screenshots/1-plan-shackleton-rim.png)
-
-## The problem
-
-At the Moon's south pole the Sun never climbs more than about 1.5° above the horizon, so terrain decides whether a landing site is lit, and a few hundred metres or a few days can swing a site from sunny to dark. When a launch slips (Chang'e-7's August 2026 window was called off; Artemis's first crewed landing moved to 2028), planners have to re-check sites and dates fast, across tools that were never meant to be used together.
-
-## What Tranquility Base does
-
-Pick a south-pole site and a landing time. Stand on the real LOLA terrain in 3D and see the Sun and Earth exactly where they will be against the true horizon, with countdowns to sunset and Earthset. Set mission constraints (or type them as a sentence). The finder scans nearby points and later dates, ranks what still works, and explains each option in one line: *"5.0 km S, 12 days later: +97% sun, −158 h dark, +100% comms."* Open any option in 3D next to the original plan.
-
-## How it works
-
-- **Ephemeris:** JPL DE440 + NAIF lunar kernels through Skyfield, hourly 2026–2035, in the LOLA frame (MOON_ME_DE440_ME421). Verified against JPL Horizons: max error 0.0007° at six sites (target 0.1°).
-- **Terrain:** LRO LOLA 20 m and 80 m polar DEMs (NASA GSFC PGDA). A 360° horizon mask per grid point, ray-marched to 300 km with lunar curvature; the Sun is a 0.53° disk; Earth counts as visible 1° above the ridge.
-- **Checked against the world:** our sunlit % matches PGDA's average-illumination maps at r 0.95–0.99 across nine sites; our slopes match the LOLA slope map to 0.3°.
-- **All in the browser:** precomputed files, a Web Worker, prefix sums. 5,000 candidates × 60 days in under a second.
-- **On Cloudflare:** Workers serve the app, R2 serves the data by region, a Durable Object keeps a mission room of browsers in step. Gemini turns a typed requirement into schema-validated constraint JSON; every number still comes from our engine.
-
-## Objectives covered
-
-| Challenge objective | In the app |
+| Field | Entry |
 | --- | --- |
-| Site selection and comparison | 9 curated south-pole sites, custom coordinates and map clicks, finder, matrix, side-by-side, nudge |
-| Date and time flexibility | UTC picker, lunar-day scrubber, slip-range search, year-long matrix |
-| Sun and Earth visualization | 3D sky against the true horizon, panorama, HUD countdowns |
-| Power and comms assessment | Sunlit %, longest dark run, Earth visibility, power index, pass/fail per constraint |
-| Multiple visualizations | 3D, panorama, scenario matrix, illumination map |
-| Temporal dynamics | Scrubber, playback with trails, tracks across the window |
-| Accessibility | Planner and Explorer modes, plain-language results, guided tour, share links, sentence entry |
+| Project title | Tranquility Base |
+| Team name / ID | USACS / organizers fill in ID |
+| Challenge | Lunar Landing Site Navigator |
+| Team lead | Tanish / fishywish |
+| Team members | Tanish Banota (R), Rohan Sharma (R), Hasan Ali (R), Brayden Uglione (R) |
+| Project page | https://www.spaceappschallenge.org/2026/find-a-team/usacs/?tab=project |
+| Demo | https://tranquility-base.rohansh2017.workers.dev/ |
 
-## Limits
+## 1. In one sentence
 
-Screening grade: a 500 m search grid, 20 m terrain within 10 km and 80 m beyond. Not a mission design, hazard, power, thermal or link-budget tool. Ground detail finer than 20 m in the 3D view is illustrative and labelled so.
+A web app for lunar planners and students to explore real south-pole terrain in 2026–2035, see the Sun and Earth against the computed horizon, and find backup landing points and dates.
 
-**Data:** NASA/JPL DE440 and NAIF kernels · LRO LOLA via NASA GSFC PGDA · JPL Horizons and PGDA illumination maps for validation · site coordinates from NASA Artemis III and CLPS releases and PGDA · Explorer text in our own words from NASA and CSA Moon Exploration material.
+## 2. What you did
+
+At the lunar south pole, low Sun and Earth angles make local terrain decisive: a short move or date slip can change sunlight and Earth visibility. Today, checking alternatives takes several specialist tools. Our app combines terrain, sky, mission constraints and ranked backups. Stand at a point in 3D, see sunset and Earthset countdowns, then search nearby points and later dates.
+
+## 3. Data you used
+
+- **NASA LRO LOLA terrain (GSFC PGDA):** 20 m and 80 m DEMs give horizons and slopes at 3,969 points in nine grids; 5 m DEMs add close-range terrain at eight sites. A LOLA global model supplies Moon relief.
+- **JPL DE440 and NAIF lunar kernels:** hourly Sun/Earth positions for 2026–2035, precomputed with Skyfield in the LOLA frame.
+- **JPL Horizons, PGDA illumination maps and LOLA slopes:** independent validation. Site coordinates come from NASA, PGDA and the project brief; approximate ones are labelled. The Yale Bright Star Catalogue supplies stars.
+
+## 4. The science
+
+**Question:** How much Sun is visible and does Earth clear the terrain? Which alternatives meet mission needs after a slip?
+
+**Method:** From 2 m above ground, horizon rays use LOLA data and lunar curvature in 1° azimuth bins, up to the DEM edge (at most about 300 km). The engine models the Sun as a 0.53° disk and corrects Earth for observer offset; Earth must clear the ridge by 1°.
+
+**Validation:** Sun/Earth angles differ from Horizons by at most 0.0007° over 720 hours at six sites (target: 0.1°). Ten-year sunlight patterns across nine grids match PGDA maps at r = 0.95–0.99, with grid means within 2 percentage points. The 500 m grid is for screening, not hazard assessment.
+
+## 5. What it is and how it works
+
+An orbitable Moon view shows site pins and sunlight/Earth maps. Zoom down and stand on LOLA terrain in 3D. The HUD, 360° horizon, playback, ranked finder, scenario matrix and comparison tray explain results in Planner and Explorer modes.
+
+Python precomputes the data. React, TypeScript, Three.js and a Web Worker handle visualization and search; 5,000 candidate points across a 60-day range took 856 ms in a measured run. Cloudflare Workers host the app; R2 serves regional data. **Code:** https://github.com/rohansh2017/Space-Apps-2026
+
+## 6. What is new here
+
+Stand at a point to see why it passes or fails; the view and metrics share one engine. When a date slips, the finder ranks backups and states how each changes the plan. Planner metrics and plain-language explanations serve two audiences.
+
+## 7. How you will present
+
+We will give a virtual three-minute presentation with slides and a working screen-share demo. We will start at the Shackleton rim and move through time to show the Sun setting behind a ridge. Then we will slip the landing date, use the finder to identify a backup, and inspect that alternative in 3D. We will close by showing Explorer mode and the validation results.
+
+## Special awards
+
+☑ Cloudflare  ☐ Twilio  ☐ OpenSpace  ☑ MLH: Best Use of Gemini API
+
+**Cloudflare:** Workers serve the app and API; R2 stores derived data and raw LOLA models. A Durable Object mission room syncs site, point, date and constraints over WebSockets.
+
+**Gemini API:** Four Cloudflare Worker routes use Gemini to interpret mission requirements, plan a date slip, describe the horizon, and reword why a plan fails. The Worker keeps the API key secret; the app checks proposed settings against its schema and checks every number in descriptive replies against engine facts. Users confirm changes before the local finder runs. Gemini handles language; the terrain and ephemeris engine computes every mission metric.
+
+## Use of AI
+
+Claude Code wrote most code from the team's plan and science requirements. The team reviewed it, made design and science decisions, and deployed. Claude on GitHub reviews pull requests. Gemini interprets requirements and describes engine results; the DE440/LOLA-based engine computes every metric.
