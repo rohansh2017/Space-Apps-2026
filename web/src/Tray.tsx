@@ -1,4 +1,4 @@
-import { Crosshair, Eye, Pin, PinOff, Plus, Target, X } from 'lucide-react'
+import { Crosshair, Eye, Pin, PinOff, Target, X } from 'lucide-react'
 import { useContext } from 'react'
 import Chips from './Chips'
 import type { Angles, Constraints, Evaluation, Metrics } from './engine/engine'
@@ -27,7 +27,6 @@ interface Props {
   onUnpin: (key: string) => void
   onAdopt: (key: string) => void // make this pin the plan; the old plan takes its column
   onSetBaseline: (key: string) => void
-  onAddPlan: () => void
   onRemovePlan: () => void
   onReplace: (key: string) => void
   onCancelPending: () => void
@@ -41,8 +40,8 @@ export const TRAY_MAX = 4 // columns in the tray, the live plan included when it
 type Key = 'sunlitPct' | 'longestLitH' | 'longestDarkH' | 'earthPct' | 'powerIndex' | 'meanElLit'
 const BETTER: Record<Key, 1 | -1> = { sunlitPct: 1, longestLitH: 1, longestDarkH: -1, earthPct: 1, powerIndex: 1, meanElLit: 1 }
 
-/** The compare tray: up to four scenarios (the live plan is optional), drawn the same way, scrubbed together, compared to one baseline. */
-export default function Tray({ plan, pinned, baseline, t, constraints, previous, pending, onView, onUnpin, onAdopt, onSetBaseline, onAddPlan, onRemovePlan,
+/** The compare tray: up to four scenarios (Pin this view adds the live plan when it is in view), drawn the same way, scrubbed together, compared to one baseline. */
+export default function Tray({ plan, pinned, baseline, t, constraints, previous, pending, onView, onUnpin, onAdopt, onSetBaseline, onRemovePlan,
   onReplace, onCancelPending, onPinView, canPinView }: Props) {
   const explorer = useContext(Guide).mode === 'explorer'
   const columns = [...(plan ? [plan] : []), ...pinned]
@@ -117,11 +116,6 @@ export default function Tray({ plan, pinned, baseline, t, constraints, previous,
       <header className="tray-head">
         <h2>Compare</h2>
         <span className="note">{columns.length} of {TRAY_MAX}{columns.length > 1 ? ' · scrubbed together' : ''}</span>
-        {!plan && (
-          <button type="button" className="quiet" onClick={onAddPlan} disabled={columns.length >= TRAY_MAX}>
-            <Plus size={14} aria-hidden="true" /> Add the plan
-          </button>
-        )}
         <button type="button" className="quiet" onClick={onPinView} disabled={!canPinView}>
           <Pin size={14} aria-hidden="true" /> Pin this view
         </button>
@@ -135,8 +129,8 @@ export default function Tray({ plan, pinned, baseline, t, constraints, previous,
           <button type="button" className="quiet" onClick={onCancelPending}>Keep the tray as it is</button>
         </div>
       )}
-      {columns.length > 0 && (
-        <div className="tray-cols" style={{ gridTemplateColumns: `max-content repeat(${Math.max(2, columns.length)}, minmax(0, 1fr))` }}>
+      {/* the row labels stay even when nothing is pinned yet, so the table's shape is always visible */}
+      <div className="tray-cols" style={{ gridTemplateColumns: `max-content repeat(${Math.max(2, columns.length)}, minmax(0, 1fr))` }}>
           <div className="tray-labels" aria-hidden="true">
             <span />
             <span>Constraints</span>
@@ -145,8 +139,7 @@ export default function Tray({ plan, pinned, baseline, t, constraints, previous,
             <span />
           </div>
           {columns.map(column)}
-        </div>
-      )}
+      </div>
     </section>
   )
 }

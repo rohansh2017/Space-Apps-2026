@@ -139,21 +139,9 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .band { grid-area: band; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--gap); padding: 10px var(--gap);
   max-height: 42vh; overflow-y: auto; background: var(--panel-solid); border-top: 1px solid var(--line); }
 .band-time { display: grid; gap: 0.5rem; align-content: start; min-width: 0; }
-/* compare mode: the tray takes the band; the timeline is one strip above it */
-.band.comparing { grid-template-columns: minmax(0, 1fr); gap: 8px; max-height: 62vh; } /* comparing is the task: the tray may take more of the window */
-.band.comparing { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
-.band.comparing .band-time { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
-/* the tray's heading joins the timeline strip, and its table spans the band */
-.band.comparing .tray { display: contents; }
+/* compare mode: the timeline column stays as it is; the tray beside it gets the wider share and more height */
+.band.comparing { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); max-height: 62vh; }
 .band-grip { grid-row: 1; }
-.band.comparing .band-time { grid-area: 2 / 1; }
-.band.comparing .tray-head { grid-area: 2 / 2; }
-.band.comparing .tray-full, .band.comparing .tray-cols { grid-column: 1 / -1; }
-.band-more { font-size: 0.8rem; color: var(--dim); }
-.band-more summary { cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; white-space: nowrap; }
-.band-more summary:hover { color: var(--text); background: rgb(224 216 200 / 6%); }
-.band-more[open] { grid-column: 1 / -1; display: grid; gap: 0.5rem; }
-.band-more[open] summary { justify-self: end; }
 .scrub { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: center; font-size: 0.8rem; color: var(--dim); }
 .scrub label { display: grid; gap: 0.15rem; }
 .scrub em { font-style: normal; color: var(--mute); margin-left: 0.4rem; }
@@ -419,8 +407,7 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .about[open]::backdrop { animation: fade 200ms var(--ease-out); }
 @keyframes fade { from { opacity: 0; } }
 .tray-col { animation: rise 260ms var(--ease-out); }
-.tray-full, .stale, .snap, .suggestion, .band-more[open] > :not(summary) { animation: rise 200ms var(--ease-out); }
-/* a fresh search slides in and its rows rise in order; restoring from the corner is the morph alone */
+.tray-full, .stale, .snap, .suggestion, /* a fresh search slides in and its rows rise in order; restoring from the corner is the morph alone */
 .results-panel.fresh { animation: from-right 240ms var(--ease-out); }
 .fresh .results li { animation: rise 240ms var(--ease-out) backwards; }
 .fresh .results li:nth-child(2) { animation-delay: 30ms; } .fresh .results li:nth-child(3) { animation-delay: 60ms; } .fresh .results li:nth-child(4) { animation-delay: 90ms; }
@@ -456,6 +443,6 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
 /* the baseline: the column every other column's differences are measured against */
 .tray-col.base { border-color: var(--line-strong); }
 .baseline-tag, .baseline-set { justify-self: start; margin-top: 0.2rem; font-size: 0.7rem; line-height: 1.2; }
-.baseline-tag { padding: 0.08rem 0.45rem; border-radius: 999px; background: var(--text); color: #141416; font-weight: 600; }
+.tray-col > header > .baseline-tag { padding: 0.08rem 0.45rem; border-radius: 999px; background: var(--text); color: #141416; font-weight: 600; }
 .baseline-set { gap: 0.25rem; padding: 0.08rem 0.4rem; border-radius: 999px; background: none; border: 1px dashed var(--line-strong); color: var(--dim); }
 .baseline-set:hover:not(:disabled) { color: var(--text); border-style: solid; border-color: var(--mute); background: none; }

@@ -42,8 +42,8 @@ double-click resets it). Choose a site and date (UTC) in
 the Plan panel on the left, drag the lunar-day scrubber or press Play, drag inside the 3D view to look
 around. Slip the date and press *Find alternatives*. Open a result: it is pinned to the *Compare* tray
 at the bottom, beside the plan, and every column follows the same scrubber. The tray starts empty: pin up to four
-scenarios (the pin on each result, or *Pin this view*), and add your live plan with *Add the plan* if you want it
-there. One column is the baseline (the first, until you press *Compare to this* on another): every other column
+scenarios (the pin on each result, or *Pin this view*; with your plan in the 3D view, *Pin this view* adds the plan's
+live column, which follows your edits and shows each nudge's change). One column is the baseline (the first, until you press *Compare to this* on another): every other column
 shows its differences from it, and the best value in each row is bold. The tray, the plan's place in it and the
 baseline travel in the copied link. *Make this the plan* on a pin swaps it with the plan. Nudge the plan 500 m or a day and
 watch the plan's tiles change. Type a custom coordinate, or open *Map* on the left rail and click

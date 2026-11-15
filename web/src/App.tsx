@@ -88,7 +88,6 @@ export default function App() {
   const [hudOpen, setHudOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
   const [bandOpen, setBandOpen] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false) // compare mode's nudge/skyline disclosure; kept while the band remounts on a site change
   const [resultsMin, setResultsMin] = useState(false) // the alternatives folded into their corner
   const [resultsFresh, setResultsFresh] = useState(false) // a search just finished: the list plays its entrance
   const resultsChip = useRef<HTMLButtonElement | null>(null)
@@ -661,7 +660,7 @@ export default function App() {
     viewing: Boolean(viewing && refKey(viewing) === refKey(ref)),
     day: d,
   }))
-  const viewRef: ScenarioRef | null = viewing ?? (plan ? { point: plan.id, hour: planHour } : null)
+  const trayCount = pins.length + (planInTray ? 1 : 0)
   const levelGround = Boolean(day && site.heightmap && Math.max(Math.abs(day.east), Math.abs(day.north)) >= site.heightmap.span_m / 2 - 20)
 
   return (
@@ -869,7 +868,6 @@ export default function App() {
                     onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
                 </label>
               </div>
-              {/* with pins, the tray needs the band: the plan's own skyline is in its column, the rest folds away */}
               {bandOpen && (() => {
                 const detail = (
                   <>
@@ -881,14 +879,14 @@ export default function App() {
                   ))}
                   <button type="button" disabled={planHour < 24} onClick={() => nudge('earlier')}>1 day earlier</button>
                   <button type="button" disabled={planHour + 24 >= data.hours} onClick={() => nudge('later')}>1 day later</button>
-                  {nudgeFrom && <span className="note" data-testid="nudge-note">The plan's tiles show the change since the last nudge.</span>}
+                  {nudgeFrom && planInTray && <span className="note" data-testid="nudge-note">The plan's tiles show the change since the last nudge.</span>}
                 </div>
               )}
               <Panorama mask={day.mask} track={day.track} t={view.t} width={1080} height={210} />
               <HorizonText facts={horizonFacts(day.mask, day.series, day.track, view.t, Math.round(Number(constraints.mission_duration_days) * 24))} />
                   </>
                 )
-                return pins.length || planInTray ? <details className="band-more" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}><summary>Nudge, skyline and horizon description</summary>{detail}</details> : detail
+                return detail
               })()}
             </div>
             {bandOpen && <Tray plan={planInTray ? trayPlan : null} pinned={trayPins} baseline={baseline} t={view.t} constraints={constraints} previous={nudgeFrom}
@@ -896,7 +894,6 @@ export default function App() {
               onView={(key) => showScenario(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
               onAdopt={adoptPin}
               onSetBaseline={(key) => { setBaseline(key); setAnnounce('Baseline changed: the other columns are now compared to it.') }}
-              onAddPlan={() => setPlanInTray(true)}
               onRemovePlan={() => { setPlanInTray(false); if (baseline === 'plan') setBaseline(null) }}
               onUnpin={(key) => {
                 setPins(pins.filter((p) => refKey(p) !== key))
@@ -909,8 +906,11 @@ export default function App() {
                 setPendingPin(null)
               }}
               onCancelPending={() => setPendingPin(null)}
-              onPinView={() => { if (viewRef) togglePin(viewRef) }}
-              canPinView={Boolean(viewRef && !pinnedKeys.has(refKey(viewRef)))} />}
+              onPinView={() => {
+                if (!viewing) { if (trayCount < TRAY_MAX) setPlanInTray(true) } // the plan in view: its live column
+                else togglePin(viewing)
+              }}
+              canPinView={!viewing ? !planInTray && trayCount < TRAY_MAX : !pinnedKeys.has(refKey(viewing))} />}
           </section>
         )}
         {view && day && (

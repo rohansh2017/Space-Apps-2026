@@ -318,3 +318,7 @@ Team request (D55): per-push checks limited to what the changed files can affect
 ## 2026-11-15 — Baseline of your choice, optional plan column, clearer map marks (branch `feat/quiet-first-view`)
 
 Team request (D56). Tray starts empty, the plan is an optional column, *Compare to this* sets the baseline; carried in the link and stored locations. Tray hint removed. Map markers enlarged with dark halos. New e2e test (empty start, add/remove plan, change baseline, unpin baseline); the shared `expandPanels` helper adds the plan and opens the compare-mode disclosure so earlier tests keep their meaning; fixed the disclosure folding on a site change. Checked in Chromium at 1440×900 (empty tray, three columns with the plan or a pin as baseline, map drawer).
+
+## 2026-11-15 — Deployed PR #9; tray labels, one pin button, timeline kept visible (branch `feat/tray-labels-pin-view`)
+
+PR #9 (quiet first view, stored locations, check-changed, baseline choice) merged, full `make check` passed, deployed (version 42a14934); `make e2e-live` 23 of 24 passed, F21 failed because Gemini answered 429 (quota), reproduced and confirmed by driving the live page. Then (D57): row labels always visible, *Add the plan* removed in favour of *Pin this view*, nudge/skyline/horizon text no longer folded in compare mode, Baseline label contrast fixed, F21 skips only on a 429. All local browser tests pass.
