@@ -1,7 +1,7 @@
 // F22: a short plain-language description of the horizon panorama, written from engine-derived facts.
 // Gemini sees the facts only (never engine series or results); the browser checks every number in the
 // reply against the facts and falls back to a template sentence otherwise.
-import { MODEL, callGemini, gate, readJson } from './gemini-call.js'
+import { callGemini, gate, readJson } from './gemini-call.js'
 
 const KEYS = ['ridge_direction', 'ridge_elevation_deg', 'lowest_direction', 'lowest_elevation_deg', 'window_hours', 'sunlit_pct',
   'sun_max_elevation_deg', 'sun_now', 'sun_direction', 'hours_to_sun_change', 'sun_change_direction',
@@ -22,5 +22,5 @@ export async function describeHorizon(request, env) {
       + 'if something is unknown, leave it out.\nFacts: ' + JSON.stringify(clean),
   )
   if (r.error) return Response.json({ error: r.error }, { status: r.status })
-  return Response.json({ text: r.text.trim().slice(0, 600), model: MODEL, generated: true })
+  return Response.json({ text: r.text.trim().slice(0, 600), model: r.model, generated: true })
 }

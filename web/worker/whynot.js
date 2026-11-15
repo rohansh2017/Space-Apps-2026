@@ -1,6 +1,6 @@
 // F27: on request only, one plain sentence rephrasing the engine's "why not" facts. The browser shows its own
 // template by default and keeps this reply only if every number in it is one of the facts.
-import { MODEL, callGemini, gate, readJson } from './gemini-call.js'
+import { callGemini, gate, readJson } from './gemini-call.js'
 
 export async function explainWhyNot(request, env) {
   const stop = gate(request, env, 'The why-not explainer')
@@ -14,5 +14,5 @@ export async function explainWhyNot(request, env) {
       + 'No other numbers, no comments on the task.\nFacts: ' + clean,
   )
   if (r.error) return Response.json({ error: r.error }, { status: r.status })
-  return Response.json({ text: r.text.trim().slice(0, 500), model: MODEL, generated: true })
+  return Response.json({ text: r.text.trim().slice(0, 500), model: r.model, generated: true })
 }
