@@ -41,6 +41,11 @@ The full pipeline, from raw data to a tested app, is `make setup && make data-do
 
 ### What to try
 
+On your first visit a **quick tour** walks you through four real actions in about 30 seconds: fly to a site, play the
+lunar day, stand on the surface in 3D, and find alternatives for a slipped launch. Each step rings the control it means
+and moves on as soon as you use it; *Skip* or Escape whenever you like. *Quick tour* in the top bar replays it, and
+`?tour=1` on the address opens it directly (handy for a demo). It does not open by itself on a shared link.
+
 The page opens on the *Moon*: the south polar region, which you orbit by dragging and zoom with the wheel. Each curated
 site is a pin, solid when it meets every constraint for the planned landing date and hollow when it fails (hover for
 its numbers). Click a pin to fly down to that site's 10 km search grid (or the eye beside a pin to stand there in 3D at once).

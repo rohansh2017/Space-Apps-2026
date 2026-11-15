@@ -102,12 +102,19 @@ test('lunar-day playback advances the scrubber and reports the frame rate', asyn
   await standOnTheGround(page) // the frame rate target is the ground view's (terrain, shadows, stars)
   await page.waitForTimeout(1500)
   await page.getByTestId('play').click()
-  const fps = await page.evaluate(() => new Promise<number>((resolve) => {
+  // hours advanced within the 4 s window itself, read at its first and last frame: counted from the click, or read
+  // afterwards, the browser's own delays on a busy machine were added in (232 and 285 h instead of about 140)
+  const { fps, hours } = await page.evaluate(() => new Promise<{ fps: number; hours: number }>((resolve) => {
+    const scrub = () => Number(document.querySelector<HTMLInputElement>('input[type="range"]')!.value)
     let frames = 0
-    const t0 = performance.now()
+    let t0 = -1
+    let h0 = 0
     requestAnimationFrame(function tick(now) {
-      frames++
-      if (now - t0 >= 4000) resolve((frames * 1000) / (now - t0))
+      if (t0 < 0) {
+        t0 = now
+        h0 = scrub()
+      } else frames++
+      if (now - t0 >= 4000) resolve({ fps: (frames * 1000) / (now - t0), hours: scrub() - h0 })
       else requestAnimationFrame(tick)
     })
   }))
@@ -118,8 +125,7 @@ test('lunar-day playback advances the scrubber and reports the frame rate', asyn
   })
   console.log(`PERF 3D playback: ${fps.toFixed(0)} fps over 4 s at 1200 x 1000 (${renderer})`)
   expect(errors).toEqual([])
-  // one lunar day takes about 20 s, so 4 s is about 140 hours in
-  const hours = Number(await page.getByRole('slider').inputValue())
+  // one lunar day takes about 20 s, so 4 s of playback is about 140 hours
   expect(hours).toBeGreaterThan(100)
   expect(hours).toBeLessThan(200)
   expect(await hudOf(page)).not.toBeNull()

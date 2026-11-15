@@ -795,7 +795,7 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
         <button type="button" onClick={onPin} disabled={!canPin} aria-pressed={viewPinned} data-testid="moon-pin-view">
           {viewPinned ? <PinOff size={15} aria-hidden="true" /> : <Pin size={15} aria-hidden="true" />}{viewPinned ? 'Unpin' : 'Pin'}
         </button>
-        <button type="button" className="primary" onClick={onStand} data-testid="moon-stand" aria-label="Stand here: view the landing point in 3D"><Eye size={15} aria-hidden="true" />Stand here</button>
+        <button type="button" className="primary" onClick={onStand} data-testid="moon-stand" data-tour="stand" aria-label="Stand here: view the landing point in 3D"><Eye size={15} aria-hidden="true" />Stand here</button>
       </div>
     </div>
   )
@@ -828,7 +828,7 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
         return (
           <span key={site.id} className={`moon-pin-wrap${dx < 0 ? ' left' : ''}`} ref={(el) => { pinEls.current[site.id] = el }}
             style={{ visibility: 'hidden', translate: `${dx < 0 ? `calc(${dx}px - 100%)` : `${dx}px`} calc(${dy}px - 50%)` }}>
-            <button type="button" data-testid={`moon-pin-${site.id}`} data-verdict={pass === null ? 'pending' : pass ? 'pass' : 'fail'}
+            <button type="button" data-testid={`moon-pin-${site.id}`} data-tour={site.id === focus.id ? 'site-pin' : undefined} data-verdict={pass === null ? 'pending' : pass ? 'pass' : 'fail'}
               className={site.id === focus.id ? 'moon-pin selected' : 'moon-pin'}
               aria-label={`${site.name}: ${state} for a ${dur}-day mission landing ${when} UTC${verdict ? `, sunlit ${verdict.metrics.sunlitPct.toFixed(0)}%, Earth ${verdict.metrics.earthPct.toFixed(0)}%` : ''}. Fly to its search grid.`}
               aria-describedby={`${id}-${site.id}`} onClick={() => onSite(site.id)}>
