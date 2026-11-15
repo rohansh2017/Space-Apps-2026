@@ -294,3 +294,7 @@ Worked from all 17 test screenshots. Fixed: tray columns and result rows no long
 ## 2026-11-15 — `/impeccable critique` and its P1 fixes (branch `redesign/new-visual-identity`)
 
 Dual-agent critique against the comparison objective: 25/40, detector clean in source (in-page: placeholder contrast 3.6:1, 11.8 px small text), snapshot in `.impeccable/critique/`. Fixed the three P1s (D50): compare mode for the band so the tray fits a 720p full screen (band 437/437 px, no scroll; 1440×900 392/392 with a 420 px view), the tray as a table with shared rows and the best value per row in bold, and *Make this the plan*. F11 test extended (best marker, adopt, focus). P2s left open: pinning feedback, sticky results header, matrix pass/fail mode. `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — Collapsible panels, resizable band, cinematic full screen (branch `redesign/new-visual-identity`)
+
+Team request (D51): HUD, plan/alternative card and bottom band collapse; the band resizes by drag or keyboard; full screen folds the panels away, fades the chrome when idle, adds a letterbox, and restores the layout on exit. Checked in Chromium at 1440×900 (drag, collapse, full screen idle and awake, exit). New e2e test covers collapse, keyboard resize and the full-screen round trip. `make check` passes. Not deployed (redesign branch).

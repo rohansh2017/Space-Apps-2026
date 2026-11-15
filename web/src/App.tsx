@@ -1,4 +1,4 @@
-import { Info, LayoutGrid, Link2, Map as MapIcon, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
+import { ChevronDown, ChevronUp, Info, LayoutGrid, Link2, Map as MapIcon, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Chips from './Chips'
 import ConstraintPanel from './ConstraintPanel'
@@ -61,6 +61,14 @@ export default function App() {
   const [drawer, setDrawer] = useState<'map' | 'matrix' | 'room' | null>(null)
   const [sideOpen, setSideOpen] = useState(true)
   const [fullscreen, setFullscreen] = useState(false)
+  // collapsible panels; full screen collapses them for a cinematic view and restores them on exit
+  const [hudOpen, setHudOpen] = useState(true)
+  const [statusOpen, setStatusOpen] = useState(true)
+  const [bandOpen, setBandOpen] = useState(true)
+  const [bandHeight, setBandHeight] = useState<number | null>(null) // null = sized by its content
+  const [idle, setIdle] = useState(false) // full screen: chrome fades out while the pointer rests
+  const beforeFullscreen = useRef<{ side: boolean; hud: boolean; status: boolean; band: boolean } | null>(null)
+  const band = useRef<HTMLElement | null>(null)
   const mapButton = useRef<HTMLButtonElement | null>(null)
   const matrixButton = useRef<HTMLButtonElement | null>(null)
   const roomButton = useRef<HTMLButtonElement | null>(null)
@@ -443,7 +451,10 @@ export default function App() {
     const key = refKey(ref)
     if (pins.some((p) => refKey(p) === key)) setPins(pins.filter((p) => refKey(p) !== key))
     else if (pins.length < TRAY_MAX) setPins([...pins, ref])
-    else setPendingPin(ref)
+    else {
+      setPendingPin(ref)
+      setBandOpen(true) // the replace prompt lives in the tray
+    }
   }, [pins])
   const showScenario = (ref: ScenarioRef | null) => {
     setViewing(ref)
@@ -466,13 +477,76 @@ export default function App() {
   // --- full screen (projector demos); browsers without the API simply get no button
   const canFullscreen = typeof document !== 'undefined' && Boolean(document.fullscreenEnabled)
   useEffect(() => {
-    const onChange = () => setFullscreen(Boolean(document.fullscreenElement))
+    const onChange = () => {
+      const on = Boolean(document.fullscreenElement)
+      setFullscreen(on)
+      setIdle(false)
+      const before = beforeFullscreen.current
+      if (!on && before) { // back to the layout the user had
+        setSideOpen(before.side)
+        setHudOpen(before.hud)
+        setStatusOpen(before.status)
+        setBandOpen(before.band)
+        beforeFullscreen.current = null
+      }
+    }
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
   }, [])
   const toggleFullscreen = () => {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined)
-    else document.documentElement.requestFullscreen().catch(() => undefined)
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => undefined)
+      return
+    }
+    beforeFullscreen.current = { side: sideOpen, hud: hudOpen, status: statusOpen, band: bandOpen }
+    document.documentElement.requestFullscreen().then(() => {
+      // cinematic: the terrain gets the screen; every panel is one click away
+      setSideOpen(false)
+      setHudOpen(false)
+      setStatusOpen(false)
+      setBandOpen(false)
+    }, () => { beforeFullscreen.current = null })
+  }
+  // full screen: header and rail fade out after the pointer rests, and come back on any movement or key
+  useEffect(() => {
+    if (!fullscreen) return
+    let timer = window.setTimeout(() => setIdle(true), 2500)
+    const wake = () => {
+      setIdle(false)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setIdle(true), 2500)
+    }
+    window.addEventListener('pointermove', wake)
+    window.addEventListener('keydown', wake)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('pointermove', wake)
+      window.removeEventListener('keydown', wake)
+    }
+  }, [fullscreen])
+  /** The band's top edge: drag, or arrow keys, to resize; double-click returns it to its natural height. */
+  const bandLimits = () => [96, Math.max(160, window.innerHeight - 52 - 160)] as const
+  const resizeBand = (e: React.PointerEvent<HTMLDivElement>) => {
+    const box = band.current
+    if (!box) return
+    const bottom = box.getBoundingClientRect().bottom
+    const [min, max] = bandLimits()
+    const grip = e.currentTarget
+    grip.setPointerCapture(e.pointerId)
+    const move = (ev: PointerEvent) => setBandHeight(Math.round(Math.min(max, Math.max(min, bottom - ev.clientY))))
+    const up = () => {
+      grip.removeEventListener('pointermove', move)
+      grip.removeEventListener('pointerup', up)
+    }
+    grip.addEventListener('pointermove', move)
+    grip.addEventListener('pointerup', up)
+  }
+  const nudgeBand = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+    e.preventDefault()
+    const [min, max] = bandLimits()
+    const now = bandHeight ?? band.current?.getBoundingClientRect().height ?? 300
+    setBandHeight(Math.min(max, Math.max(min, Math.round(now + (e.key === 'ArrowUp' ? 24 : -24)))))
   }
   const closeDrawer = useCallback(() => setDrawer(null), [])
   /** Make a pinned scenario the plan: it takes the plan's place, and the old plan takes its column in the tray. */
@@ -546,7 +620,7 @@ export default function App() {
 
   return (
     <Guide.Provider value={guide}>
-      <div className={`app ${mode}${found ? ' has-results' : ''}${sideOpen ? '' : ' side-closed'}`}>
+      <div className={`app ${mode}${found ? ' has-results' : ''}${sideOpen ? '' : ' side-closed'}${fullscreen ? ' cinematic' : ''}${fullscreen && idle ? ' idle' : ''}`}>
         <div className="stage">
           {site.terrain && view && day && observer && (
             <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
@@ -686,9 +760,13 @@ export default function App() {
               >
                 <div className="status-title">
                   <strong>{viewed ? `Alternative: ${viewTitle}` : `Plan: ${observer.label}`}</strong>
-                  <span>{viewed ? `${observer.label} · ` : ''}{date(viewStart)} UTC landing</span>
+                  <button type="button" className="icon-button" onClick={() => setStatusOpen(!statusOpen)} aria-expanded={statusOpen}
+                    aria-label={statusOpen ? 'Hide the landing time and pass/fail checks' : 'Show the landing time and pass/fail checks'} title={statusOpen ? 'Hide details' : 'Show details'}>
+                    {statusOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
+                  </button>
+                  {statusOpen && <span>{viewed ? `${observer.label} · ` : ''}{date(viewStart)} UTC landing</span>}
                 </div>
-                {day.evaluation ? <Chips evaluation={day.evaluation} constraints={constraints} /> : <span className="note">Mission window runs past 2035</span>}
+                {statusOpen && (day.evaluation ? <Chips evaluation={day.evaluation} constraints={constraints} /> : <span className="note">Mission window runs past 2035</span>)}
               </div>
               {tour && <Tour steps={data.tour.steps} onStep={tourStep} onClose={() => {
                 setTour(false)
@@ -698,7 +776,7 @@ export default function App() {
               </div>
               <Hud sunEl={view.now.sunEl} sunHorizon={view.sunHorizon} earthEl={view.now.earthEl} earthHorizon={view.earthHorizon}
                 lit={view.lit} link={view.link} power={view.power}
-                sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} />
+                sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} open={hudOpen} onToggle={() => setHudOpen(!hudOpen)} />
               <div className="stage-notes">
                 {levelGround && (
                   <p className="tag" data-testid="level-ground-note">
@@ -722,7 +800,13 @@ export default function App() {
         </div>
 
         {view && day && (
-          <section className={pins.length ? 'band comparing' : 'band'} aria-label="Timeline and comparison">
+          <section className={`band${pins.length && bandOpen ? ' comparing' : ''}${bandOpen ? '' : ' collapsed'}`} aria-label="Timeline and comparison" ref={band}
+            style={bandOpen && bandHeight !== null ? { height: bandHeight, maxHeight: 'none' } : undefined}>
+            {bandOpen && (
+              <div className="band-grip" role="separator" aria-orientation="horizontal" aria-label="Resize the timeline and comparison panel"
+                aria-valuenow={bandHeight ?? undefined} aria-valuemin={bandLimits()[0]} aria-valuemax={bandLimits()[1]} tabIndex={0}
+                title="Drag to resize · double-click to reset" onPointerDown={resizeBand} onKeyDown={nudgeBand} onDoubleClick={() => setBandHeight(null)} />
+            )}
             <div className="band-time">
               <div className="scrub">
                 <button type="button" onClick={togglePlay} aria-pressed={playing} data-testid="play">
@@ -734,9 +818,13 @@ export default function App() {
                   <input type="range" min={0} max={last} value={view.t} aria-valuetext={`${date(viewStart + view.t)} UTC, landing plus ${view.t} hours`}
                     onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
                 </label>
+                <button type="button" className="icon-button" onClick={() => setBandOpen(!bandOpen)} aria-expanded={bandOpen}
+                  aria-label={bandOpen ? 'Collapse the timeline and comparison panel' : 'Expand the timeline and comparison panel'} title={bandOpen ? 'Collapse' : 'Expand'}>
+                  {bandOpen ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronUp size={16} aria-hidden="true" />}
+                </button>
               </div>
               {/* with pins, the tray needs the band: the plan's own skyline is in its column, the rest folds away */}
-              {(() => {
+              {bandOpen && (() => {
                 const detail = (
                   <>
               {!viewed && site.terrain && (
@@ -757,7 +845,7 @@ export default function App() {
                 return pins.length ? <details className="band-more"><summary>Nudge, skyline and horizon description</summary>{detail}</details> : detail
               })()}
             </div>
-            <Tray plan={trayPlan} pinned={trayPins} t={view.t} constraints={constraints} previous={nudgeFrom}
+            {bandOpen && <Tray plan={trayPlan} pinned={trayPins} t={view.t} constraints={constraints} previous={nudgeFrom}
               pending={pendingPin ? { title: (() => { const c = candidateOf(pendingPin.point); return c ? differenceOf(c, pendingPin.hour, null) : 'this scenario' })() } : null}
               onView={(key) => showScenario(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
               onAdopt={adoptPin}
@@ -765,7 +853,7 @@ export default function App() {
               onReplace={(key) => { if (pendingPin) setPins(pins.map((p) => (refKey(p) === key ? pendingPin : p))); setPendingPin(null) }}
               onCancelPending={() => setPendingPin(null)}
               onPinView={() => { if (viewRef) togglePin(viewRef) }}
-              canPinView={Boolean(viewRef && !pinnedKeys.has(refKey(viewRef)))} />
+              canPinView={Boolean(viewRef && !pinnedKeys.has(refKey(viewRef)))} />}
           </section>
         )}
 

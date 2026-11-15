@@ -86,7 +86,9 @@ input[aria-invalid='true'] { border-color: var(--bad); }
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.8rem; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .status:focus { outline: none; }
 .status:focus-visible { outline: 2px solid #fff; }
-.status-title { display: grid; gap: 0.05rem; }
+.status-title { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.05rem 0.4rem; align-items: center; }
+.status-title > span { grid-column: 1 / -1; }
+.status-title .icon-button { padding: 0.15rem; margin: -0.2rem -0.35rem -0.2rem 0; }
 .status-title strong { font-size: 1rem; font-weight: 650; }
 .status-title span { color: var(--dim); font-size: 0.8rem; }
 .floating { position: absolute; top: var(--gap); left: var(--gap); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
@@ -151,7 +153,7 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .band-more summary:hover { color: var(--text); background: rgb(224 216 200 / 6%); }
 .band-more[open] { grid-column: 1 / -1; display: grid; gap: 0.5rem; }
 .band-more[open] summary { justify-self: end; }
-.scrub { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: center; font-size: 0.8rem; color: var(--dim); }
+.scrub { display: grid; grid-template-columns: auto 1fr auto; gap: 0.75rem; align-items: center; font-size: 0.8rem; color: var(--dim); }
 .scrub label { display: grid; gap: 0.15rem; }
 .scrub em { font-style: normal; color: var(--mute); margin-left: 0.4rem; }
 .nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; font-size: 0.78rem; }
@@ -331,4 +333,40 @@ input[aria-invalid='true'] { border-color: var(--bad); }
   .footline { flex-wrap: wrap; }
   .footline span { white-space: normal; }
   .drawer { top: 8px; bottom: 8px; left: 8px; right: 8px; width: auto; }
+}
+
+/* --- collapsible panels */
+.hud { padding-right: 2.2rem; }
+.hud-toggle { position: absolute; top: 0.35rem; right: 0.35rem; padding: 0.2rem; pointer-events: auto; }
+.hud.collapsed .hud-big { margin: 0; padding: 0; border: 0; }
+.hud dl[hidden] { display: none; }
+.has-results .hud-toggle { display: none; } /* already reduced to its countdowns beside the results */
+.has-results .hud { padding-right: 0.8rem; }
+.band { position: relative; align-content: start; }
+.band.collapsed { grid-template-columns: minmax(0, 1fr); padding-top: 6px; padding-bottom: 6px; }
+/* the band's top edge is a resize grip: a thin bar, a visible handle on hover and focus */
+.band-grip { position: sticky; top: -10px; z-index: 2; grid-column: 1 / -1; height: 12px; margin: -10px 0 -4px; cursor: ns-resize; touch-action: none; }
+.band-grip::after { content: ''; position: absolute; left: 50%; top: 4px; width: 44px; height: 4px; margin-left: -22px; border-radius: 2px; background: var(--line-strong); transition: background 0.15s; }
+.band-grip:hover::after, .band-grip:focus-visible::after { background: var(--text); }
+.band-grip:focus-visible { outline: none; }
+
+/* --- full screen: semi-cinematic. The view runs edge to edge under translucent chrome, a soft letterbox
+   frames it, and the header and rail fade away while the pointer rests. The footer statement stays. */
+.app.cinematic .stage { grid-area: 1 / 1 / 4 / -1; }
+.app.cinematic .stage::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(#000 0, rgb(0 0 0 / 0) 11%, rgb(0 0 0 / 0) 84%, #000 100%); }
+.app.cinematic .topbar { background: linear-gradient(rgb(0 0 0 / 70%), rgb(0 0 0 / 0)); border-bottom-color: transparent; }
+.app.cinematic .rail { background: none; border-right-color: transparent; }
+.app.cinematic .band.collapsed { background: rgb(0 0 0 / 55%); border-top-color: transparent; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.app.cinematic .footline { background: #000; border-top-color: transparent; }
+.app.cinematic .topbar, .app.cinematic .rail, .app.cinematic .band, .app.cinematic .over { transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.app.cinematic.idle .topbar { opacity: 0; transform: translateY(-6px); }
+.app.cinematic.idle .rail { opacity: 0; transform: translateX(-6px); }
+.app.cinematic.idle .band.collapsed { opacity: 0.35; }
+.app.cinematic.idle .over { opacity: 0.55; }
+/* keyboard focus keeps the chrome visible; a mouse click does not */
+.app.cinematic.idle .topbar:has(:focus-visible), .app.cinematic.idle .rail:has(:focus-visible), .app.cinematic.idle .band:has(:focus-visible) { opacity: 1; transform: none; }
+.app.cinematic.idle { cursor: none; }
+@media (prefers-reduced-motion: reduce) {
+  .app.cinematic .topbar, .app.cinematic .rail, .app.cinematic .band, .app.cinematic .over { transition: none; }
 }

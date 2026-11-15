@@ -10,6 +10,7 @@ const observer = (page: import('@playwright/test').Page) =>
   page.getByTestId('view').evaluate((el: HTMLElement) => ({ ...el.dataset }) as Record<string, string>)
 
 test('custom coordinates and map clicks snap to the grid and show the snap distance', async ({ page }) => {
+  test.slow() // 15 s alone; under the full parallel suite it can pass 30 s
   await page.goto('/')
   const view = page.getByTestId('view')
   await expect(view).toContainText('Plan: Shackleton rim')
