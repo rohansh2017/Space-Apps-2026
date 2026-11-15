@@ -7,7 +7,7 @@ import { constraintsFromSentence } from './gemini.js'
 
 export { MissionRoom } from './room.js'
 
-const TYPES = { json: 'application/json', bin: 'application/octet-stream', png: 'image/png' }
+const TYPES = { json: 'application/json', bin: 'application/octet-stream', png: 'image/png', jpg: 'image/jpeg' }
 const ROOM_ID = /^[a-z0-9][a-z0-9-]{2,39}$/
 
 export default {
