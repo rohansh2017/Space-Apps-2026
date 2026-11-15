@@ -47,3 +47,16 @@ The illumination maps store int16 values with scale 4e-5 (value × 4e-5 = fracti
 The PGDA 78 files are 5 m/px GeoTIFFs in the same south polar stereographic projection as the 20 m DEM (R = 1,737,400 m, metres, pixel-registered), 16–30 km squares. `make data` uses the first one that covers a site's whole 5 × 5 km heightmap patch and records it in `sites.json` (`heightmap.source`). IM-2 Mons Mouton has no covering file and keeps its 20 m heightmap. Horizon masks, slopes and all numbers still come from the 20 m and 80 m DEMs.
 
 `stars.bin` holds 9,096 BSC5 stars (14 retired entries have no position): J2000 unit vectors, V magnitude, B−V. `orientation/{year}.bin` is the hourly ICRF → MOON_ME_DE440_ME421 rotation from the same Skyfield kernels as the ephemeris.
+
+## Whole-Moon relief (D60)
+
+`data/raw/globe/ldem_16.img` and `ldem_16.lbl`: LOLA gridded data record LDEM_16 (LRO-L-LOLA-4-GDR-V1.0), 16 px/degree, simple cylindrical, 0–360°E from 90°N, int16 × 0.5 m above the 1,737,400 m sphere. Source: https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img/ (downloaded 2026-11-15).
+
+- `ldem_16.img` SHA-256 `a511e40d7a3ea3275945b4da2a1df377133264fab0be94b7434b1cf8907254cb` (33,177,600 bytes)
+- `ldem_16.lbl` SHA-256 `9aef29463ccc6ed3a3fbe0df3ecd830a99c69e16b564f455507dee2697096579`
+
+`basemaps/globe.png` (`make data-globe`, `build/scripts/build_globe.py`): hillshade on the sphere (east-west pixel size × cos latitude, the polar map's light and ×4 relief), resampled bilinearly to 2048 × 1024 (about 5.3 km per pixel at the equator), 1.96 MB. 4096 × 2048 was 7.7 MB and PNG filters saved under 10 %, so 2048 was kept. The browser fetches it after the polar map, so the first frame does not wait for it. The site layer of the Moon view reuses the shipped heightmaps (no new file).
+
+## Per-site context maps (D62)
+
+`basemaps/context/{site}.jpg` (`make data-context`, `build/scripts/build_context.py`): for each of the 9 terrain sites, a window of ±32 km around the site (south polar stereographic, centred on its x/y) read from `LDEM_80S_20MPP_ADJ.TIF` (the same file as above; SHA-256 re-checked on 2026-11-15 after a fresh download on a second machine), shaded with `export.hillshade` at the full 20 m (3200 × 3200 px, the region maps' light and relief), written as 8-bit greyscale JPEG at quality 85 with Pillow: 1.37–1.58 MB each, 13.5 MB for all nine. They load one at a time, when the Moon view flies to a site. Same axes as the region maps (row 0 = +y, col 0 = −x).

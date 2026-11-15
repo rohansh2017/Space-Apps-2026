@@ -23,7 +23,7 @@ Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC
 ## Commands
 
 `make setup` · `make data-download` · `make data` (real) · `make data-fixtures` (synthetic) ·
-`make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` ·
+`make data-globe` (whole-Moon hillshade, needs only the LOLA global DEM) · `make data-context` (per-site 20 m context maps, needs only the 20 m DEM) · `make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` ·
 `make e2e-room` (mission room on a local Worker) · `make perf` ·
 `make check` (lint + typecheck + test + parity + e2e + e2e-room) · `make check-changed` (only what the changes since `main` can affect; `PLAN=1` prints the plan) · `make dev` · `make build` ·
 `make deploy` (uploads `web/public/data` to R2, then publishes) · `make e2e-live` (all browser tests, room and Gemini included, against the live site).
@@ -69,6 +69,8 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
 - `tour.json`: `credit`, `steps[]{id, title, body}`, `glossary[]{term, definition}` (source: `build/tour_src.json`).
 - `basemap.json`: `pole{file, half_width_m}`, `regions{half_width_m, files{region: file}}`.
   `basemaps/*.png`: 8-bit greyscale hillshade, square, stereographic x/y axes (row 0 = +y, col 0 = −x), centred on the pole or the region's site.
+  `context{half_width_m, res_m, format: "jpeg", source, files{region: file}}` (D62; writer `build/scripts/build_context.py`): `basemaps/context/{region}.jpg`, 8-bit greyscale JPEG hillshade from the 20 m DEM, square, ±32 km around the region's site, same axes as the region maps.
+  `globe{file, projection: "equirectangular", lon0_deg: 0, row0: "north", source}` (D60; writer `build/scripts/build_globe.py`): `basemaps/globe.png`, 8-bit greyscale hillshade of the whole Moon, 2:1, col 0 = 0°E eastward, row 0 = 90°N, pixel-registered.
 - `constraints.schema.json` (hand-authored): `constraints[]{id, type, unit, min, max, default}`.
 - Room message: `{type: "state", site_id, point_index (grid index or null), utc, constraints{id: value}, sender}` (`shared/fixtures/room_message.json`);
   the room also sends `{type: "presence", count}`. Route `/room/{id}` (WebSocket) → Durable Object `MissionRoom` (`web/worker/room.js`).

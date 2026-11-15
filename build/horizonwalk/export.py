@@ -15,6 +15,10 @@ HM_N, HM_SPAN_M = 256, 5000.0  # 256 px from the 20 m DEM
 HM_N_5M = 1024  # from a 5 m site DEM where one covers the patch: about 4.9 m per cell
 POLE_HALF_M = 304_000.0  # the 80 m DEM covers +-304 km around the pole
 REGION_HALF_M = 5_250.0  # the 21 x 21 grid reaches +-5 km; a quarter-kilometre margin
+GLOBE_W, GLOBE_H = (
+    2048,
+    1024,
+)  # whole-Moon hillshade, equirectangular, ~5.3 km/px at the equator (4096 px was 7.7 MB, D60)
 EPHEM_FIELDS = ["sun_x", "sun_y", "sun_z", "earth_x", "earth_y", "earth_z", "earth_dist_km"]
 
 
@@ -122,6 +126,56 @@ def hillshade(dem: np.ndarray, res_m: float, exaggeration: float = 1.0) -> np.nd
     return np.round(np.clip(shade, 0.0, 1.0) * 255)
 
 
+def globe_hillshade(radius_m: np.ndarray, exaggeration: float = 4.0) -> np.ndarray:
+    """8-bit hillshade of a global equirectangular grid (row 0 = 90N, col 0 = 0E, pixel-registered),
+    with the same illustrative light as `hillshade` in image axes (north up), on the sphere: the east-west
+    pixel size shrinks with cos(latitude). Resampled to GLOBE_W x GLOBE_H, bilinear, wrapping in longitude."""
+    h, w = radius_m.shape
+    r = 1_737_400.0
+    dy = r * np.pi / h
+    lat = np.radians(90.0 - (np.arange(h) + 0.5) * 180.0 / h)
+    # near the poles the east-west pixel shrinks to nothing; the polar map covers the south, nobody looks north
+    dx = r * 2.0 * np.pi / w * np.maximum(np.cos(lat), 0.05)
+    z = radius_m.astype(np.float64) * exaggeration
+    gx = (np.roll(z, -1, axis=1) - np.roll(z, 1, axis=1)) / (2.0 * dx[:, None])
+    gy = np.gradient(z, axis=0) / dy * -1.0  # rows run south; "up" in the image is north
+    az, alt = np.radians(315.0), np.radians(35.0)
+    shade = (np.cos(alt) * (np.sin(az) * -gx + np.cos(az) * gy) + np.sin(alt)) / np.sqrt(
+        gx * gx + gy * gy + 1.0
+    )
+    shade = np.clip(shade, 0.0, 1.0) * 255.0
+    # bilinear resample to the output grid (pixel centres to pixel centres)
+    sr = (np.arange(GLOBE_H) + 0.5) * h / GLOBE_H - 0.5
+    sc = (np.arange(GLOBE_W) + 0.5) * w / GLOBE_W - 0.5
+    r0 = np.clip(np.floor(sr).astype(int), 0, h - 2)
+    fr = np.clip(sr - r0, 0.0, 1.0)[:, None]
+    c0 = np.floor(sc).astype(int)
+    fc = (sc - c0)[None, :]
+    c0, c1 = c0 % w, (c0 + 1) % w
+    top = shade[r0][:, c0] * (1 - fc) + shade[r0][:, c1] * fc
+    bot = shade[r0 + 1][:, c0] * (1 - fc) + shade[r0 + 1][:, c1] * fc
+    return np.round(top * (1 - fr) + bot * fr)
+
+
+def write_globe(out: Path, img: np.ndarray, source: str, synthetic: bool) -> None:
+    """The whole-Moon hillshade and its entry in basemap.json (kept when write_basemap rewrites the file)."""
+    write_png16(out / "basemaps" / "globe.png", img, depth=8)
+    meta = json.loads((out / "basemap.json").read_text())
+    meta["globe"] = _globe_entry(source)
+    meta["synthetic"] = bool(meta.get("synthetic")) or synthetic
+    write_json(out / "basemap.json", meta)
+
+
+def _globe_entry(source: str) -> dict:
+    return {
+        "file": "basemaps/globe.png",
+        "projection": "equirectangular",
+        "lon0_deg": 0.0,
+        "row0": "north",
+        "source": source,
+    }
+
+
 def write_basemap(
     out: Path, pole: np.ndarray, regions: dict[str, np.ndarray], synthetic: bool
 ) -> None:
@@ -130,11 +184,41 @@ def write_basemap(
     write_png16(out / "basemaps" / "pole.png", pole, depth=8)
     for sid, img in regions.items():
         write_png16(out / "basemaps" / f"{sid}.png", img, depth=8)
+    old = out / "basemap.json"
+    kept = json.loads(old.read_text()) if old.exists() else {}
     write_json(out / "basemap.json", {
         "synthetic": synthetic,
         "pole": {"file": "basemaps/pole.png", "half_width_m": POLE_HALF_M},
         "regions": {"half_width_m": REGION_HALF_M, "files": {s: f"basemaps/{s}.png" for s in regions}},
+        # written by build_globe.py and build_context.py
+        **{k: kept[k] for k in ("globe", "context") if k in kept},
     })  # fmt: skip
+
+
+CONTEXT_HALF_M = 32_000.0  # per-site context hillshade reach (D62)
+
+
+def write_context(
+    out: Path, maps: dict[str, np.ndarray], res_m: float, source: str, synthetic: bool
+) -> None:
+    """Per-site context hillshades (D62): 8-bit greyscale JPEG, square, same axes as the region maps
+    (stereographic x/y, row 0 = +y, col 0 = -x, centred on the site), loaded when a site is flown to."""
+    from PIL import Image  # only the context step needs Pillow
+
+    for sid, img in maps.items():
+        path = out / "basemaps" / "context" / f"{sid}.jpg"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.fromarray(img.astype(np.uint8), mode="L").save(path, quality=85, optimize=True)
+    meta = json.loads((out / "basemap.json").read_text())
+    meta["context"] = {
+        "half_width_m": CONTEXT_HALF_M,
+        "res_m": res_m,
+        "format": "jpeg",
+        "source": source,
+        "files": {sid: f"basemaps/context/{sid}.jpg" for sid in maps},
+    }
+    meta["synthetic"] = bool(meta.get("synthetic")) or synthetic
+    write_json(out / "basemap.json", meta)
 
 
 def write_index(out: Path, sites: list, points: list, synthetic: bool) -> None:

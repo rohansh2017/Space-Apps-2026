@@ -116,6 +116,40 @@ def test_basemaps_are_8bit_square_pngs():
         assert w == h and (depth, colour) == (8, 0), file
 
 
+def test_globe_is_an_8bit_equirectangular_png():
+    globe = load("basemap.json")["globe"]
+    assert {k: globe[k] for k in ("projection", "lon0_deg", "row0")} == {
+        "projection": "equirectangular",
+        "lon0_deg": 0.0,
+        "row0": "north",
+    }
+    w, h, depth, colour = struct.unpack(">IIBB", (DATA / globe["file"]).read_bytes()[16:26])
+    assert w == 2 * h and (depth, colour) == (8, 0)
+
+
+def test_context_maps_are_square_jpegs_for_every_terrain_site():
+    meta = load("basemap.json")
+    ctx = meta["context"]
+    assert (
+        ctx["format"] == "jpeg"
+        and ctx["half_width_m"] > meta["regions"]["half_width_m"]
+        and ctx["res_m"] > 0
+    )
+    assert set(ctx["files"]) == set(meta["regions"]["files"])
+    for file in ctx["files"].values():
+        data = (DATA / file).read_bytes()
+        assert data[:3] == bytes([0xFF, 0xD8, 0xFF]), file  # JPEG
+        i = 2
+        while data[i + 1] not in (0xC0, 0xC2):  # walk the markers to the frame header
+            i += 2 + int.from_bytes(data[i + 2 : i + 4], "big")
+        h, w, comps = (
+            int.from_bytes(data[i + 5 : i + 7], "big"),
+            int.from_bytes(data[i + 7 : i + 9], "big"),
+            data[i + 9],
+        )
+        assert w == h and comps == 1, file  # square, greyscale
+
+
 def test_tour_has_steps_and_glossary():
     tour = load("tour.json")
     assert tour["steps"] and all(set(s) >= {"id", "title", "body"} for s in tour["steps"])

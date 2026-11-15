@@ -33,9 +33,18 @@ The full pipeline, from raw data to a tested app, is `make setup && make data-do
 
 The page opens on the *Moon*: the south polar region, which you orbit by dragging and zoom with the wheel. Each curated
 site is a pin, solid when it meets every constraint for the planned landing date and hollow when it fails (hover for
-its numbers). Click a pin to fly down to that site's 10 km search grid: the dots are coloured by sunlit %, Earth %
-or verdict; drag the landing marker, click a dot or use the arrow keys, and press *Stand here* (or Enter) to stand
-on that point in 3D. *Moon* on the left rail and *Show on the Moon* in the tray bring it back.
+its numbers). Click a pin to fly down to that site's 10 km search grid (or the eye beside a pin to stand there in 3D at once).
+*Verdict / Sunlight / Earth* colours the pins at the pole and the grid at a site: Sunlight and Earth paint each 500 m
+cell as a heat map over the terrain. Drag the landing marker, click a dot or use the arrow keys, and press *Stand here*
+(or Enter) to stand on that point in 3D. *Pole* (on the Moon bar, and over the 3D view) always takes you back to the
+pole; *Pin* beside it pins what you are looking at. The whole globe carries LOLA relief and the real stars for the hour;
+around each site the terrain is sharp (20 m out to 32 km, 5 m at the centre as you zoom in). There is no separate map:
+the Moon view is the map.
+
+*Pin this view* freezes what you are looking at (the plan or an alternative, at its point and date) as a column of the
+*Compare* tray; press it again on the same view to unpin. Pin as many spots as you like, four at a time (a fifth asks which
+to replace); drag a column's grip, or press Alt with an arrow key on it, to reorder; *Compare to this* picks the column
+the others are measured against. The tab on the bottom panel's edge (*Timeline & compare*) opens and closes it.
 
 The ground view fills the window too. The page opens quietly: the Plan panel is open, and the plan card, the countdown
 panel and the bottom panel are folded to one line each (unfold them with their arrows). Your plan's site, point

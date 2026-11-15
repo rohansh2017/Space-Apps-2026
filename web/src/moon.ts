@@ -1,7 +1,7 @@
 // Geometry for the Moon view (unit sphere, R = 1). Pure: no DOM, no three.js. The renderer takes positions from
 // here; every number shown to the user still comes from engine.ts.
 import type { Constraints, Evaluation, Metrics, SiteFrame } from './engine/engine'
-import { R_MOON_KM, buildSeries, evaluate, windowMetrics } from './engine/engine'
+import { R_MOON_KM, buildSeries, evaluate, quatRotate, windowMetrics } from './engine/engine'
 
 export type Vec3 = [number, number, number]
 const R_M = R_MOON_KM * 1000
@@ -111,4 +111,49 @@ export function gridStats(
     out.verdicts[p.index] = v
   }
   return out
+}
+
+/** Texture coordinate of a unit MOON_ME vector on the whole-Moon map (equirectangular, col 0 = 0°E, row 0 = 90°N), with the image's row 0 at v = 1 as three.js loads it. */
+export function globeUV(m: Readonly<Vec3>): [number, number] {
+  const u = Math.atan2(m[1], m[0]) / (2 * Math.PI)
+  return [u < 0 ? u + 1 : u, 0.5 + Math.asin(Math.max(-1, Math.min(1, m[2]))) / Math.PI]
+}
+
+/**
+ * Texture coordinate on a site's heightmap (local east/north axes, row 0 = north, col 0 = west, pixel centres from
+ * -span/2 to +span/2) of a unit MOON_ME vector, with the texture's row 0 at v = 0 (a DataTexture is not flipped).
+ */
+export function siteUV(m: Readonly<Vec3>, f: SiteFrame, n: number, spanM: number): [number, number] {
+  const c = latLonToMe(...meToLatLon(f.up))
+  const d = [m[0] - c[0], m[1] - c[1], m[2] - c[2]]
+  const [e, no] = [f.east, f.north].map((a) => (a[0] * d[0] + a[1] * d[1] + a[2] * d[2]) * R_M)
+  const cell = spanM / (n - 1)
+  return [((e + spanM / 2) / cell + 0.5) / n, ((spanM / 2 - no) / cell + 0.5) / n]
+}
+
+/**
+ * 8-bit hillshade of a site heightmap (n x n, row 0 = north), lit like the basemaps: they are lit from the image's
+ * upper left (azimuth 315° from stereographic +y); at longitude λ that light, in the site's east/north axes, comes
+ * from azimuth 315° − λ. Flat ground gets the same grey as on the basemaps (sin 35°).
+ */
+export function siteHillshade(heights: ArrayLike<number>, n: number, cellM: number, scaleM: number, lonDeg: number): Uint8Array {
+  const az = (315 - lonDeg) * RAD
+  const alt = 35 * RAD
+  const [le, ln, lu] = [Math.sin(az) * Math.cos(alt), Math.cos(az) * Math.cos(alt), Math.sin(alt)]
+  const out = new Uint8Array(n * n)
+  const h = (r: number, c: number) => heights[Math.min(n - 1, Math.max(0, r)) * n + Math.min(n - 1, Math.max(0, c))] * scaleM
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++) {
+      const de = (h(r, c + 1) - h(r, c - 1)) / ((Math.min(n - 1, c + 1) - Math.max(0, c - 1)) * cellM) // east slope
+      const dn = (h(r - 1, c) - h(r + 1, c)) / ((Math.min(n - 1, r + 1) - Math.max(0, r - 1)) * cellM) // north slope (row 0 = north)
+      const s = (-de * le - dn * ln + lu) / Math.sqrt(de * de + dn * dn + 1)
+      out[r * n + c] = Math.round(Math.max(0, Math.min(1, s)) * 255)
+    }
+  return out
+}
+
+/** Row-major 3 x 3 matrix taking an ICRF (J2000) direction to the Moon view's three.js axes at one hour: the hour's ICRF -> MOON_ME rotation (orientation table), then `meToThree`. */
+export function icrfToThree(orientation: ArrayLike<number>, hour: number): number[] {
+  const cols = ([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const).map((e) => meToThree(quatRotate(orientation, hour * 4, e)))
+  return [0, 1, 2].flatMap((r) => cols.map((c) => c[r]))
 }

@@ -1,9 +1,9 @@
-import { ChevronDown, ChevronUp, Globe, Info, ListOrdered, LayoutGrid, Link2, Map as MapIcon, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, ChevronUp, Globe, Info, Pin, PinOff, ListOrdered, LayoutGrid, Link2, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Chips from './Chips'
 import ConstraintPanel from './ConstraintPanel'
-import type { Dataset, Region, SitePoint } from './data'
+import type { Dataset, Region, SitePoint, Sky } from './data'
 import { loadDataset, loadRegion, loadSitePoint } from './data'
 import { horizonFacts } from './describe'
 import HorizonText from './HorizonText'
@@ -17,7 +17,7 @@ import type { Mode } from './guide'
 import { Guide } from './guide'
 import Hud from './Hud'
 import Matrix from './Matrix'
-import { gridStats, verdict } from './moon'
+import { gridStats, icrfToThree, verdict } from './moon'
 import type { MoonBadge, MoonPin } from './MoonView'
 import MoonView from './MoonView'
 import Panorama from './Panorama'
@@ -26,8 +26,8 @@ import Results from './Results'
 import type { Room, RoomState } from './room'
 import { connectRoom, newRoomId, roomIdFromUrl, roomLink, stateKey, validConstraints } from './room'
 import Scene3D from './Scene3D'
+import Summary from './Summary'
 import { decodeShare, encodeShare, pickLocations, withStoredLocations } from './share'
-import SiteMap from './SiteMap'
 import Tour from './Tour'
 import type { TrayColumn } from './Tray'
 import Tray, { TRAY_MAX } from './Tray'
@@ -80,16 +80,16 @@ export default function App() {
   const [found, setFound] = useState<{ finder: FinderResult; candidates: Candidate[]; constraints: Constraints } | null>(null)
   const [viewing, setViewing] = useState<ScenarioRef | null>(null) // the scenario in the 3D view; null = the plan
   const [pins, setPins] = useState<ScenarioRef[]>([]) // the compare tray's pinned scenarios
-  const [planInTray, setPlanInTray] = useState(false) // the live plan is a tray column only when the user adds it
   const [baseline, setBaseline] = useState<string | null>(null) // the column the others are compared to; null = the first
   const [stageView, setStageView] = useState<'moon' | 'ground'>('moon') // the stage: the orbitable Moon, or the first-person ground view
   const [sitePoints, setSitePoints] = useState<Record<string, SitePoint>>({}) // each site's own mask row and slope, for the Moon view's pins
   const asked = useRef(new Set<string>())
   const [overlays, setOverlays] = useState<HTMLDivElement | null>(null) // the Moon view draws its bar here, above the cards
+  const [sky, setSky] = useState<Sky | null>(null) // star field inputs: the catalogue and the orientation years loaded so far
   const [moonZoom, setMoonZoom] = useState(false) // Moon view: down on a site's search grid (false = the whole polar region)
   const [pendingPin, setPendingPin] = useState<ScenarioRef | null>(null) // waiting for a free column
   const [matrix, setMatrix] = useState(false)
-  const [drawer, setDrawer] = useState<'map' | 'matrix' | 'room' | null>(null)
+  const [drawer, setDrawer] = useState<'matrix' | 'room' | null>(null)
   const [sideOpen, setSideOpen] = useState(true)
   const [fullscreen, setFullscreen] = useState(false)
   // collapsible panels; full screen collapses them for a cinematic view and restores them on exit
@@ -104,7 +104,6 @@ export default function App() {
   const [idle, setIdle] = useState(false) // full screen: chrome fades out while the pointer rests
   const beforeFullscreen = useRef<{ side: boolean; hud: boolean; status: boolean; band: boolean } | null>(null)
   const band = useRef<HTMLElement | null>(null)
-  const mapButton = useRef<HTMLButtonElement | null>(null)
   const matrixButton = useRef<HTMLButtonElement | null>(null)
   const roomButton = useRef<HTMLButtonElement | null>(null)
   const viewStatus = useRef<HTMLDivElement | null>(null)
@@ -142,9 +141,14 @@ export default function App() {
       setConstraints(validConstraints(d.constraintDefs, { ...defaults(d.constraintDefs), ...s.constraints }))
       if (s.mode) setMode(s.mode)
       const known = new Set(d.points.map((p) => p.id))
-      setPins(s.pins.filter((p) => known.has(p.point) && p.hour >= 0 && p.hour < d.hours).slice(0, TRAY_MAX - (s.planInTray ? 1 : 0)))
-      setPlanInTray(s.planInTray)
-      if (s.ref) setBaseline(s.ref)
+      // links and stored locations from before D59 may carry the live plan column ("plan"): it becomes a snapshot of the plan
+      const planRef: ScenarioRef = {
+        point: `${site.id}:${s.point !== undefined && d.points.some((p) => p.region === site.id && p.index === s.point) ? s.point : d.centreIndex}`,
+        hour: h >= 0 && h < d.hours ? h : START_HOUR,
+      }
+      const restored = [...(s.planInTray ? [planRef] : []), ...s.pins].filter((p) => known.has(p.point) && p.hour >= 0 && p.hour < d.hours)
+      setPins(restored.filter((p, i) => restored.findIndex((q) => refKey(q) === refKey(p)) === i).slice(0, TRAY_MAX))
+      if (s.ref) setBaseline(s.ref === 'plan' ? refKey(planRef) : s.ref)
     }, (e) => setError(String(e)))
     return () => worker.current?.terminate()
   }, [])
@@ -286,7 +290,6 @@ export default function App() {
     if (!data || !site || !planRegion || constraints.mission_duration_days === undefined) return null
     return gridStats(data.points, site.id, 2 * data.centreIndex + 1, planRegion.masks, planRegion.slopes, data.ephemeris, data.hours, planHour, constraints, siteFrame)
   }, [data, site, planRegion, planHour, constraints])
-  const illumination = planGrid?.sun ?? null
 
   /** F14: the grid neighbours one 500 m step away in each compass direction (null at the grid edge). */
   const neighbours = useMemo(
@@ -310,9 +313,29 @@ export default function App() {
       sunHorizon: day.mask ? maskAt(day.mask, day.track[t].sunAz) : 0,
       earthHorizon: day.mask ? maskAt(day.mask, day.track[t].earthAz) : 0,
       // real star field for this observer and hour (stars are fixed in ICRF; the Moon turns under them)
-      sky: observer ? skyMatrix(data.orientation, viewStart + t, siteFrame(observer.lat, observer.lon, observer.elevM)) : null,
+      sky: observer && sky?.covers(viewStart + t) ? skyMatrix(sky.orientation, viewStart + t, siteFrame(observer.lat, observer.lon, observer.elevM)) : null,
     }
-  }, [data, day, viewStart, offset, observer])
+  }, [data, day, viewStart, offset, observer, sky])
+
+  // star fields (both views): the catalogue and the orientation year of the hour on show, fetched once that hour needs
+  // them. On the Moon view they wait a moment, so the globe's first frame and its relief come first.
+  const skyHour = view ? viewStart + view.t : planHour
+  const skyReady = Boolean(sky?.covers(skyHour))
+  const skyHourNow = useRef(skyHour)
+  useLayoutEffect(() => {
+    skyHourNow.current = skyHour
+  })
+  useEffect(() => {
+    if (!data || skyReady) return
+    let live = true
+    const timer = window.setTimeout(() => {
+      data.loadSky(skyHourNow.current).then((k) => live && setSky(k), (e) => live && setLoadError(`Couldn't load the star field (${e instanceof Error ? e.message : String(e)}).`))
+    }, stageView === 'moon' && !sky ? 1200 : 0)
+    return () => {
+      live = false
+      window.clearTimeout(timer)
+    }
+  }, [data, skyReady, stageView, sky, retry])
 
   // F12 playback: one lunar day in about 20 s, driven by the clock so the speed does not depend on frame rate
   const last = (day?.track.length ?? 1) - 1
@@ -441,6 +464,20 @@ export default function App() {
     if (index !== pointIndex) selectSite(siteId, index)
   }, [data, viewing, siteId, pointIndex, selectSite])
   const backToPole = useCallback(() => setMoonZoom(false), [])
+  /** A pin's own 3D button: that site's point, standing on it, in one click. */
+  const standAt = useCallback((id: string) => {
+    if (id !== siteId) {
+      selectSite(id)
+      setSnapNote('')
+    } else setViewing(null)
+    setStageView('ground')
+    focusView.current = true
+  }, [siteId, selectSite])
+  /** The Moon view's stars: ICRF -> its axes at the hour on show, once that hour's year of the orientation table is in. */
+  const moonSky = useMemo(
+    () => (data && sky?.covers(moonHour) ? { matrix: icrfToThree(sky.orientation, moonHour), stars: sky.stars } : null),
+    [data, sky, moonHour],
+  )
   const standHere = useCallback(() => {
     setStageView('ground')
     focusView.current = true
@@ -494,11 +531,11 @@ export default function App() {
   useEffect(() => {
     if (!data || !siteId) return
     const params = encodeShare(new URLSearchParams(window.location.search), {
-      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode, pins, planInTray, ref: baseline,
+      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode, pins, ref: baseline,
     })
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
     writeLocations(pickLocations(params))
-  }, [data, siteId, pointIndex, planHour, constraints, mode, pins, planInTray, baseline])
+  }, [data, siteId, pointIndex, planHour, constraints, mode, pins, baseline])
   const [copied, setCopied] = useState(false)
   const copyLink = () => {
     navigator.clipboard?.writeText(window.location.href).catch(() => undefined)
@@ -559,15 +596,31 @@ export default function App() {
   }, [selectSite])
 
   // --- compare tray: pin, replace, view
+  /** Pin a frozen scenario (point + landing hour), or unpin it if it is already a column; a full tray asks which column to replace. */
   const togglePin = useCallback((ref: ScenarioRef) => {
     const key = refKey(ref)
-    if (pins.some((p) => refKey(p) === key)) setPins(pins.filter((p) => refKey(p) !== key))
-    else if (pins.length + (planInTray ? 1 : 0) < TRAY_MAX) setPins([...pins, ref])
-    else {
+    if (pins.some((p) => refKey(p) === key)) {
+      setPins(pins.filter((p) => refKey(p) !== key))
+      if (baseline === key) setBaseline(null)
+      setAnnounce('Unpinned from the compare tray.')
+    } else if (pins.length < TRAY_MAX) {
+      setPins([...pins, ref])
+      setPendingPin(null)
+      setAnnounce(`Pinned to the compare tray as ${TRAY_LETTERS[pins.length]}.`)
+    } else {
       setPendingPin(ref)
       setBandOpen(true) // the replace prompt lives in the tray
     }
-  }, [pins, planInTray])
+  }, [pins, baseline])
+  /** Drag or Alt+arrows in the tray: move one column; letters follow the order, the baseline follows its scenario. */
+  const moveColumn = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= pins.length || to >= pins.length) return
+    const next = [...pins]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    setPins(next)
+    setAnnounce(`Moved to position ${TRAY_LETTERS[to]}.`)
+  }
   const viewScenario = (ref: ScenarioRef | null) => {
     setViewing(ref)
     setOffset(0)
@@ -688,12 +741,12 @@ export default function App() {
     setPlanHour(ref.hour)
     setSnapNote('')
     setPins(pins.map((p) => (refKey(p) === key ? old : p)))
-    if (baseline === key) setBaseline(planInTray ? 'plan' : null) // the baseline follows its scenario, now the live plan
+    if (baseline === key) setBaseline(refKey(old)) // the baseline stays on the column, which now holds the old plan
     setAnnounce('The pinned scenario is now the plan; the previous plan is pinned in its place.')
     focusView.current = true
   }
-  /** Plan, Map and Scenario matrix share the left edge: one at a time, and all open and close the same way. */
-  const openPanel = (which: 'plan' | 'map' | 'matrix') => {
+  /** Plan and Scenario matrix share the left edge: one at a time, and both open and close the same way. */
+  const openPanel = (which: 'plan' | 'matrix') => {
     const isOpen = which === 'plan' ? sideOpen : drawer === which
     smooth(() => {
       setSideOpen(which === 'plan' && !isOpen)
@@ -742,18 +795,16 @@ export default function App() {
   const viewTitle = viewed && day
     ? `${openedIndex >= 0 ? `#${openedIndex + 1} · ` : ''}${differenceOf(viewed, viewStart, day.metrics)}`
     : ''
-  const trayPlan: TrayColumn = {
-    key: 'plan', title: 'Plan', detail: plan?.label ?? site.name, when: `${date(planHour)} UTC`, viewing: !viewed,
-    day: planDay,
-  }
+  const planKey = plan ? refKey({ point: plan.id, hour: planHour }) : ''
   const trayPins: TrayColumn[] = pinnedDays.map(({ ref, cand, day: d }, i) => ({
-    key: refKey(ref), letter: TRAY_LETTERS[i],
+    key: refKey(ref), letter: TRAY_LETTERS[i], isPlan: refKey(ref) === planKey,
     title: cand ? differenceOf(cand, ref.hour, d?.metrics ?? null) : 'Loading…',
     detail: cand?.label ?? ref.point.split(':')[0], when: `${date(ref.hour)} UTC`,
-    viewing: Boolean(viewing && refKey(viewing) === refKey(ref)),
+    viewing: viewing ? refKey(viewing) === refKey(ref) : refKey(ref) === planKey,
     day: d,
   }))
-  const trayCount = pins.length + (planInTray ? 1 : 0)
+  const viewRef: ScenarioRef | null = viewing ?? (plan ? { point: plan.id, hour: planHour } : null)
+  const viewPinned = Boolean(viewRef && pinnedKeys.has(refKey(viewRef)))
   const focusSite = data.sites.find((s) => s.id === focusId) ?? site
   const onGrid = moonZoom && focusSite.terrain && view && observer && pointById.has(observer.id) ? view : null // bearings start at the landing point
   const levelGround = Boolean(day && site.heightmap && Math.max(Math.abs(day.east), Math.abs(day.north)) >= site.heightmap.span_m / 2 - 20)
@@ -767,15 +818,16 @@ export default function App() {
             <MoonView data={data} hour={moonHour} when={date(planHour)} zoomed={moonZoom && focusSite.terrain} focus={focusSite}
               marker={observer ? pointById.get(observer.id) ?? null : null} draggable={!viewed} pins={moonPins} grid={moonGrid} badges={moonBadges}
               constraints={constraints} sunEl={(onGrid?.now ?? poleAngles!).sunEl} earthEl={(onGrid?.now ?? poleAngles!).earthEl}
-              onSite={flyToSite} onBack={backToPole} onPick={pickOnMoon} onNudge={nudge} onStand={standHere} host={overlays}>
+              onSite={flyToSite} onBack={backToPole} onPick={pickOnMoon} onNudge={nudge} onStand={standHere} onStandAt={standAt}
+              onPin={() => { if (viewRef) { togglePin(viewRef); setBandOpen(true) } }} viewPinned={viewPinned} canPin={Boolean(viewRef)} sky={moonSky} host={overlays}>
               {/* invariant 9: the snap note stays in sight when the Plan panel and the map are closed */}
-              {snapNote && !sideOpen && drawer !== 'map' && <p className="tag" role="status" data-testid="snap-note">{snapNote}</p>}
+              {snapNote && !sideOpen && <p className="tag" role="status" data-testid="snap-note">{snapNote}</p>}
               {viewed && moonZoom && <p className="tag">An alternative is on show, so its landing point is fixed. Show the plan to move the point.</p>}
               <p className="tag" data-testid="moon-note">Day/night line on a smooth sphere: no terrain shadows · night side brightened</p>
             </MoonView>
-          ) : site.terrain && view && day && observer && (
+          ) : site.terrain && view && day && observer && sky && view.sky && (
             <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
-              sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky!} stars={data.stars}
+              sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky} stars={sky.stars}
               ridges={regions[observer.id.split(':')[0]]?.ridges ?? null} />
           )}
         </div>
@@ -816,9 +868,6 @@ export default function App() {
           <button type="button" className="rail-button" aria-pressed={stageView === 'moon'} onClick={() => setStageView(stageView === 'moon' ? 'ground' : 'moon')}
             title={stageView === 'moon' ? 'Back to the ground view' : 'The south polar region with every site'}>
             <Globe size={18} aria-hidden="true" /><span>Moon</span>
-          </button>
-          <button type="button" className="rail-button" ref={mapButton} aria-expanded={drawer === 'map'} onClick={() => openPanel('map')}>
-            <MapIcon size={18} aria-hidden="true" /><span>Map</span>
           </button>
           <button type="button" className="rail-button" ref={matrixButton} aria-expanded={drawer === 'matrix'} onClick={() => openPanel('matrix')}>
             <LayoutGrid size={18} aria-hidden="true" /><span>Scenario matrix</span>
@@ -918,6 +967,12 @@ export default function App() {
                     {statusOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
                   </button>
                   {statusOpen && <span>{viewed ? `${observer.label} · ` : ''}{date(viewStart)} UTC landing</span>}
+                  {/* folded, the card still answers "does it pass?" (D61: no click needed) */}
+                  {!statusOpen && day.evaluation && (
+                    <span className={day.evaluation.fails ? 'tally' : 'tally all'} data-testid="card-tally">
+                      {Object.keys(day.evaluation.passes).length - day.evaluation.fails} of {Object.keys(day.evaluation.passes).length} constraints met
+                    </span>
+                  )}
                 </div>
                 {statusOpen && (day.evaluation ? <Chips evaluation={day.evaluation} constraints={constraints} /> : <span className="note">Mission window runs past 2035</span>)}
               </div>
@@ -931,6 +986,18 @@ export default function App() {
                 lit={view.lit} link={view.link} power={view.power}
                 sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} open={hudOpen} onToggle={() => smooth(() => setHudOpen(!hudOpen))} />
               <div className="stage-notes">
+                {stageView === 'ground' && (
+                  // one click from the ground: back to the Moon at the pole, or pin what is in view (D61)
+                  <div className="stage-actions">
+                    <button type="button" data-testid="stage-pole" onClick={() => { setStageView('moon'); setMoonZoom(false) }}>
+                      <Globe size={15} aria-hidden="true" />Pole
+                    </button>
+                    <button type="button" data-testid="stage-pin" aria-pressed={viewPinned} disabled={!viewRef}
+                      onClick={() => { if (viewRef) { togglePin(viewRef); setBandOpen(true) } }}>
+                      {viewPinned ? <PinOff size={15} aria-hidden="true" /> : <Pin size={15} aria-hidden="true" />}{viewPinned ? 'Unpin' : 'Pin'}
+                    </button>
+                  </div>
+                )}
                 {stageView === 'ground' && levelGround && (
                   <p className="tag" data-testid="level-ground-note">
                     Outside the 5 × 5 km terrain patch: the 3D ground is drawn level; the skyline, panorama and every number use this point's own terrain.
@@ -949,9 +1016,9 @@ export default function App() {
               {found && !resultsMin && <Results finder={found.finder} fresh={resultsFresh} onMinimize={() => smooth(() => { setResultsMin(true); setResultsFresh(false) }, () => resultsChip.current?.focus())} candidates={found.candidates} opened={openedIndex >= 0 ? openedIndex : null} date={date} stale={stale}
                 headingRef={resultsHeading} onRerun={runFinder} busy={busy} constraints={found.constraints}
                 pinned={pinnedKeys} onPin={(i) => { const r = resultRef(i); if (r) togglePin(r) }}
+                onMoon={(i) => { const r = resultRef(i); if (r) showOnMoon(r) }}
                 onOpen={(i) => {
                   const r = i === null ? null : resultRef(i)
-                  if (r && !pinnedKeys.has(refKey(r)) && pins.length + (planInTray ? 1 : 0) < TRAY_MAX) setPins([...pins, r]) // opening also pins it, room permitting
                   if (r) showScenario(r)
                   else viewScenario(null) // back to the plan, in whichever view is on the stage
                 }} />}
@@ -960,7 +1027,7 @@ export default function App() {
         </div>
 
         {view && day && (
-          <section className={`band${(pins.length || planInTray) && bandOpen ? ' comparing' : ''}${bandOpen ? '' : ' collapsed'}`} aria-label="Timeline and comparison" ref={band}
+          <section className={`band${pins.length && bandOpen ? ' comparing' : ''}${bandOpen ? '' : ' collapsed'}`} aria-label="Timeline and comparison" ref={band}
             style={bandOpen && bandHeight !== null ? { height: bandHeight, maxHeight: 'none' } : undefined}>
             {bandOpen && (
               <div className="band-grip" role="separator" aria-orientation="horizontal" aria-label="Resize the timeline and comparison panel"
@@ -990,7 +1057,13 @@ export default function App() {
                   ))}
                   <button type="button" disabled={planHour < 24} onClick={() => nudge('earlier')}>1 day earlier</button>
                   <button type="button" disabled={planHour + 24 >= data.hours} onClick={() => nudge('later')}>1 day later</button>
-                  {nudgeFrom && planInTray && <span className="note" data-testid="nudge-note">The plan's tiles show the change since the last nudge.</span>}
+                  {nudgeFrom && <span className="note" data-testid="nudge-note">The tiles below show the change since the last nudge.</span>}
+                </div>
+              )}
+              {/* the metrics of what is in view; for the plan, with the change since the last nudge (F14) */}
+              {day.metrics && (
+                <div className="band-summary" aria-label={viewed ? 'This alternative over the mission window' : 'The plan over the mission window'} role="group">
+                  <Summary metrics={day.metrics} previous={viewed ? null : nudgeFrom} testId="summary" />
                 </div>
               )}
               <Panorama mask={day.mask} track={day.track} t={view.t} width={1080} height={210} />
@@ -1000,14 +1073,14 @@ export default function App() {
                 return detail
               })()}
             </div>
-            {bandOpen && <Tray plan={planInTray ? trayPlan : null} pinned={trayPins} baseline={baseline} t={view.t} constraints={constraints} previous={nudgeFrom}
+            {bandOpen && <Tray pinned={trayPins} baseline={baseline} t={view.t} constraints={constraints}
               pending={pendingPin ? { title: (() => { const c = candidateOf(pendingPin.point); return c ? differenceOf(c, pendingPin.hour, null) : 'this scenario' })() } : null}
               stage={stageView}
-              onView={(key) => showScenario(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
-              onMoon={(key) => showOnMoon(key === null ? null : pins.find((p) => refKey(p) === key) ?? null)}
+              onView={(key) => showScenario(key === planKey ? null : pins.find((p) => refKey(p) === key) ?? null)}
+              onMoon={(key) => showOnMoon(key === planKey ? null : pins.find((p) => refKey(p) === key) ?? null)}
+              onMove={moveColumn}
               onAdopt={adoptPin}
               onSetBaseline={(key) => { setBaseline(key); setAnnounce('Baseline changed: the other columns are now compared to it.') }}
-              onRemovePlan={() => { setPlanInTray(false); if (baseline === 'plan') setBaseline(null) }}
               onUnpin={(key) => {
                 setPins(pins.filter((p) => refKey(p) !== key))
                 if (baseline === key) setBaseline(null)
@@ -1019,18 +1092,16 @@ export default function App() {
                 setPendingPin(null)
               }}
               onCancelPending={() => setPendingPin(null)}
-              onPinView={() => {
-                if (!viewing) { if (trayCount < TRAY_MAX) setPlanInTray(true) } // the plan in view: its live column
-                else togglePin(viewing)
-              }}
-              canPinView={!viewing ? !planInTray && trayCount < TRAY_MAX : !pinnedKeys.has(refKey(viewing))} />}
+              onPinView={() => { if (viewRef) togglePin(viewRef) }}
+              viewPinned={viewPinned} canPin={Boolean(viewRef)} />}
           </section>
         )}
         {view && day && (
           // one tab on the band's top edge, in the same place open or closed: up to raise the panel, down to drop it
           <button type="button" className="band-tab" onClick={() => smooth(() => setBandOpen(!bandOpen))} aria-expanded={bandOpen}
             aria-label={bandOpen ? 'Collapse the timeline and comparison panel' : 'Expand the timeline and comparison panel'} title={bandOpen ? 'Drop the panel' : 'Raise the panel'}>
-            {bandOpen ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronUp size={16} aria-hidden="true" />}
+            {bandOpen ? <ChevronDown size={18} strokeWidth={2.5} aria-hidden="true" /> : <ChevronUp size={18} strokeWidth={2.5} aria-hidden="true" />}
+            <span aria-hidden="true">{bandOpen ? 'Hide' : 'Timeline & compare'}</span>
           </button>
         )}
 
@@ -1052,10 +1123,10 @@ export default function App() {
             <h3>What the 3D view takes from data</h3>
             <p>Terrain relief (5 m where PGDA has a site DEM, otherwise 20 m); the distant ranges' outline and their lighting from the LOLA slope at each crest; the Sun's and Earth's positions; the stars' positions and brightness for this site and hour.</p>
             <h3>What the Moon view takes from data</h3>
-            <p>Site and grid positions on the true sphere; the LOLA hillshade draped on it; the Sun's direction for the day/night line; pin and grid colours, tooltips and bearing labels, all from the engine.</p>
+            <p>Site and grid positions on the true sphere; LOLA relief draped on it: the whole Moon from the global 16 px/degree grid, 80–90°S from the 80 m polar DEM, 64 × 64 km around each site and its 10 km box from the 20 m DEM, and its 5 × 5 km patch from the same 5 m (or 20 m) heightmap as the 3D view; the Sun's direction for the day/night line; the stars' positions and brightness for the hour (as in the 3D view); pin, cell and dot colours, tooltips and bearing labels, all from the engine.</p>
             <h3>What the views invent, for legibility</h3>
             <ul>
-              <li>Moon view: the day/night line is drawn on a smooth sphere, so terrain shadows are not shown there; the night side is kept at a quarter of the day side's brightness; the hillshade's own lighting direction is fixed and illustrative; beyond the 80°S basemap the sphere is plain grey.</li>
+              <li>Moon view: the day/night line is drawn on a smooth sphere, so terrain shadows are not shown there; the night side is kept at a quarter of the day side's brightness; the relief's shading uses a fixed, illustrative light (the same for every layer), not the real Sun.</li>
               <li>Soil texture finer than about 1.5 m, and the rock texture on the distant ranges.</li>
               <li>The ground colour, the Sun's glare and Earth's surface pattern.</li>
               <li>Star colours, approximated from each star's B−V index.</li>
@@ -1066,13 +1137,6 @@ export default function App() {
           </div>
         </dialog>
 
-        {drawer === 'map' && (
-          <Drawer title="Map" side="left" onClose={closeDrawer} returnFocus={mapButton} testId="drawer-map">
-            <SiteMap data={data} site={site} point={planPoint} illumination={illumination} onPick={locate} />
-            {/* invariant 9: a map click snaps to the grid and says how far; the Plan panel is closed while the map is open */}
-            {snapNote && <p className="note snap" role="status" data-testid="snap-note">{snapNote}</p>}
-          </Drawer>
-        )}
         {drawer === 'matrix' && (
           <Drawer title="Scenario matrix" side="wide" onClose={closeDrawer} returnFocus={matrixButton} testId="drawer-matrix">
             {matrix && allLoaded

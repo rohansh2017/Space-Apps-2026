@@ -3,7 +3,14 @@ name = "horizonwalk"
 version = "0.1.0"
 description = "Offline pipeline and reference engine for Tranquility Base"
 requires-python = ">=3.11"
-dependencies = ["skyfield", "numpy", "rasterio", "numba<0.62", "requests"]
+dependencies = [
+    "skyfield",
+    "numpy",
+    "rasterio",
+    "numba<0.62",
+    "requests",
+    "pillow>=13.0.0",
+]
 
 [dependency-groups]
 dev = ["pytest", "ruff"]

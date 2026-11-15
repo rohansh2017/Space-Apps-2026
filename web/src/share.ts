@@ -9,8 +9,8 @@ export interface Shared {
   constraints: Record<string, number | boolean>
   mode?: 'planner' | 'explorer'
   pins: { point: string; hour: number }[] // compare-tray scenarios, "region:index@hour"
-  planInTray: boolean // the live plan is a tray column ("plan" in pins)
-  ref?: string // the tray's baseline: "plan" or a pin's "region:index@hour"
+  planInTray: boolean // legacy (D56/D57 links): a live plan column, "plan" in pins; the app turns it into a snapshot of the plan (D59)
+  ref?: string // the tray's baseline: a pin's "region:index@hour" (or the legacy "plan")
 }
 
 export function decodeShare(params: URLSearchParams): Shared {
@@ -41,7 +41,7 @@ export function decodeShare(params: URLSearchParams): Shared {
 /** Writes the state into `params`, keeping unrelated keys (room). Only constraints that differ from the defaults are included. */
 export function encodeShare(
   params: URLSearchParams,
-  s: { site: string; point: number | null; utc: string; constraints: Constraints; defs: ConstraintDef[]; mode: 'planner' | 'explorer'; pins?: { point: string; hour: number }[]; planInTray?: boolean; ref?: string | null },
+  s: { site: string; point: number | null; utc: string; constraints: Constraints; defs: ConstraintDef[]; mode: 'planner' | 'explorer'; pins?: { point: string; hour: number }[]; ref?: string | null },
 ): URLSearchParams {
   params.set('site', s.site)
   if (s.point === null) params.delete('point')
@@ -52,7 +52,7 @@ export function encodeShare(
   else params.delete('c')
   if (s.mode === 'explorer') params.set('mode', 'explorer')
   else params.delete('mode')
-  const tray = [...(s.planInTray ? ['plan'] : []), ...(s.pins ?? []).map((p) => `${p.point}@${p.hour}`)]
+  const tray = (s.pins ?? []).map((p) => `${p.point}@${p.hour}`)
   if (tray.length) params.set('pins', tray.join(','))
   else params.delete('pins')
   if (s.ref) params.set('ref', s.ref)

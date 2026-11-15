@@ -24,6 +24,8 @@ echo
 echo "## Initial load (target: under 10 MB for the demo regions)"
 echo
 echo "- App bundle (HTML + JS + CSS): $(mb dist/index.html dist/assets/*)"
-echo "- Data fetched at start (sites, points, schema, tour, polar basemap, ephemeris and orientation 2026-2035, stars): $(mb $d/sites.json $d/points.json $d/constraints.schema.json $d/tour.json $d/basemap.json $d/basemaps/pole.png $d/ephemeris.json $d/ephemeris/* $d/orientation/* $d/stars.json $d/stars.bin)"
-echo "- One region, fetched on demand (masks + slopes + ridges + heightmap + basemap): $(mb $d/masks/change7-shackleton-rim.bin $d/slopes/change7-shackleton-rim.bin $d/ridges/change7-shackleton-rim.bin $d/heightmaps/change7-shackleton-rim.png $d/basemaps/change7-shackleton-rim.png)"
+echo "- Data fetched at start for the Moon view (sites, points, schema, tour, polar and whole-Moon basemaps, ephemeris 2026-2035): $(mb $d/sites.json $d/points.json $d/constraints.schema.json $d/tour.json $d/basemap.json $d/basemaps/pole.png $d/basemaps/globe.png $d/ephemeris.json $d/ephemeris/* $d/stars.json)"
+echo "- Star field, after the first frame (stars and one year of orientation, D61): $(mb $d/stars.bin $d/orientation/2026.bin)"
+echo "- Flying down to one site (masks + slopes + ridges + region map + 20 m context map, D62): $(mb $d/masks/change7-shackleton-rim.bin $d/slopes/change7-shackleton-rim.bin $d/ridges/change7-shackleton-rim.bin $d/basemaps/change7-shackleton-rim.png $d/basemaps/context/change7-shackleton-rim.jpg)"
+echo "- Zooming within about 8 km of it, or standing in 3D (its 5 m heightmap): $(mb $d/heightmaps/change7-shackleton-rim.png)"
 echo "- All nine regions' masks and slopes (fetched when the finder or the matrix runs): $(mb $d/masks/* $d/slopes/*)"

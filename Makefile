@@ -13,7 +13,7 @@ RAW_URLS := $(PGDA)/LDEM_80S_20MPP_ADJ.TIF $(PGDA)/LDEM_80S_80MPP_ADJ.TIF \
   $(NAIF)/fk/satellites/a_old_versions/moon_de440_220930.tf \
   $(ILLUM)/AVGVISIB_85S_060M_201608.TIF $(ILLUM)/AVGVISIB_75S_120M_201608.TIF $(PGDA)/LDSM_80S_20MPP_ADJ.TIF
 
-.PHONY: setup data-download data data-fixtures test parity validate e2e e2e-live e2e-room perf check check-changed dev build deploy
+.PHONY: setup data-download data data-globe data-context data-fixtures test parity validate e2e e2e-live e2e-room perf check check-changed dev build deploy
 
 setup:
 	cd build && uv sync
@@ -26,12 +26,25 @@ data-download:
 	    [ $$? -eq 22 ] && break; sleep 10; done; done; \
 	cd 5m && for s in $(SITES_5M); do \
 	  for i in 1 2 3 4 5 6; do curl -fSL -C - --retry 5 -O $(PGDA5)/$$s/$${s}_final_adj_5mpp_surf.tif && break; \
-	    [ $$? -eq 22 ] && break; sleep 20; done; sleep 5; done; ls -l .. .
+	    [ $$? -eq 22 ] && break; sleep 20; done; sleep 5; done; ls -l .. .; \
+	mkdir -p ../globe && cd ../globe && for f in ldem_16.lbl ldem_16.img; do \
+	  for i in 1 2 3 4 5; do curl -fSL -C - --retry 5 -O $(LOLA_GDR)/$$f && break; [ $$? -eq 22 ] && break; sleep 10; done; done
 # curl exit 22 with -C - means HTTP 416: the file is already complete.
+
+# The LOLA global DEM for the whole-Moon hillshade (D60), 33 MB.
+LOLA_GDR := https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img
 
 # Real ephemeris, orientation, stars, masks, slopes and heightmaps into web/public/data/ (about 15 s).
 data:
-	cd build && uv run python scripts/build_data.py
+	cd build && uv run python scripts/build_data.py && uv run python scripts/build_globe.py && uv run python scripts/build_context.py 1
+
+# Only the per-site context hillshades (basemaps/context/*.jpg), from the 20 m polar DEM (about 15 s, D62).
+data-context:
+	cd build && uv run python scripts/build_context.py 1
+
+# Only the whole-Moon hillshade (basemaps/globe.png), from data/raw/globe/ldem_16.img (a few seconds).
+data-globe:
+	cd build && uv run python scripts/build_globe.py
 
 # Python reference engine vs engine.ts on shared/fixtures.
 parity:
