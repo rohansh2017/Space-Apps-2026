@@ -10,7 +10,7 @@ export default defineConfig({
   testDir: 'tests/e2e',
   use: { baseURL, viewport: { width: 1200, height: 1000 }, ...gpu },
   expect: { timeout: process.env.BASE_URL ? 15_000 : 5_000 }, // a deployed site answers over the network
-  timeout: process.env.BASE_URL ? 60_000 : 30_000, // per test; the live demo path downloads 5 m heightmaps from R2
+  timeout: 60_000, // per test: live runs download 5 m heightmaps from R2; local runs share the CPU between five software-WebGL browsers
   webServer: process.env.BASE_URL
     ? undefined
     : { command: 'npm run build && npx vite preview --port 4173 --strictPort', url: baseURL, reuseExistingServer: true, timeout: 120_000 },

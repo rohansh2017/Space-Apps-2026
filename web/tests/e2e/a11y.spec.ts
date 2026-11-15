@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { shot } from './hud'
+import { expandPanels, shot } from './hud'
 
 // Hardening: names, announcements, focus, Escape, screen-reader text, and input errors.
 test('finder: unique button names, announcement, focus on the results', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
   await page.getByRole('button', { name: 'Find alternatives' }).click()
   await expect(page.getByTestId('result').first()).toBeVisible()
@@ -23,6 +24,7 @@ test('finder: unique button names, announcement, focus on the results', async ({
 
 test('constraints: out-of-range input shows an error and keeps the last valid value', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   const dark = page.getByLabel('Max continuous darkness')
   await dark.fill('900')
   await expect(dark).toHaveValue('900') // what was typed stays visible
@@ -44,6 +46,7 @@ test('constraints: out-of-range input shows an error and keeps the last valid va
 
 test('tour takes focus, closes on Escape and returns focus; glossary text is readable', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan:')
   await page.getByRole('button', { name: 'Explorer' }).click()
   const term = page.getByTestId('term').first()
@@ -65,12 +68,14 @@ test('tour takes focus, closes on Escape and returns focus; glossary text is rea
 
 test('scrubber speaks its date, not a bare number', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByRole('slider')).toHaveAttribute('aria-valuetext', /^2026-11-19 00:00 UTC, landing plus 0 hours$/)
 })
 
 test('a failed search is reported in place and the app keeps working', async ({ page }) => {
   await page.route('**/data/masks/haworth.bin', (route) => route.fulfill({ status: 503, body: 'down' }))
   await page.goto('/')
+  await expandPanels(page)
   await page.getByRole('button', { name: 'Find alternatives' }).click()
   await expect(page.getByTestId('finder-error')).toContainText('The search failed')
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim') // the rest of the app is still there

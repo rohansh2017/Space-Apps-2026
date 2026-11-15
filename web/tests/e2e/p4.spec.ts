@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { expectedHud, shot } from './hud'
+import { expandPanels, expectedHud, shot } from './hud'
 
 const hudOf = async (page: import('@playwright/test').Page) => ({
   sunEl: await page.getByTestId('hud-sun-el').textContent(),
@@ -11,6 +11,7 @@ const observer = (page: import('@playwright/test').Page) =>
 
 test('F11: opened alternatives are pinned to the compare tray beside the plan', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
   await page.getByRole('button', { name: 'Find alternatives' }).click()
   await page.getByTestId('result').first().getByRole('button', { name: 'Open in 3D' }).click()
@@ -51,6 +52,7 @@ test('F11: opened alternatives are pinned to the compare tray beside the plan', 
 
 test('F14: nudging the plan by one grid step or one day marks what changed', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   const view = page.getByTestId('view')
   await expect(view).toContainText('Plan: Shackleton rim')
   const before = await observer(page)
@@ -74,6 +76,7 @@ test('F14: nudging the plan by one grid step or one day marks what changed', asy
 
 test('F13: the Explorer tour walks three steps and starts playback on step 2', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan:')
   await expect(page.getByRole('button', { name: 'Start tour' })).toHaveCount(0) // Planner mode has no tour
   await page.getByRole('button', { name: 'Explorer' }).click()
@@ -111,6 +114,7 @@ test('F21: a typed sentence fills the panel only after the user confirms, and ba
     await route.fulfill({ json: { values, model: 'mock', generated: true } })
   })
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan:')
   const box = page.getByPlaceholder(/survive 4 days of dark/)
   await box.fill('survive 4 days of dark, talk to Earth half the time')
@@ -137,6 +141,7 @@ test('F21: a typed sentence fills the panel only after the user confirms, and ba
 
 test('F17: the URL carries site, point, date, constraints and mode, and reopens to the same state', async ({ page, context }) => {
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
   await page.getByRole('combobox', { name: 'Site' }).selectOption('connecting-ridge')
   await page.getByRole('button', { name: '500 m E' }).click()
@@ -154,6 +159,7 @@ test('F17: the URL carries site, point, date, constraints and mode, and reopens 
 
   const again = await context.newPage()
   await again.goto(page.url())
+  await expandPanels(again)
   await expect(again.getByTestId('view')).toContainText('Plan: Connecting Ridge (Barker Site 01), custom point')
   await expect(again.getByTestId('view')).toContainText('2026-12-01 00:00 UTC landing')
   await expect(again.getByLabel('Max continuous darkness')).toHaveValue('60')
@@ -164,6 +170,7 @@ test('F17: the URL carries site, point, date, constraints and mode, and reopens 
 
 test('F15: the region map shows sunlit % per grid point for the mission window', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
   await page.getByRole('button', { name: 'Map', exact: true }).click()
   await expect(page.getByTestId('illumination-legend')).toContainText('Sunlit')
@@ -195,6 +202,7 @@ test('F22: the horizon is described from engine facts; Gemini text is kept only 
     await route.fulfill({ json: { text, model: 'mock', generated: true } })
   })
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
   const sentence = page.getByTestId('horizon-sentence')
   await expect(sentence).toContainText('The skyline is highest toward the')
@@ -213,6 +221,7 @@ test('F22: the horizon is described from engine facts; Gemini text is kept only 
 
 test('panels collapse, the band resizes, and full screen goes cinematic then restores the layout', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
   // the HUD keeps its countdowns; the status card keeps its title; the band keeps the scrubber
   await page.getByRole('button', { name: 'Hide the Sun and Earth details' }).click()
@@ -248,6 +257,7 @@ test('panels collapse, the band resizes, and full screen goes cinematic then res
 
 test('Plan, Map and Scenario matrix open one at a time; the alternatives fold into their corner and back', async ({ page }) => {
   await page.goto('/')
+  await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
   const side = page.getByRole('complementary', { name: 'Plan and constraints' })
   await expect(side).toBeVisible()
@@ -274,4 +284,32 @@ test('Plan, Map and Scenario matrix open one at a time; the alternatives fold in
   await chip.click()
   await expect(page.getByTestId('result')).toHaveCount(10)
   await expect(page.locator('#results-heading')).toBeFocused()
+})
+
+test('the first view is quiet, and locations survive a reload from the bare address', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
+  // Plan panel open; card, HUD and band folded to one line each
+  await expect(page.getByRole('complementary', { name: 'Plan and constraints' })).toBeVisible()
+  await expect(page.getByTestId('view').locator('.chip')).toHaveCount(0)
+  await expect(page.getByTestId('hud-sun-countdown')).toBeVisible()
+  await expect(page.getByTestId('hud-sun-el')).toBeHidden()
+  await expect(page.getByTestId('tray')).toHaveCount(0)
+  await expect(page.getByRole('slider')).toBeVisible()
+  // a site, a date and a pinned scenario are stored; nothing else is
+  await page.getByRole('combobox', { name: 'Site' }).selectOption('connecting-ridge')
+  await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  await expandPanels(page)
+  await page.getByRole('button', { name: 'Pin this view' }).click()
+  await page.getByRole('button', { name: 'Explorer' }).click()
+  const stored = await page.evaluate(() => localStorage.getItem('tranquility-base:locations'))
+  expect(stored).toContain('site=connecting-ridge')
+  expect(stored).toContain('pins=')
+  expect(stored).not.toContain('mode')
+  await page.goto('/') // no query string: the stored locations fill in
+  await expect(page.getByTestId('view')).toContainText('Plan: Connecting Ridge')
+  await expandPanels(page)
+  await expect(page.getByTestId('view')).toContainText('2026-12-01 00:00 UTC landing')
+  await expect(page.getByTestId('tray-pin')).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Planner' })).toHaveAttribute('aria-pressed', 'true') // mode is not stored
 })

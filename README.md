@@ -31,7 +31,10 @@ The full pipeline, from raw data to a tested app, is `make setup && make data-do
 
 ### What to try
 
-The 3D view fills the window. Press *Full screen* for a projector: it goes cinematic, folding the panels away
+The 3D view fills the window. It opens quietly: the Plan panel is open, and the plan card, the countdown
+panel and the bottom panel are folded to one line each (unfold them with their arrows). Your plan's site, point
+and date and your pinned scenarios are kept in this browser, so a refresh or the bare address brings them back;
+a shared link with its own site wins. Press *Full screen* for a projector: it goes cinematic, folding the panels away
 and fading the header and rail while the pointer rests (move the mouse or press a key to bring them back;
 leaving full screen restores your layout). The countdown panel and the plan card collapse with their chevron;
 the bottom panel drops and rises with the tab on its top edge, and resizes by dragging that edge (arrow keys work too;

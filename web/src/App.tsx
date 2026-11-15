@@ -23,7 +23,7 @@ import Results from './Results'
 import type { Room, RoomState } from './room'
 import { connectRoom, newRoomId, roomIdFromUrl, roomLink, stateKey, validConstraints } from './room'
 import Scene3D from './Scene3D'
-import { decodeShare, encodeShare } from './share'
+import { decodeShare, encodeShare, pickLocations, withStoredLocations } from './share'
 import SiteMap from './SiteMap'
 import Tour from './Tour'
 import type { TrayColumn } from './Tray'
@@ -36,6 +36,11 @@ const SNAP_LIMIT_M = 500 // a custom coordinate farther than this from every gri
 const HOUR_MS = 3_600_000
 const START_HOUR = 7728 // 2026-11-19 00:00 UTC
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16)
+
+// locations survive a refresh or a bare URL (storage can be blocked: private windows, previews)
+const LOCATIONS_KEY = 'tranquility-base:locations'
+const readLocations = () => { try { return window.localStorage.getItem(LOCATIONS_KEY) } catch { return null } }
+const writeLocations = (v: string) => { try { window.localStorage.setItem(LOCATIONS_KEY, v) } catch { /* not stored; the URL still has it */ } }
 
 /**
  * Panel opens and closes morph instead of jumping (View Transitions, ~200 ms); instant where unsupported or with reduced
@@ -77,9 +82,10 @@ export default function App() {
   const [sideOpen, setSideOpen] = useState(true)
   const [fullscreen, setFullscreen] = useState(false)
   // collapsible panels; full screen collapses them for a cinematic view and restores them on exit
-  const [hudOpen, setHudOpen] = useState(true)
-  const [statusOpen, setStatusOpen] = useState(true)
-  const [bandOpen, setBandOpen] = useState(true)
+  // a quiet first view: the Plan panel is open; the card, the HUD and the band start folded to one line each
+  const [hudOpen, setHudOpen] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
+  const [bandOpen, setBandOpen] = useState(false)
   const [resultsMin, setResultsMin] = useState(false) // the alternatives folded into their corner
   const [resultsFresh, setResultsFresh] = useState(false) // a search just finished: the list plays its entrance
   const resultsChip = useRef<HTMLButtonElement | null>(null)
@@ -114,7 +120,7 @@ export default function App() {
     loadDataset().then((d) => {
       setData(d)
       // F17: a shared link restores site, point, landing time, changed constraints and mode
-      const s = decodeShare(new URLSearchParams(window.location.search))
+      const s = decodeShare(withStoredLocations(new URLSearchParams(window.location.search), readLocations()))
       const site = d.sites.find((x) => x.id === s.site) ?? d.sites[0]
       setSiteId(site.id)
       if (s.point !== undefined && s.point !== d.centreIndex && d.points.some((p) => p.region === site.id && p.index === s.point)) setPointIndex(s.point)
@@ -406,6 +412,7 @@ export default function App() {
       site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode, pins,
     })
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
+    writeLocations(pickLocations(params))
   }, [data, siteId, pointIndex, planHour, constraints, mode, pins])
   const [copied, setCopied] = useState(false)
   const copyLink = () => {

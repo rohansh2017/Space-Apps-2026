@@ -51,3 +51,20 @@ export function encodeShare(
   else params.delete('pins')
   return params
 }
+
+/** The only thing kept in the browser: where the user is looking (plan site, grid point, landing time, pinned scenarios). */
+const LOCATION_KEYS = ['site', 'point', 't', 'pins']
+export function pickLocations(params: URLSearchParams): string {
+  const out = new URLSearchParams()
+  for (const k of LOCATION_KEYS) if (params.has(k)) out.set(k, params.get(k)!)
+  return out.toString()
+}
+
+/** A link with its own site (or a room) wins; otherwise the stored locations fill in. */
+export function withStoredLocations(params: URLSearchParams, stored: string | null): URLSearchParams {
+  if (!stored || params.has('site') || params.has('room')) return params
+  const out = new URLSearchParams(params)
+  const saved = new URLSearchParams(stored)
+  for (const k of LOCATION_KEYS) if (saved.has(k)) out.set(k, saved.get(k)!)
+  return out
+}

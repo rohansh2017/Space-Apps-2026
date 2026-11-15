@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import schema from '../public/data/constraints.schema.json'
 import type { ConstraintDef } from './data'
-import { decodeShare, encodeShare } from './share'
+import { decodeShare, encodeShare, pickLocations, withStoredLocations } from './share'
 
 const defs = schema.constraints as ConstraintDef[]
 const defaults = Object.fromEntries(defs.map((d) => [d.id, d.default]))
@@ -29,4 +29,14 @@ describe('shareable URL', () => {
     expect(p.get('pins')).toBe('change7-shackleton-rim:382@8112,im2-mons-mouton:220@8064')
     expect(decodeShare(p).pins).toEqual(pins)
   })
+})
+
+it('only locations are stored, and a link with its own site wins over them', () => {
+  const p = new URLSearchParams('site=a&point=3&t=2026-12-01T00:00Z&c=x:1&mode=explorer&pins=a:1@5&room=tb-abc123')
+  expect(pickLocations(p)).toBe('site=a&point=3&t=2026-12-01T00%3A00Z&pins=a%3A1%405')
+  const stored = pickLocations(p)
+  expect(decodeShare(withStoredLocations(new URLSearchParams(''), stored)).pins).toEqual([{ point: 'a:1', hour: 5 }])
+  expect(withStoredLocations(new URLSearchParams('site=b'), stored).get('site')).toBe('b')
+  expect(withStoredLocations(new URLSearchParams('room=tb-x'), stored).has('site')).toBe(false)
+  expect(withStoredLocations(new URLSearchParams(''), null).toString()).toBe('')
 })
