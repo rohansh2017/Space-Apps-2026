@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Globe, Info, Pin, PinOff, ListOrdered, LayoutGrid, Link2, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
+import { ChevronDown, ChevronUp, Compass, Globe, Info, Pin, PinOff, ListOrdered, LayoutGrid, Link2, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Chips from './Chips'
@@ -31,6 +31,9 @@ import Scene3D from './Scene3D'
 import Summary from './Summary'
 import { decodeShare, encodeShare, pickLocations, withStoredLocations } from './share'
 import Tour from './Tour'
+import Coach from './Coach'
+import type { Prepare, Snapshot } from './onboarding'
+import { COACH_STEPS, ONBOARDED_KEY, shouldAutoOpen } from './onboarding'
 import type { TrayColumn } from './Tray'
 import Tray, { TRAY_MAX } from './Tray'
 
@@ -47,6 +50,10 @@ const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16)
 const LOCATIONS_KEY = 'tranquility-base:locations'
 const readLocations = () => { try { return window.localStorage.getItem(LOCATIONS_KEY) } catch { return null } }
 const writeLocations = (v: string) => { try { window.localStorage.setItem(LOCATIONS_KEY, v) } catch { /* not stored; the URL still has it */ } }
+// F28: the quick tour opens by itself once, on a first visit to the bare address (read before the app rewrites the URL)
+const FIRST_PARAMS = new URLSearchParams(window.location.search)
+const readOnboarded = () => { try { return window.localStorage.getItem(ONBOARDED_KEY) === '1' } catch { return false } }
+const writeOnboarded = () => { try { window.localStorage.setItem(ONBOARDED_KEY, '1') } catch { /* asked again next visit */ } }
 
 /**
  * Panel opens and closes morph instead of jumping (View Transitions, ~200 ms); instant where unsupported or with reduced
@@ -113,6 +120,7 @@ export default function App() {
   const about = useRef<HTMLDialogElement | null>(null)
   const [nudgeFrom, setNudgeFrom] = useState<Metrics | null>(null) // F14: metrics before the last nudge
   const [tour, setTour] = useState(false)
+  const [coach, setCoach] = useState(() => shouldAutoOpen(FIRST_PARAMS, readOnboarded(), navigator.webdriver === true)) // F28
   const [busy, setBusy] = useState(false)
   const [stale, setStale] = useState(false) // constraints changed after the last search; results kept but marked out of date
   const [finderError, setFinderError] = useState('')
@@ -487,6 +495,17 @@ export default function App() {
   const standHere = useCallback(() => {
     setStageView('ground')
     focusView.current = true
+  }, [])
+
+  /** F28: what the quick tour watches, and what a step may ask the app to show first. */
+  const coachSnapshot = useMemo((): Snapshot => ({ stageView, moonZoom, offset, playing, found }), [stageView, moonZoom, offset, playing, found])
+  const coachPrepare = useCallback((p: Prepare) => {
+    if (p === 'moon') setStageView('moon')
+    if (p === 'plan-panel') setSideOpen(true)
+  }, [])
+  const closeCoach = useCallback(() => {
+    setCoach(false)
+    writeOnboarded()
   }, [])
 
   async function runFinder() {
@@ -866,7 +885,8 @@ export default function App() {
             <span>Lunar south-pole landing site navigator</span>
           </div>
           <div className="topbar-actions">
-            {mode === 'explorer' && <button type="button" ref={startTourButton} disabled={tour} onClick={() => setTour(true)}>Start tour</button>}
+            <button type="button" disabled={coach} onClick={() => { setTour(false); setCoach(true) }} data-testid="quick-tour"><Compass size={15} aria-hidden="true" />Quick tour</button>
+            {mode === 'explorer' && <button type="button" ref={startTourButton} disabled={tour} onClick={() => { setCoach(false); setTour(true) }}>Start tour</button>}
             {copied && <span className="note" role="status">Link copied</span>}
             <button type="button" onClick={copyLink}><Link2 size={15} aria-hidden="true" />Copy link</button>
             <button type="button" ref={roomButton} aria-expanded={drawer === 'room'} onClick={() => setDrawer(drawer === 'room' ? null : 'room')}>
@@ -886,6 +906,8 @@ export default function App() {
             </div>
           </div>
         </header>
+        {/* F28: outside every panel, so no layout change (results, stage switch) unmounts it mid-tour */}
+        {coach && <Coach steps={COACH_STEPS} snapshot={coachSnapshot} onPrepare={coachPrepare} onAnnounce={setAnnounce} onClose={closeCoach} />}
         {data.synthetic && <p className="banner" role="status">Synthetic data: development fixtures, not real terrain or ephemeris.</p>}
         <p className="sr-only" aria-live="polite" data-testid="announcer">{announce}</p>
 
@@ -958,7 +980,7 @@ export default function App() {
               }} />
             </div>
             <div className="side-foot">
-              <button type="button" className="primary" disabled={busy || !site.terrain || !plan} aria-busy={busy} onClick={runFinder}>
+              <button type="button" className="primary" data-tour="find" disabled={busy || !site.terrain || !plan} aria-busy={busy} onClick={runFinder}>
                 {busy ? 'Searching…' : 'Find alternatives'}
               </button>
               {finderError && <p className="inline-error" role="alert" data-testid="finder-error">{finderError}</p>}
@@ -1064,7 +1086,7 @@ export default function App() {
             )}
             <div className="band-time">
               <div className="scrub">
-                <button type="button" onClick={togglePlay} aria-pressed={playing} data-testid="play">
+                <button type="button" onClick={togglePlay} aria-pressed={playing} data-testid="play" data-tour="play">
                   {playing ? <Pause size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
                   {playing ? 'Pause' : 'Play lunar day'}
                 </button>

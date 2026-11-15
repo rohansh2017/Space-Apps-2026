@@ -278,6 +278,25 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .tour { display: grid; gap: 0.5rem; background: var(--panel-solid); border-color: var(--line-strong); }
 .tour:focus { outline: none; }
 .tour h3 { margin: 0; font-size: 1rem; }
+/* F28 quick tour: a card beside one real control and a neutral ring around it. Ring and dimming take no clicks,
+   so the user presses the control itself; white, not the reserved gold/blue/red/green (D49). */
+.coach { position: fixed; z-index: 20; width: min(20rem, calc(100vw - 32px)); display: grid; gap: 0.35rem; padding: 0.7rem 0.8rem 0.8rem;
+  background: var(--panel-solid); color: var(--text); border: 1px solid var(--line-strong); border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 55%); transition: left 0.25s ease, top 0.25s ease; }
+/* focus moves to the card so each step is read out; the ring belongs to the target, the buttons keep theirs */
+.coach:focus, .coach:focus-visible { outline: none; }
+.coach h2 { margin: 0; font-size: 1rem; }
+.coach p { margin: 0; font-size: 0.88rem; color: var(--dim); }
+.coach-head { display: flex; align-items: center; justify-content: space-between; }
+.coach-count { font-size: 0.75rem; color: var(--mute); letter-spacing: 0.04em; }
+.coach-nav { display: flex; justify-content: flex-end; gap: 0.4rem; margin-top: 0.2rem; }
+.coach-nav button { font-size: 0.82rem; padding: 0.28rem 0.75rem; }
+.coach-spot { position: fixed; z-index: 19; pointer-events: none; border: 2px solid #fff; border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 38%); transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease;
+  animation: coach-pulse 1.6s ease-in-out infinite; }
+@keyframes coach-pulse { 50% { outline: 6px solid rgb(255 255 255 / 25%); outline-offset: 2px; } }
+@media (max-width: 640px) { .coach { width: auto; } }
+@media (prefers-reduced-motion: reduce) { .coach, .coach-spot { transition: none; animation: none; } }
 .tour p { margin: 0; font-size: 0.9rem; line-height: 1.5; }
 .tour svg { width: 100%; max-width: 26rem; height: auto; display: block; }
 .tour-nav { display: flex; gap: 0.4rem; align-items: center; }
