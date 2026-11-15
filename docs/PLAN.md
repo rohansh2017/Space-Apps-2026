@@ -10,7 +10,7 @@ Phases and exit gates are copied from `docs/spec/SPEC.md`. Tick only after verif
 | P1 Engine + skeletons | 4 / 4 | ✅ done |
 | P2 Core on real data | 4 / 4 | ✅ done |
 | P3 Complete demo | 10 / 12 | 🟡 2 open |
-| P4 Should-haves | 9 / 10 | 🟡 1 open |
+| P4 Should-haves | 10 / 11 | 🟡 1 open |
 | P5 Submission | 3 / 7 | 🟡 4 open |
 | P6 Visual fidelity | 6 / 6 | ✅ done |
 | P7 UI redesign for the challenge objective | 7 / 8 | 🟡 1 open |
@@ -80,6 +80,7 @@ Exit: someone outside the team completes the tour unaided.
 
 - [x] F26 slip copilot: one Gemini call reads a slip scenario into constraints, a later landing and a site; the user confirms, the finder runs, and the answer is a template from its result (2026-11-15; `copilot.test.ts`, `p4.spec.ts` mocked, `gemini.spec.ts` live)
 - [x] F29 smarter slip copilot: the sentence becomes a location + time search spec (slip from the original plan, never stacked; where: this site / named sites / every grid; when: earliest first, land by, window), quote-grounded, confirmed on a card, shown as removable chips; the slip is read locally without Gemini (2026-11-15, D67; `copilot.test.ts`, `worker/copilot.test.js`, `finder.test.ts`, `finder.perf.test.ts`, `p4.spec.ts` mocked)
+- [x] One Gemini button: *Ask Gemini* reads requirements, a slip, where and when through `/api/copilot`; *Apply and find alternatives* fills the panel and searches; `/api/constraints` removed (2026-11-15, D68; `copilot.test.ts`, `p4.spec.ts` mocked, `gemini.spec.ts` live)
 - [x] F28 quick tour on the first visit: fly to a site, play, stand in 3D, find alternatives; each step rings the real control and advances when it is used; about 30 s (2026-11-15; `onboarding.test.ts`, `onboarding.spec.ts`)
 - [x] F27 "why not?": the engine gives each failing constraint's passing value and the plan's earliest passing hour; template line on the plan and on failing results; Gemini rewording only on request, number-checked (2026-11-15; `finder.test.ts`, `whynot.test.ts`, `p4.spec.ts` mocked, `gemini.spec.ts` live)
 

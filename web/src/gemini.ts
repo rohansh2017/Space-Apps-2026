@@ -1,4 +1,5 @@
-// F21 browser side: validate Gemini's constraint JSON against the schema before showing it for confirmation.
+// Shared Gemini plumbing, browser side: validate constraint values against the schema (F21, used by the copilot's
+// reply since D68) and POST to a Worker route.
 import type { ConstraintDef } from './data'
 import type { Constraints } from './engine/engine'
 
@@ -36,13 +37,4 @@ export async function postApi(path: string, payload: unknown): Promise<Record<st
   if (r.status === 404 || r.status >= 500)
     throw new Error('Gemini runs in the Cloudflare Worker, which is not running here: run `make dev-api` beside `make dev`, or use the deployed site')
   throw new Error(`HTTP ${r.status}`)
-}
-
-const cache = new Map<string, unknown>() // the same sentence is never sent twice in a session (tokens are limited)
-
-export async function askGemini(sentence: string): Promise<unknown> {
-  if (cache.has(sentence)) return cache.get(sentence)
-  const body = await postApi('/api/constraints', { sentence })
-  cache.set(sentence, body.values)
-  return body.values
 }

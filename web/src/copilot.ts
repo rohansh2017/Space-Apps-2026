@@ -226,11 +226,12 @@ export function copilotSummary(f: FinderResult, candidates: Candidate[], date: (
     ctx ? `Searched ${ctx.searched}.` : '',
   ].filter(Boolean).join(' ')
   const passing = f.results.filter((r) => r.evaluation.fails === 0)
+  const which = ctx && !ctx.slip ? 'The plan' : 'The slipped plan' // no slip in the sentence: it is the plan as it stands
   const plan = f.baseline.evaluation.fails === 0
-    ? 'The slipped plan still meets every constraint.'
+    ? `${which} still meets every constraint.`
     : f.planPassStart !== null
-      ? `The slipped plan fails ${f.baseline.evaluation.fails} constraint${f.baseline.evaluation.fails === 1 ? '' : 's'}; the same point passes if you land ${date(f.planPassStart)} UTC.`
-      : `The slipped plan fails ${f.baseline.evaluation.fails} constraint${f.baseline.evaluation.fails === 1 ? '' : 's'}, and no later date in the slip range fixes it at the same point.`
+      ? `${which} fails ${f.baseline.evaluation.fails} constraint${f.baseline.evaluation.fails === 1 ? '' : 's'}; the same point passes if you land ${date(f.planPassStart)} UTC.`
+      : `${which} fails ${f.baseline.evaluation.fails} constraint${f.baseline.evaluation.fails === 1 ? '' : 's'}, and no later date in the slip range fixes it at the same point.`
   const join = (...parts: string[]) => parts.filter(Boolean).join(' ')
   if (!f.results.length) return join(lead, plan, 'No alternatives were found.')
   const best = f.results[0]

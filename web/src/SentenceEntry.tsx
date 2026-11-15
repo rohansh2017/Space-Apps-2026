@@ -2,62 +2,50 @@ import { useState } from 'react'
 import type { CopilotHooks, CopilotPlan } from './copilot'
 import { askCopilot, checkLandBy, dayText, isEmptyPlan, localPlan, parseCopilot, planSite, specFromPlan, withLocalSlip } from './copilot'
 import type { ConstraintDef } from './data'
-import type { Constraints } from './engine/engine'
-import { askGemini, parseSuggestion } from './gemini'
 import { LABELS } from './presets'
 
 interface Props {
   defs: ConstraintDef[]
-  onApply: (values: Constraints) => void // fills the panel; the finder runs only when the user presses it
-  copilot?: CopilotHooks // F26/F29: the slip copilot (absent: only the F21 sentence entry)
+  copilot: CopilotHooks // the app as the copilot sees it: plan site and date, words for dates and searches, apply
 }
 
 /**
- * F21: type a requirement, Gemini proposes constraint values, the user sees and confirms them.
- * F26/F29: or describe a slip; Gemini reads a search spec (the slip, where to search, when to land, constraints),
- * the card shows how each part was read, and on confirmation the finder runs.
- * One small Gemini call per press; nothing changes until the user confirms.
+ * F21/F26/F29 (D68: one button): type requirements, a slip, where and when in plain words. One Gemini call reads
+ * them into a search spec, the card shows how each part was read, and on confirmation the panel is filled and the
+ * finder runs. Nothing changes until the user confirms.
  */
-export default function SentenceEntry({ defs, onApply, copilot }: Props) {
+export default function SentenceEntry({ defs, copilot }: Props) {
   const [sentence, setSentence] = useState('')
-  const [busy, setBusy] = useState<'' | 'sentence' | 'copilot'>('')
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [suggestion, setSuggestion] = useState<CopilotPlan | null>(null)
-  const [kind, setKind] = useState<'sentence' | 'copilot'>('sentence')
-  const ask = async (which: 'sentence' | 'copilot') => {
-    setBusy(which)
+  const ask = async () => {
+    setBusy(true)
     setError('')
     setSuggestion(null)
     const text = sentence.trim()
     try {
-      if (which === 'copilot' && copilot) {
-        const raw = await askCopilot(text, { siteId: copilot.siteId, planUtc: copilot.planUtc })
-        const plan = withLocalSlip(parseCopilot(defs, copilot.siteIds, raw), text)
-        setSuggestion(checkLandBy(plan, copilot.preview(plan.slipDays ?? 0).toMs, copilot.date))
-      } else {
-        setSuggestion({ ...parseSuggestion(defs, await askGemini(text)), slipDays: null, where: null, when: null, notes: [] })
-      }
-      setKind(which)
+      const raw = await askCopilot(text, { siteId: copilot.siteId, planUtc: copilot.planUtc })
+      const plan = withLocalSlip(parseCopilot(defs, copilot.siteIds, raw), text)
+      setSuggestion(checkLandBy(plan, copilot.preview(plan.slipDays ?? 0).toMs, copilot.date))
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      const local = which === 'copilot' ? localPlan(text, message) : null // F29: the slip still works without Gemini
-      if (local) {
-        setSuggestion(local)
-        setKind('copilot')
-      } else setError(`${message}. The presets and fields above still work.`)
+      const local = localPlan(text, message) // F29: the slip still works without Gemini
+      if (local) setSuggestion(local)
+      else setError(`${message}. The presets and fields above still work.`)
     } finally {
-      setBusy('')
+      setBusy(false)
     }
   }
   const unit = (id: string) => defs.find((d) => d.id === id)?.unit ?? ''
   const tooShort = sentence.trim().length < 3
-  const spec = suggestion && copilot ? specFromPlan(suggestion) : null
-  const words = spec && copilot ? copilot.describe(spec, planSite(suggestion!) ?? copilot.siteId) : null
-  const slip = suggestion?.slipDays != null && copilot ? copilot.preview(suggestion.slipDays) : null
+  const spec = suggestion ? specFromPlan(suggestion) : null
+  const words = spec ? copilot.describe(spec, planSite(suggestion!) ?? copilot.siteId) : null
+  const slip = suggestion?.slipDays != null ? copilot.preview(suggestion.slipDays) : null
   return (
-    <form className="sentence" onSubmit={(e) => { e.preventDefault(); ask('sentence') }} aria-label="Describe the requirement">
+    <form className="sentence" onSubmit={(e) => { e.preventDefault(); ask() }} aria-label="Describe the requirement">
       <label>
-        <span>Or describe the requirement, or the slip</span>
+        <span>Or say it in words: requirements, a slip, where and when</span>
         <textarea
           rows={2}
           maxLength={300}
@@ -67,13 +55,10 @@ export default function SentenceEntry({ defs, onApply, copilot }: Props) {
         />
       </label>
       <div className="presets">
-        <button type="submit" disabled={Boolean(busy) || tooShort}>{busy === 'sentence' ? 'Asking Gemini…' : 'Interpret with Gemini'}</button>
-        {copilot && (
-          <button type="button" disabled={Boolean(busy) || tooShort} onClick={() => ask('copilot')}
-            title="e.g. my mission slipped by 11 days, stay near the rim, land as soon as possible">
-            {busy === 'copilot' ? 'Asking Gemini…' : 'Plan the slip'}
-          </button>
-        )}
+        <button type="submit" disabled={busy || tooShort}
+          title="e.g. talk to Earth half the time · slipped two weeks, anywhere on Nobile, soonest">
+          {busy ? 'Asking Gemini…' : 'Ask Gemini'}
+        </button>
       </div>
       {error && <p className="note" role="alert" data-testid="sentence-error">{error}</p>}
       {suggestion && (
@@ -81,10 +66,10 @@ export default function SentenceEntry({ defs, onApply, copilot }: Props) {
           <p className="note">{suggestion.local ? 'Read in the browser from your words.' : 'Generated by Gemini, checked against the schema.'} Nothing changes until you apply it.</p>
           {!isEmptyPlan(suggestion) ? (
             <ul>
-              {suggestion.where?.scope === 'sites' && suggestion.where.sites.length === 1 && copilot && (
+              {suggestion.where?.scope === 'sites' && suggestion.where.sites.length === 1 && (
                 <li data-testid="copilot-site">Site: <strong>{copilot.siteName(suggestion.where.sites[0])}</strong></li>
               )}
-              {slip && suggestion.slipDays !== null && copilot && (
+              {slip && suggestion.slipDays !== null && (
                 <li data-testid="copilot-slip">Land <strong>{dayText(suggestion.slipDays)} later</strong> than the original plan: {copilot.date(slip.fromMs)} → <strong>{copilot.date(slip.toMs)}</strong> UTC</li>
               )}
               {suggestion.where && words && <li data-testid="copilot-where">Where: <strong>{words.where}</strong></li>}
@@ -93,19 +78,14 @@ export default function SentenceEntry({ defs, onApply, copilot }: Props) {
                 <li key={id}>{LABELS[id].name}: <strong>{typeof v === 'boolean' ? (v ? 'yes' : 'no') : `${v} ${unit(id)}`}</strong></li>
               ))}
             </ul>
-          ) : <p className="note">No constraint values were found in that sentence.</p>}
+          ) : <p className="note">Nothing in that sentence could be read as a requirement, a slip, or where and when to land.</p>}
           {suggestion.notes.map((n) => <p key={n} className="note" data-testid="copilot-note">{n}</p>)}
           {suggestion.rejected.length > 0 && (
             <p className="note bad" data-testid="suggestion-rejected">Rejected: {suggestion.rejected.join('; ')}</p>
           )}
           <div className="presets">
-            {kind === 'copilot' && copilot ? (
-              <button type="button" className="primary" disabled={isEmptyPlan(suggestion)}
-                onClick={() => { copilot.apply(suggestion); setSuggestion(null) }}>Apply and find alternatives</button>
-            ) : (
-              <button type="button" className="primary" disabled={!Object.keys(suggestion.values).length}
-                onClick={() => { onApply(suggestion.values); setSuggestion(null) }}>Apply to the panel</button>
-            )}
+            <button type="button" className="primary" disabled={isEmptyPlan(suggestion)}
+              onClick={() => { copilot.apply(suggestion); setSuggestion(null) }}>Apply and find alternatives</button>
             <button type="button" onClick={() => setSuggestion(null)}>Discard</button>
           </div>
         </div>

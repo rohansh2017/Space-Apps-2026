@@ -111,34 +111,37 @@ test('F13: the Explorer tour walks three steps and starts playback on step 2', a
   await expect(page.getByTestId('tour')).toHaveCount(0)
 })
 
-test('F21: a typed sentence fills the panel only after the user confirms, and bad values are rejected', async ({ page }) => {
-  // the Worker route is mocked here; gemini.spec.ts calls the real one against a deployment
-  await page.route('**/api/constraints', async (route) => {
+test('F21: a typed requirement fills the panel only after the user confirms, and bad values are rejected', async ({ page }) => {
+  // the Worker route is mocked here; gemini.spec.ts calls the real one against a deployment.
+  // One button since D68: requirements go through the same copilot route as a slip.
+  await page.route('**/api/copilot', async (route) => {
     const { sentence } = route.request().postDataJSON()
-    const values = sentence.includes('999')
+    const constraints = sentence.includes('999')
       ? { mission_duration_days: 999, fuel_kg: 10, max_slope_deg: 8 }
       : { max_continuous_dark_hours: 96, min_earth_visible_pct: 50 }
-    await route.fulfill({ json: { values, model: 'mock', generated: true } })
+    await route.fulfill({ json: { plan: { constraints }, model: 'mock', generated: true } })
   })
   await page.goto('/')
   await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan:')
   const box = page.getByPlaceholder(/survive 4 days of dark/)
   await box.fill('survive 4 days of dark, talk to Earth half the time')
-  await page.getByRole('button', { name: 'Interpret with Gemini' }).click()
+  await page.getByRole('button', { name: 'Ask Gemini' }).click()
   const suggestion = page.getByTestId('suggestion')
   await expect(suggestion).toContainText('Max continuous darkness: 96 hours')
   await expect(suggestion).toContainText('Min Earth visibility: 50 %')
   await expect(page.getByLabel('Max continuous darkness')).toHaveValue('80') // nothing applied yet
   await page.screenshot(shot('14-gemini-suggestion'))
-  await page.getByRole('button', { name: 'Apply to the panel' }).click()
+  await page.getByRole('button', { name: 'Apply and find alternatives' }).click()
   await expect(page.getByLabel('Max continuous darkness')).toHaveValue('96')
   await expect(page.getByLabel('Min Earth visibility')).toHaveValue('50')
   await expect(page.getByLabel('Mission duration')).toHaveValue('7') // untouched fields keep their values
   await expect(suggestion).toHaveCount(0)
+  // no slip was given: the date stays and the answer speaks of the plan as it stands
+  await expect(page.getByTestId('copilot-summary')).toContainText(/The plan (still meets|fails)/, { timeout: 30_000 })
 
   await box.fill('mission of 999 days with slopes under 8')
-  await page.getByRole('button', { name: 'Interpret with Gemini' }).click()
+  await page.getByRole('button', { name: 'Ask Gemini' }).click()
   await expect(page.getByTestId('suggestion-rejected')).toContainText('mission_duration_days = 999 (outside 1–30 days)')
   await expect(page.getByTestId('suggestion-rejected')).toContainText('fuel_kg (unknown field)')
   await expect(suggestion).toContainText('Max terrain slope: 8 deg')
@@ -167,7 +170,7 @@ test('F26 + F27: the copilot plans a slip in one call, the engine answers, and "
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
   const before = await page.getByLabel('Landing date and time (UTC)').inputValue()
   await page.getByPlaceholder(/survive 4 days of dark/).fill('we slip 3 days, move to Haworth, and need Earth in view the whole time')
-  await page.getByRole('button', { name: 'Plan the slip' }).click()
+  await page.getByRole('button', { name: 'Ask Gemini' }).click()
   const suggestion = page.getByTestId('suggestion')
   await expect(page.getByTestId('copilot-site')).toContainText('Haworth')
   await expect(page.getByTestId('copilot-slip')).toContainText('3 days later')
@@ -215,7 +218,7 @@ test('F29: "slipped by 11 days, stay near the rim" moves the landing 11 days fro
   const box = page.getByPlaceholder(/survive 4 days of dark/)
   const plan = async (text: string) => {
     await box.fill(text)
-    await page.getByRole('button', { name: 'Plan the slip' }).click()
+    await page.getByRole('button', { name: 'Ask Gemini' }).click()
     await expect(page.getByTestId('suggestion')).toBeVisible()
   }
   await plan('My mission slipped by 11 days. Stay near the rim.')

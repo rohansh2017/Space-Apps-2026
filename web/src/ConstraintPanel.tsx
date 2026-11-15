@@ -9,7 +9,7 @@ interface Props {
   defs: ConstraintDef[]
   value: Constraints
   onChange: (c: Constraints) => void
-  copilot?: CopilotHooks // F26/F29: the slip copilot's view of the app
+  copilot?: CopilotHooks // F21/F26/F29: the Gemini sentence box's view of the app (absent while loading)
 }
 
 /** Why a typed value cannot be used, or null when it is valid. */
@@ -83,8 +83,7 @@ export default function ConstraintPanel({ defs, value, onChange, copilot }: Prop
         )
       })}
       <p className="note">Defaults are editable placeholders, not NASA requirements.</p>
-      <SentenceEntry defs={defs} onApply={(v) => { setDrafts({}); onChange({ ...value, ...v }) }}
-        copilot={copilot && { ...copilot, apply: (p) => { setDrafts({}); copilot.apply(p) } }} />
+      {copilot && <SentenceEntry defs={defs} copilot={{ ...copilot, apply: (p) => { setDrafts({}); copilot.apply(p) } }} />}
     </section>
   )
 }
