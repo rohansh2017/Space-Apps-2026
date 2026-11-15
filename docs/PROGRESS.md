@@ -298,3 +298,7 @@ Dual-agent critique against the comparison objective: 25/40, detector clean in s
 ## 2026-11-15 — Collapsible panels, resizable band, cinematic full screen (branch `redesign/new-visual-identity`)
 
 Team request (D51): HUD, plan/alternative card and bottom band collapse; the band resizes by drag or keyboard; full screen folds the panels away, fades the chrome when idle, adds a letterbox, and restores the layout on exit. Checked in Chromium at 1440×900 (drag, collapse, full screen idle and awake, exit). New e2e test covers collapse, keyboard resize and the full-screen round trip. `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — Band tab and interface motion (branch `redesign/new-visual-identity`)
+
+Team request (D52): one open/close tab on the band's top edge in the same place open or closed; panel toggles morph via View Transitions; drawers, results, tray columns, prompts and the tour ease in; press feedback on buttons; pin icon pops. Checked in Chromium (tab position identical open and closed, mid-transition frame). `make check` passes. Not deployed (redesign branch).

@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp, Info, LayoutGrid, Link2, Map as MapIcon, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Pause, Play, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import Chips from './Chips'
 import ConstraintPanel from './ConstraintPanel'
 import type { Dataset, Region } from './data'
@@ -35,6 +36,13 @@ const SNAP_LIMIT_M = 500 // a custom coordinate farther than this from every gri
 const HOUR_MS = 3_600_000
 const START_HOUR = 7728 // 2026-11-19 00:00 UTC
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16)
+
+/** Panel opens and closes morph instead of jumping (View Transitions, ~200 ms); instant where unsupported or with reduced motion. */
+function smooth(update: () => void) {
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown }
+  if (!doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) update()
+  else doc.startViewTransition(() => flushSync(update))
+}
 
 /** A scenario is a grid point and a landing hour; the plan, finder results, pins and the 3D view all use it. */
 type ScenarioRef = { point: string; hour: number }
@@ -483,11 +491,13 @@ export default function App() {
       setIdle(false)
       const before = beforeFullscreen.current
       if (!on && before) { // back to the layout the user had
-        setSideOpen(before.side)
-        setHudOpen(before.hud)
-        setStatusOpen(before.status)
-        setBandOpen(before.band)
         beforeFullscreen.current = null
+        smooth(() => {
+          setSideOpen(before.side)
+          setHudOpen(before.hud)
+          setStatusOpen(before.status)
+          setBandOpen(before.band)
+        })
       }
     }
     document.addEventListener('fullscreenchange', onChange)
@@ -501,10 +511,12 @@ export default function App() {
     beforeFullscreen.current = { side: sideOpen, hud: hudOpen, status: statusOpen, band: bandOpen }
     document.documentElement.requestFullscreen().then(() => {
       // cinematic: the terrain gets the screen; every panel is one click away
-      setSideOpen(false)
-      setHudOpen(false)
-      setStatusOpen(false)
-      setBandOpen(false)
+      smooth(() => {
+        setSideOpen(false)
+        setHudOpen(false)
+        setStatusOpen(false)
+        setBandOpen(false)
+      })
     }, () => { beforeFullscreen.current = null })
   }
   // full screen: header and rail fade out after the pointer rests, and come back on any movement or key
@@ -660,7 +672,7 @@ export default function App() {
 
         <nav className="rail" aria-label="Tools">
           {!sideOpen && (
-            <button type="button" className="rail-button" onClick={() => setSideOpen(true)}>
+            <button type="button" className="rail-button" onClick={() => smooth(() => setSideOpen(true))}>
               <PanelLeftOpen size={18} aria-hidden="true" /><span>Plan</span>
             </button>
           )}
@@ -678,7 +690,7 @@ export default function App() {
               <section className="panel" aria-label="Plan">
                 <div className="side-head">
                   <h2>Plan</h2>
-                  <button type="button" className="icon-button" onClick={() => setSideOpen(false)} aria-label="Hide the plan panel">
+                  <button type="button" className="icon-button" onClick={() => smooth(() => setSideOpen(false))} aria-label="Hide the plan panel">
                     <PanelLeftClose size={16} aria-hidden="true" />
                   </button>
                 </div>
@@ -760,7 +772,7 @@ export default function App() {
               >
                 <div className="status-title">
                   <strong>{viewed ? `Alternative: ${viewTitle}` : `Plan: ${observer.label}`}</strong>
-                  <button type="button" className="icon-button" onClick={() => setStatusOpen(!statusOpen)} aria-expanded={statusOpen}
+                  <button type="button" className="icon-button" onClick={() => smooth(() => setStatusOpen(!statusOpen))} aria-expanded={statusOpen}
                     aria-label={statusOpen ? 'Hide the landing time and pass/fail checks' : 'Show the landing time and pass/fail checks'} title={statusOpen ? 'Hide details' : 'Show details'}>
                     {statusOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
                   </button>
@@ -776,7 +788,7 @@ export default function App() {
               </div>
               <Hud sunEl={view.now.sunEl} sunHorizon={view.sunHorizon} earthEl={view.now.earthEl} earthHorizon={view.earthHorizon}
                 lit={view.lit} link={view.link} power={view.power}
-                sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} open={hudOpen} onToggle={() => setHudOpen(!hudOpen)} />
+                sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} open={hudOpen} onToggle={() => smooth(() => setHudOpen(!hudOpen))} />
               <div className="stage-notes">
                 {levelGround && (
                   <p className="tag" data-testid="level-ground-note">
@@ -818,10 +830,6 @@ export default function App() {
                   <input type="range" min={0} max={last} value={view.t} aria-valuetext={`${date(viewStart + view.t)} UTC, landing plus ${view.t} hours`}
                     onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)) }} />
                 </label>
-                <button type="button" className="icon-button" onClick={() => setBandOpen(!bandOpen)} aria-expanded={bandOpen}
-                  aria-label={bandOpen ? 'Collapse the timeline and comparison panel' : 'Expand the timeline and comparison panel'} title={bandOpen ? 'Collapse' : 'Expand'}>
-                  {bandOpen ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronUp size={16} aria-hidden="true" />}
-                </button>
               </div>
               {/* with pins, the tray needs the band: the plan's own skyline is in its column, the rest folds away */}
               {bandOpen && (() => {
@@ -855,6 +863,13 @@ export default function App() {
               onPinView={() => { if (viewRef) togglePin(viewRef) }}
               canPinView={Boolean(viewRef && !pinnedKeys.has(refKey(viewRef)))} />}
           </section>
+        )}
+        {view && day && (
+          // one tab on the band's top edge, in the same place open or closed: up to raise the panel, down to drop it
+          <button type="button" className="band-tab" onClick={() => smooth(() => setBandOpen(!bandOpen))} aria-expanded={bandOpen}
+            aria-label={bandOpen ? 'Collapse the timeline and comparison panel' : 'Expand the timeline and comparison panel'} title={bandOpen ? 'Drop the panel' : 'Raise the panel'}>
+            {bandOpen ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronUp size={16} aria-hidden="true" />}
+          </button>
         )}
 
         <footer className="footline">

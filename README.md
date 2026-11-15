@@ -33,8 +33,8 @@ The full pipeline, from raw data to a tested app, is `make setup && make data-do
 
 The 3D view fills the window. Press *Full screen* for a projector: it goes cinematic, folding the panels away
 and fading the header and rail while the pointer rests (move the mouse or press a key to bring them back;
-leaving full screen restores your layout). The countdown panel, the plan card and the bottom panel each
-collapse with their chevron, and the bottom panel resizes by dragging its top edge (arrow keys work too;
+leaving full screen restores your layout). The countdown panel and the plan card collapse with their chevron;
+the bottom panel drops and rises with the tab on its top edge, and resizes by dragging that edge (arrow keys work too;
 double-click resets it). Choose a site and date (UTC) in
 the Plan panel on the left, drag the lunar-day scrubber or press Play, drag inside the 3D view to look
 around. Slip the date and press *Find alternatives*. Open a result: it is pinned to the *Compare* tray

@@ -153,7 +153,7 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .band-more summary:hover { color: var(--text); background: rgb(224 216 200 / 6%); }
 .band-more[open] { grid-column: 1 / -1; display: grid; gap: 0.5rem; }
 .band-more[open] summary { justify-self: end; }
-.scrub { display: grid; grid-template-columns: auto 1fr auto; gap: 0.75rem; align-items: center; font-size: 0.8rem; color: var(--dim); }
+.scrub { display: grid; grid-template-columns: auto 1fr; gap: 0.75rem; align-items: center; font-size: 0.8rem; color: var(--dim); }
 .scrub label { display: grid; gap: 0.15rem; }
 .scrub em { font-style: normal; color: var(--mute); margin-left: 0.4rem; }
 .nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; font-size: 0.78rem; }
@@ -346,8 +346,9 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .band.collapsed { grid-template-columns: minmax(0, 1fr); padding-top: 6px; padding-bottom: 6px; }
 /* the band's top edge is a resize grip: a thin bar, a visible handle on hover and focus */
 .band-grip { position: sticky; top: -10px; z-index: 2; grid-column: 1 / -1; height: 12px; margin: -10px 0 -4px; cursor: ns-resize; touch-action: none; }
-.band-grip::after { content: ''; position: absolute; left: 50%; top: 4px; width: 44px; height: 4px; margin-left: -22px; border-radius: 2px; background: var(--line-strong); transition: background 0.15s; }
-.band-grip:hover::after, .band-grip:focus-visible::after { background: var(--text); }
+/* hovering or focusing the edge lights it across the full width; the tab in the middle opens and closes */
+.band-grip::after { content: ''; position: absolute; left: 0; right: 0; top: 4px; height: 2px; background: transparent; transition: background 0.15s; }
+.band-grip:hover::after, .band-grip:focus-visible::after { background: var(--line-strong); }
 .band-grip:focus-visible { outline: none; }
 
 /* --- full screen: semi-cinematic. The view runs edge to edge under translucent chrome, a soft letterbox
@@ -369,4 +370,63 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .app.cinematic.idle { cursor: none; }
 @media (prefers-reduced-motion: reduce) {
   .app.cinematic .topbar, .app.cinematic .rail, .app.cinematic .band, .app.cinematic .over { transition: none; }
+}
+
+/* --- the band's tab: centred on its top edge, same place open or closed */
+.band-tab { grid-area: band; position: absolute; z-index: 3; top: -13px; left: 50%; width: 52px; height: 22px; margin-left: -26px; padding: 0;
+  justify-content: center; border-radius: 11px; background: var(--panel-solid); border: 1px solid var(--line-strong); color: var(--dim);
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s cubic-bezier(0.22, 1, 0.36, 1); }
+.band-tab:hover:not(:disabled) { color: var(--text); border-color: var(--mute); background: var(--raised); transform: translateY(-1px); }
+.app.cinematic.idle .band-tab { opacity: 0.35; }
+.app.cinematic .band-tab { transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), color 0.15s, transform 0.15s; }
+
+/* --- motion: short, eased out, from an already-visible state; it explains where things went */
+:root { --ease-out: cubic-bezier(0.22, 1, 0.36, 1); }
+/* panel opens and closes morph (View Transitions); each panel moves on its own */
+.band { view-transition-name: band; }
+.band-tab { view-transition-name: band-tab; }
+.hud { view-transition-name: hud; }
+.status { view-transition-name: status; }
+.side { view-transition-name: side; }
+.rail { view-transition-name: rail; }
+::view-transition-group(*) { animation-duration: 220ms; animation-timing-function: var(--ease-out); }
+::view-transition-old(*), ::view-transition-new(*) { animation-duration: 160ms; }
+::view-transition-new(side) { animation-name: slide-in-left; }
+::view-transition-old(side) { animation-name: slide-out-left; }
+@keyframes slide-in-left { from { opacity: 0; transform: translateX(-12px); } }
+@keyframes slide-out-left { to { opacity: 0; transform: translateX(-12px); } }
+
+/* things that arrive rise into place */
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+@keyframes drop { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes from-left { from { opacity: 0; transform: translateX(-10px); } }
+@keyframes from-right { from { opacity: 0; transform: translateX(10px); } }
+.drawer-left, .drawer-wide { animation: from-left 200ms var(--ease-out); }
+.drawer-right { animation: drop 200ms var(--ease-out); }
+.about[open] { animation: rise 200ms var(--ease-out); }
+.about[open]::backdrop { animation: fade 200ms var(--ease-out); }
+@keyframes fade { from { opacity: 0; } }
+.tray-col { animation: rise 260ms var(--ease-out); }
+.tray-full, .stale, .snap, .suggestion, .band-more[open] > :not(summary) { animation: rise 200ms var(--ease-out); }
+.results-panel { animation: from-right 240ms var(--ease-out); }
+.results li { animation: rise 240ms var(--ease-out) backwards; }
+.results li:nth-child(2) { animation-delay: 30ms; } .results li:nth-child(3) { animation-delay: 60ms; } .results li:nth-child(4) { animation-delay: 90ms; }
+.results li:nth-child(n + 5) { animation-delay: 120ms; }
+.tour { animation: rise 220ms var(--ease-out); }
+.hud dl:not([hidden]), .status .chips { animation: fade 200ms var(--ease-out); }
+
+/* presses answer immediately */
+button { transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.09s var(--ease-out); }
+button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
+.band-tab:active:not(:disabled) { transform: scale(0.94); }
+.matrix td button:active { transform: scale(0.9); }
+/* pinning pops the pin, so the click registers even before the tray column rises */
+.result-actions .icon-button[aria-pressed='true'] svg { animation: pop 280ms var(--ease-out); }
+@keyframes pop { 0% { transform: scale(0.6) rotate(-20deg); } 60% { transform: scale(1.18); } 100% { transform: none; } }
+.rail-button svg, .icon-button svg { transition: transform 0.18s var(--ease-out); }
+.rail-button:hover svg { transform: translateY(-1px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0s !important; transition-duration: 0.01ms !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
