@@ -278,3 +278,7 @@ The snap-note and Gemini-proposal callouts lose their yellow left bar (a design-
 ## 2026-11-15 — `/impeccable clarify` (branch `redesign/new-visual-identity`)
 
 Result titles by difference, site and time below, metrics change once; comparison labels by distance and date; thresholds on every chip (with the search's own values); HUD horizon height toward the Sun and Earth; Shackleton blurb reworded and `make data` rerun (only `sites.json` changed) (D47). Contrast fix: HUD sub-rows use `--dim`, since `--mute` is about 4.3:1 there. Tests: new `diffParts` unit test; demo and F11 tests updated to the new wording. Screenshots 1, 2 and 10 viewed. `make check` passes. Not deployed (redesign branch).
+
+## 2026-11-15 — `/impeccable delight` (branch `redesign/new-visual-identity`)
+
+Shadow display fill (D48): the slipped-date demo frame now shows the dimmed ground and distant ranges instead of black, with an in-view tag and a footer line naming it a display aid. Checked on the GPU at the slipped date and at the sunset frame, and in screenshot 3; demo test asserts the tag is absent in sunlight and present in shadow. `make check` passes. Not deployed (redesign branch).

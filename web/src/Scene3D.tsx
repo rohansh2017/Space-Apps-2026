@@ -23,6 +23,11 @@ const DETAIL_TILE_M = 12
 const MESH_N = 384 // terrain mesh quads per side
 const RING_BAND_M = 220 // lit band below the crest line on the ring (about 2 deg at 6 km)
 const RING_ALBEDO = 0.5
+// Display aid, not light: when the Sun is hidden from the observer the scene would be black (lunar shadow is),
+// so a faint fill from overhead keeps the ground's relief and the skyline readable. It fades in with the hidden
+// share of the solar disk, is named in the footer and tagged in the view, and never feeds a number.
+const SHADOW_FILL = 0.3
+const RING_SHADOW_FILL = 0.05
 const RING_TEX_U = 240 // texture repeats around the ring
 const RING_TEX_V_M = 300 // ring metres per texture repeat, vertically
 const WARP_A = 0.25 // share of linear spacing in the mesh warp: smaller = finer near the observer
@@ -246,7 +251,7 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
     for (let az = 0; az <= 360; az++) {
       // each bin's normal is one DEM-gradient sample at one crest point: smooth over +-2 deg so it reads as ranges, not a barcode
       const b = (facing(az - 2) + 2 * facing(az - 1) + 3 * facing(az) + 2 * facing(az + 1) + facing(az + 2)) / 9
-      const lit = 0.008 + RING_ALBEDO * exposure * b
+      const lit = 0.008 + RING_SHADOW_FILL * (1 - sunFraction) + RING_ALBEDO * exposure * b
       col.setXYZ(3 * az, lit, lit, lit * 1.03)
       col.setXYZ(3 * az + 1, lit * 0.45, lit * 0.45, lit * 0.47)
       col.setXYZ(3 * az + 2, 0.004, 0.004, 0.005)
@@ -258,6 +263,7 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
       <color attach="background" args={['#000']} />
       <Camera eye={eye} look={look} />
       <ambientLight intensity={0.05} />
+      <directionalLight position={[0, 5000, 0]} intensity={SHADOW_FILL * (1 - sunFraction)} />
       <directionalLight
         position={sun.clone().multiplyScalar(5000)}
         intensity={exposure * sunFraction}

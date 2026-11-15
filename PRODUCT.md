@@ -74,7 +74,8 @@ browser.
 - Every number on screen comes from the engine, never the renderer. Gemini only turns text into
   validated constraint JSON or describes engine facts, labelled as generated, with fallbacks.
 - Decoration that is not data (sub-1.5 m soil texture, ring rock texture, ground colour, Sun glare,
-  Earth's surface, star colours) must stay labelled and below the DEM's resolution.
+  Earth's surface, star colours, the shadow display fill) must stay labelled and below the DEM's
+  resolution.
 - Not a mission design, hazard, power/thermal or link-budget tool; screening grade only. The
   screening-grade statement and the non-goals must stay visible in the app.
 - No runtime network calls apart from the Gemini routes and the mission room (fonts and assets are

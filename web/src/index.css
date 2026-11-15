@@ -147,3 +147,5 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .result-title strong { font-variant-numeric: tabular-nums; }
 .result-title span { color: var(--dim); font-size: 0.8rem; }
 .hud dt.sub, .hud dd.sub { font-size: 0.76rem; color: var(--dim); } /* --mute is under 4.5:1 on the HUD */
+.fill-tag { position: absolute; right: 0.9rem; bottom: 0.9rem; margin: 0; padding: 0.3rem 0.6rem; font-size: 0.75rem; color: var(--dim);
+  background: rgb(8 10 16 / 70%); border: 1px solid rgb(255 255 255 / 10%); border-radius: 999px; pointer-events: none; }

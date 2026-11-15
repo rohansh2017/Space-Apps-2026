@@ -24,6 +24,7 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   await expect(view.locator('.chip.fail')).toHaveCount(0)
   expect(await hud()).toEqual(expectedHud(await observer()))
   await settle()
+  await expect(page.getByTestId('fill-tag')).toHaveCount(0) // sunlit: no display fill
   await page.screenshot(shot('1-plan-shackleton-rim'))
 
   // the panorama has terrain, Sun-track and Earth-track pixels
@@ -49,6 +50,7 @@ test('demo path: site, scrub to sunset, slip the date, find alternatives, open t
   await expect(view).toContainText('2026-12-01 00:00')
   await expect(view.locator('.chip.fail').first()).toBeVisible()
   await settle()
+  await expect(page.getByTestId('fill-tag')).toBeVisible() // in shadow: the brightened view is labelled
   await page.screenshot(shot('3-slipped-date-fails'))
 
   // 4. Run the finder: ranked alternatives with written differences, in under 3 s.

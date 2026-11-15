@@ -99,8 +99,9 @@ ephemeris positions. The distant mountain ranges are a ring whose outline is the
 from the real LOLA slope at each crest and the real Sun, so ranges facing the Sun light up. Invented,
 and labelled in the app: the ranges' rock texture, soil texture below the data's resolution
 (bumps and craters under about 1.5 m, so it never contradicts the LOLA relief), the ground colour, the
-Sun's glare, Earth's surface, and star colours (approximated from each star's B−V index). None of it
-feeds any number.
+Sun's glare, Earth's surface, star colours (approximated from each star's B−V index), and a faint
+overhead fill when the Sun is hidden (real lunar shadow is black; the view says when it is brightened).
+None of it feeds any number.
 
 **Synthetic data:** none in the deployed app. `make data-fixtures` can generate synthetic
 contract-shaped files for development; the app then shows a banner, and such files are never committed.

@@ -536,6 +536,9 @@ export default function App() {
                   <Hud sunEl={view.now.sunEl} sunHorizon={view.sunHorizon} earthEl={view.now.earthEl} earthHorizon={view.earthHorizon}
                     lit={view.lit} link={view.link} power={view.power}
                     sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} />
+                  {site.terrain && view.lit < 0.5 && (
+                    <p className="fill-tag" data-testid="fill-tag">In shadow · view brightened so the terrain stays visible</p>
+                  )}
                 </div>
                 {site.heightmap && Math.max(Math.abs(day.east), Math.abs(day.north)) >= site.heightmap.span_m / 2 - 20 && (
                   <p className="note" data-testid="level-ground-note">
@@ -605,8 +608,8 @@ export default function App() {
           slopes at each crest; soil texture under 1.5 m, the ranges' rock texture, the ground colour, the Sun's
           glare and Earth's surface are illustrative; stars are
           from the Yale Bright Star Catalogue at their real positions for this site and hour, with colours
-          approximated from B−V.
-          Every number comes from the engine. Data: NASA/JPL DE440, LRO LOLA (NASA GSFC PGDA), BSC5.
+          approximated from B−V. When the Sun is hidden, the view is faintly lit from overhead as a display aid;
+          real lunar shadow is black. Every number comes from the engine. Data: NASA/JPL DE440, LRO LOLA (NASA GSFC PGDA), BSC5.
         </footer>
       </main>
     </Guide.Provider>
