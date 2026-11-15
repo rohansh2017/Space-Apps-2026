@@ -310,3 +310,7 @@ Team request (D53). Fixed the Plan-panel close glitch (blurred box; stretching; 
 ## 2026-11-15 — Quiet first view and stored locations (branch `feat/quiet-first-view`)
 
 Team request (D54): default view is the Plan panel with the card, HUD and band folded; plan site, point, date and pins kept in `localStorage` and restored from the bare address. New unit and e2e tests; e2e suite unfolds panels via `expandPanels`; local test limit 60 s. `make check` passes. Not deployed (needs a PR to `main`).
+
+## 2026-11-15 — `make check-changed` (branch `feat/quiet-first-view`)
+
+Team request (D55): per-push checks limited to what the changed files can affect; full `make check` kept for merges to `main` and deploys. Verified: docs-only change → nothing runs; this branch → lint, typecheck, 1 unit-test file, all browser tests, room test (passed, 3 min 8 s). CLAUDE.md, README updated.

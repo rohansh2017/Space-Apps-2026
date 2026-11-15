@@ -126,9 +126,10 @@ contract-shaped files for development; the app then shows a banner, and such fil
 | --- | --- | --- |
 | `make test` | Python unit tests + TypeScript unit tests | ~5 s |
 | `make parity` | Python engine and TypeScript engine give the same answers | ~3 s |
-| `make e2e` | Opens the built app in headless Chromium, clicks through the demo path and every feature, saves screenshots to `web/tests/screenshots/` | ~35 s |
+| `make e2e` | Opens the built app in headless Chromium, clicks through the demo path and every feature, saves screenshots to `web/tests/screenshots/` | ~2.5 min |
 | `make e2e-room` | Starts the Worker locally (`wrangler dev`) and checks that three browsers in one mission room stay in step | ~25 s |
-| `make check` | Lint + typecheck + all of the above. **Run this before every push.** | ~90 s |
+| `make check-changed` | Only the checks the files changed since `main` can affect (docs only: nothing; Python: ruff + pytest; engines or fixtures: parity + browser tests; web code: lint, typecheck, the unit tests that import the changed files, browser tests; mission room files: the room test). `PLAN=1` prints the plan without running it. **Run this before every push.** | 0 s to ~3 min |
+| `make check` | Lint + typecheck + all of the above. **Run this before merging to `main` and before a deploy.** | ~4 min |
 | `make e2e-live` | The browser tests, mission room and Gemini included, against the deployed site | ~50 s |
 | `make validate` | Engine vs Horizons, sunlit % vs PGDA, slopes vs LOLA; rewrites `docs/VALIDATION.md`. The last two need `make data-download` | ~40 s |
 | `make perf` | Finder timing, 3D frame rate on this machine's GPU, download sizes; rewrites `docs/PERF.md` | ~40 s |

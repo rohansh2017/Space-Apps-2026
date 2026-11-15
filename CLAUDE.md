@@ -25,13 +25,13 @@ Source of truth: `Space Apps Doc.pdf` (never edit), converted to `docs/spec/SPEC
 `make setup` · `make data-download` · `make data` (real) · `make data-fixtures` (synthetic) ·
 `make test` · `make parity` · `make validate` (Horizons + PGDA illumination + LOLA slopes) · `make e2e` ·
 `make e2e-room` (mission room on a local Worker) · `make perf` ·
-`make check` (lint + typecheck + test + parity + e2e + e2e-room) · `make dev` · `make build` ·
+`make check` (lint + typecheck + test + parity + e2e + e2e-room) · `make check-changed` (only what the changes since `main` can affect; `PLAN=1` prints the plan) · `make dev` · `make build` ·
 `make deploy` (uploads `web/public/data` to R2, then publishes) · `make e2e-live` (all browser tests, room and Gemini included, against the live site).
 
 Secrets live in `.env` (gitignored): Cloudflare R2 S3 keys and `GEMINI_API_KEY`. The Worker has
 `GEMINI_API_KEY` as a secret and the R2 bucket `tranquility-base-data` bound as `DATA`.
 
-How to launch and test: `README.md`, "Launch and test". Run `make check` before every push.
+How to launch and test: `README.md`, "Launch and test". Run `make check-changed` before every push, and the full `make check` before merging to `main` and before `make deploy`.
 
 Live URL: https://tranquility-base.rohansh2017.workers.dev (Workers static assets; `/data/*` from R2 with the bundled copy as fallback).
 
@@ -80,5 +80,5 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
 - Never present synthetic data as real; `docs/VALIDATION.md` holds only command output.
 - 3D decoration that is not data (procedural soil texture below 1.5 m on every patch, the horizon ring's rock texture (its lighting is data), the ground colour, Sun glare, Earth's surface, star colours from B−V) must stay labelled and must stay below the DEM's resolution; no number may come from the renderer. Star positions and LOLA relief are data.
 - Branch `build/tranquility-base`; conventional commits; never commit `data/raw/` or files > 50 MB.
-- Push every commit straight to `origin/build/tranquility-base` once `make check` passes (team decision 2026-11-15; overrides the brief's "do not push"). Never force-push; `main` changes only through pull requests the team merges. After a push that changes the app, `make deploy` then `make e2e-live`.
+- Push every commit straight to its working branch once `make check-changed` passes (team decisions 2026-11-15; overrides the brief's "do not push"). Run the full `make check` before a branch is merged to `main` and before `make deploy`. Never force-push; `main` changes only through pull requests the team merges. After a push that changes the app, `make deploy` then `make e2e-live`.
 - After every change, update the docs it affects in the same commit: PLAN (tick), PROGRESS (append), DECISIONS (any choice or deviation), TRACEABILITY, DATA (new or derived files), README/footer (anything user-visible).
