@@ -58,6 +58,7 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
   `masks/{region}.bin`: Uint16 × 360 per point, row = `index`; elevation° = value × 0.01 − 10; bin k = azimuth k°.
   A region is one curated site's 21 × 21 grid (500 m), row-major from (−5 km, −5 km) in stereographic x/y; the site is index 220.
 - `slopes/{region}.bin`: Uint8 degrees per point, same order.
+- `ridges/{region}.bin`: Int8 × 3 per azimuth bin (360): unit normal × 127 of the horizon-forming crest seen from the region's site centre, in that site's east/north/up axes (curvature included). Lights the 3D horizon ring.
 - `sites.json`: `sites[]{id, name, lat, lon, coord_source, approximate, terrain, mission, agency, blurb, links, heightmap}`;
   `heightmap` is null for no-terrain sites, else `{file, offset_m, scale_m, size_px, span_m}`.
 - `heightmaps/{site}.png`: 16-bit greyscale over 5 × 5 km in local east/north axes, row 0 = north, col 0 = west; height m = offset_m + value × scale_m.
@@ -76,5 +77,5 @@ All binaries little-endian. All paths relative to `web/public/data/` (same paths
 
 - Smallest change that meets the spec. No speculative features or abstraction layers.
 - Never present synthetic data as real; `docs/VALIDATION.md` holds only command output.
-- 3D decoration that is not data (procedural soil texture below 1.5 m on every patch, the ground colour, Sun glare, Earth's surface, star colours from B−V) must stay labelled and must stay below the DEM's resolution; no number may come from the renderer. Star positions and LOLA relief are data.
+- 3D decoration that is not data (procedural soil texture below 1.5 m on every patch, the horizon ring's rock texture (its lighting is data), the ground colour, Sun glare, Earth's surface, star colours from B−V) must stay labelled and must stay below the DEM's resolution; no number may come from the renderer. Star positions and LOLA relief are data.
 - Branch `build/tranquility-base`; conventional commits; never commit `data/raw/` or files > 50 MB.

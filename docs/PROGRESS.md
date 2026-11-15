@@ -246,3 +246,8 @@ Success metrics: SM1 done, SM2 done (0.0007°), SM3 done (0.86 s), SM4 partial (
 ## 2026-11-15 — Soil texture back on 5 m sites (D43)
 
 Team feedback: the 5 m ground looked smooth and unrealistic. Cause: the 5 m DEM has no detail below ~5 m, and D39 had removed the procedural texture there. The texture (all features ≤ 1.5 m, below the data's resolution) is back on every patch; footer, README, CLAUDE.md and DECISIONS say so. Checked on the GPU at the Shackleton rim (screenshot viewed). Tests and deploy below.
+
+## 2026-11-15 — Apollo sites removed; lit mountain ring
+
+- Apollo 11/15/17 removed from the app (team decision, D44); still in `make validate`.
+- Distant ranges: per-azimuth crest normals from the DEM (`crest_normals`, unit-tested on a synthetic ridge and a flat sphere, and asserted against each site's mask in `make data`) light the horizon ring from the real Sun (D45); illustrative rock texture on it. Checked on the GPU at Shackleton rim (lit), Shackleton in shadow, Connecting Ridge, Nobile Rim 1; screenshots viewed.

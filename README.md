@@ -90,12 +90,14 @@ Nudges move by one grid point, not 100 m.
 Not a mission design tool (no trajectories, fuel or launch windows), not a landing hazard assessment
 (slope screening is an aid), not a power or thermal simulation (the power index is a relative number),
 not a communications link budget (geometric Earth visibility only), and not global: terrain covers
-80–90°S. Apollo 11, 15 and 17 are in the site list only to validate Sun and Earth angles.
+80–90°S. Apollo 11, 15 and 17 are not in the app; they are used only by `make validate` to check Sun and Earth angles against JPL Horizons.
 
 What the 3D view takes from data and what it invents: terrain relief is LOLA data, at 5 m for eight of
 the nine sites (PGDA site DEMs) and 20 m for IM-2 Mons Mouton; stars are the 9,096 stars of the Yale
 Bright Star Catalogue at their true positions for the site and hour; the Sun and Earth sit at their
-ephemeris positions. Invented, and labelled in the app: soil texture below the data's resolution
+ephemeris positions. The distant mountain ranges are a ring whose outline is the computed horizon and whose lighting comes
+from the real LOLA slope at each crest and the real Sun, so ranges facing the Sun light up. Invented,
+and labelled in the app: the ranges' rock texture, soil texture below the data's resolution
 (bumps and craters under about 1.5 m, so it never contradicts the LOLA relief), the ground colour, the
 Sun's glare, Earth's surface, and star colours (approximated from each star's B−V index). None of it
 feeds any number.

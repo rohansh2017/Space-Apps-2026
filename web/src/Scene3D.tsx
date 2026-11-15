@@ -21,6 +21,10 @@ const EARTH_RADIUS_KM = 6371
 // the 5 m DEM resolves, so it adds texture under the real relief and never invents a feature the data would show.
 const DETAIL_TILE_M = 12
 const MESH_N = 384 // terrain mesh quads per side
+const RING_BAND_M = 220 // lit band below the crest line on the ring (about 2 deg at 6 km)
+const RING_ALBEDO = 0.5
+const RING_TEX_U = 240 // texture repeats around the ring
+const RING_TEX_V_M = 300 // ring metres per texture repeat, vertically
 const WARP_A = 0.25 // share of linear spacing in the mesh warp: smaller = finer near the observer
 
 /** Unit vector for an azimuth/elevation in scene axes: x east, y up, -z north. */
@@ -37,6 +41,7 @@ interface Props {
   sunFraction: number // from the engine; the renderer never decides visibility
   earthDistKm: number
   sky: number[] // ICRF -> local east/north/up at this hour (engine skyMatrix)
+  ridges: Int8Array | null // horizon-crest normals (360 x 3, x 127) in the site's east/north/up axes
   stars: Float32Array // catalogue rows: ICRF unit vector, V magnitude, B-V
 }
 
@@ -94,7 +99,7 @@ function useTrail(track: Angles[], pick: (a: Angles) => [number, number], colour
 }
 
 /** First-person view from 2 m above the terrain, in local metric coordinates centred on the site. */
-function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, sky, stars }: Props) {
+function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, sky, stars, ridges }: Props) {
   const hm = site.heightmap!
   const [loaded, setLoaded] = useState<{ file: string; heights: Uint16Array } | null>(null)
   useEffect(() => {
@@ -154,25 +159,33 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
     return (h(r0, c0) * (1 - fc) + h(r0, c0 + 1) * fc) * (1 - fr) + (h(r0 + 1, c0) * (1 - fc) + h(r0 + 1, c0 + 1) * fc) * fr
   }, [heights, onPatch, east, north, cell, n, hm.span_m, hm.scale_m])
 
-  // far-field silhouette: a wall around the observer whose top edge is the horizon mask
+  // Far-field silhouette: a wall around the observer whose top edge is the horizon mask. Its shading is set per
+  // hour below from the real crest slopes (ridges), so ranges facing the Sun light up and others stay dark.
   const ring = useMemo(() => {
     const g = new THREE.BufferGeometry()
     const v: number[] = []
-    const c: number[] = []
+    const uv: number[] = []
     for (let az = 0; az <= 360; az++) {
       const [x, z] = [RING_M * Math.sin(az * RAD), -RING_M * Math.cos(az * RAD)]
       const top = RING_M * Math.tan((mask ? maskAt(mask, az) : 0) * RAD)
-      v.push(x, top, z, x, top - 220, z, x, -3000, z)
-      c.push(0.13, 0.13, 0.145, 0.035, 0.035, 0.04, 0.01, 0.01, 0.012) // a little light along the ridge line, black below
+      v.push(x, top, z, x, top - RING_BAND_M, z, x, -3000, z)
+      const u = (az / 360) * RING_TEX_U
+      uv.push(u, 0, u, RING_BAND_M / RING_TEX_V_M, u, (top + 3000) / RING_TEX_V_M)
     }
     const idx: number[] = []
     for (let i = 0; i < 360; i++)
       for (const r of [0, 1]) idx.push(3 * i + r, 3 * i + r + 1, 3 * i + r + 3, 3 * i + r + 1, 3 * i + r + 4, 3 * i + r + 3)
     g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3))
-    g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3))
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+    g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(361 * 9), 3))
     g.setIndex(idx)
     return g
   }, [mask])
+  const ringMaterial = useMemo(() => {
+    const map = regolith().map.clone() // illustrative rock texture; the lighting on it comes from the data
+    map.needsUpdate = true
+    return new THREE.MeshBasicMaterial({ vertexColors: true, map, side: THREE.DoubleSide })
+  }, [])
 
   const starGroup = useMemo(() => starField(stars, STAR_M), [stars])
   sceneMatrix(sky, starGroup.matrix)
@@ -221,6 +234,25 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
   // linear exposure shows both: flat ground lands at ~15-25% grey and the ACES tone curve rolls sunward slopes off
   // instead of clipping them to white.
   const exposure = 0.6 / Math.sin((Math.max(now.sunEl, 0.5) + 3) * RAD)
+  // Light the ring from the crest normals and the real Sun, independent of whether the observer is lit: distant
+  // peaks can be in sunshine while you stand in shadow. Cast shadows onto the crests themselves are not modelled.
+  {
+    const col = ring.attributes.color as THREE.BufferAttribute
+    const [se, sn, su] = [Math.sin(now.sunAz * RAD) * Math.cos(now.sunEl * RAD), Math.cos(now.sunAz * RAD) * Math.cos(now.sunEl * RAD), Math.sin(now.sunEl * RAD)]
+    const facing = (bin: number) => {
+      const k = (((bin % 360) + 360) % 360) * 3
+      return ridges ? Math.max(0, (ridges[k] * se + ridges[k + 1] * sn + ridges[k + 2] * su) / 127) : 0.02
+    }
+    for (let az = 0; az <= 360; az++) {
+      // each bin's normal is one DEM-gradient sample at one crest point: smooth over +-2 deg so it reads as ranges, not a barcode
+      const b = (facing(az - 2) + 2 * facing(az - 1) + 3 * facing(az) + 2 * facing(az + 1) + facing(az + 2)) / 9
+      const lit = 0.008 + RING_ALBEDO * exposure * b
+      col.setXYZ(3 * az, lit, lit, lit * 1.03)
+      col.setXYZ(3 * az + 1, lit * 0.45, lit * 0.45, lit * 0.47)
+      col.setXYZ(3 * az + 2, 0.004, 0.004, 0.005)
+    }
+    col.needsUpdate = true
+  }
   return (
     <Canvas className="scene" shadows camera={{ near: 0.5, far: 30000, fov: 60 }}>
       <color attach="background" args={['#000']} />
@@ -245,9 +277,7 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
         <primitive object={starGroup} />
         <primitive object={sunTrail} />
         <primitive object={earthTrail} />
-        <mesh geometry={ring}>
-          <meshBasicMaterial vertexColors side={THREE.DoubleSide} />
-        </mesh>
+        <mesh geometry={ring} material={ringMaterial} />
         <mesh position={sun.clone().multiplyScalar(SUN_M)}>
           <sphereGeometry args={[SUN_M * Math.tan(SUN_RADIUS_DEG * RAD), 24, 24]} />
           <meshBasicMaterial color="#fffbe8" toneMapped={false} />

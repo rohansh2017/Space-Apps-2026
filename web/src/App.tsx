@@ -473,7 +473,8 @@ export default function App() {
                 <div className="viewport">
                   {site.terrain
                     ? <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
-                        sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky!} stars={data.stars} />
+                        sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky!} stars={data.stars}
+                        ridges={regions[observer.id.split(':')[0]]?.ridges ?? null} />
                     : <p className="note empty">No terrain for this site: it is used to validate Sun and Earth angles only, so the horizon below is flat.</p>}
                   <Hud sunEl={view.now.sunEl} earthEl={view.now.earthEl} lit={view.lit} link={view.link} power={view.power}
                     sunChangeH={view.sunChangeH} earthChangeH={view.earthChangeH} />
@@ -529,8 +530,9 @@ export default function App() {
         <footer>
           Screening-grade results: 500 m search grid, 20 m terrain within 10 km and 80 m beyond. Not a
           mission design, hazard, power, thermal or link-budget tool. 3D view: terrain relief is LOLA data
-          (5 m where PGDA has a site DEM, otherwise 20 m); soil texture finer than that (bumps and craters
-          under 1.5 m), the ground colour, the Sun's glare and Earth's surface are illustrative; stars are
+          (5 m where PGDA has a site DEM, otherwise 20 m); the distant ranges' outline and lighting come from LOLA
+          slopes at each crest; soil texture under 1.5 m, the ranges' rock texture, the ground colour, the Sun's
+          glare and Earth's surface are illustrative; stars are
           from the Yale Bright Star Catalogue at their real positions for this site and hour, with colours
           approximated from B−V.
           Every number comes from the engine. Data: NASA/JPL DE440, LRO LOLA (NASA GSFC PGDA), BSC5.

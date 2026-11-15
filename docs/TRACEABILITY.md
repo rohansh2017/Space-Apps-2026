@@ -4,9 +4,9 @@ Status: todo / partial / done. `done` needs a passing test or a recorded check.
 
 | ID | Requirement (short) | Priority | Objective(s) | Implemented in | Tested by | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| F1 | Curated site list + custom lat/lon + map click, snapped to grid | M | 1 | web/src/App.tsx (locate), SiteMap.tsx, engine.ts snapToGrid | e2e p3.spec.ts (custom coordinates), metrics.test.ts | done |
+| F1 | Curated site list + custom lat/lon + map click, snapped to grid | M | 1 | web/src/App.tsx (locate), SiteMap.tsx, engine.ts snapToGrid | e2e p3.spec.ts (custom coordinates), metrics.test.ts | done (9 polar sites; Apollo 11/15/17 removed from the app, kept in validation, D44) |
 | F2 | UTC date/time picker + lunar-day scrubber, 2026–2035 | M | 2, 6 | web/src/App.tsx | e2e demo.spec.ts | done (windows past 2035 are reported, not computed) |
-| F3 | First-person 3D scene: Sun/Earth at true az/el, shadows, silhouette ring | M | 3, 5 | web/src/Scene3D.tsx, starfield.ts, regolith.ts | e2e demo.spec.ts, orientation.test.ts, screenshots 1–5 | done (5 m LOLA relief at 8 of 9 sites, real BSC5 stars; illustrative parts listed in the footer, D37–D40) |
+| F3 | First-person 3D scene: Sun/Earth at true az/el, shadows, silhouette ring | M | 3, 5 | web/src/Scene3D.tsx, starfield.ts, regolith.ts | e2e demo.spec.ts, orientation.test.ts, screenshots 1–5 | done (5 m LOLA relief at 8 of 9 sites, real BSC5 stars; illustrative parts listed in the footer, D37–D40; distant ranges lit from LOLA crest slopes, D45) |
 | F4 | HUD: elevations, lit/link status, power index, countdowns | M | 3, 4 | web/src/Hud.tsx | e2e demo.spec.ts (HUD = engine at four steps) | done |
 | F5 | Horizon panorama with Sun and Earth tracks | M | 3, 5, 6 | web/src/Panorama.tsx | e2e demo.spec.ts | done (window = one lunar day from landing) |
 | F6 | Constraint panel with presets | M | 4 | web/src/ConstraintPanel.tsx, presets.ts | e2e demo.spec.ts | done |

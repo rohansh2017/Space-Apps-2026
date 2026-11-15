@@ -78,3 +78,66 @@ def horizon_masks(lat, lon, near, near_left, near_top, near_res, far, far_left, 
                 d += max(near_res, 0.005 * d)
             masks[i, k] = np.degrees(best)
     return elev, masks
+
+
+def crest_normals(lat, lon, elev_m, near, near_left, near_top, near_res, far, far_left, far_top, far_res,
+                  eye_m=2.0, max_m=300_000.0, handover_m=10_000.0):  # fmt: skip
+    """For each of 360 azimuths from one point: the horizon-forming crest (same ray march as
+    `horizon_masks`) and the terrain's unit normal there, in the point's local east/north/up axes.
+
+    Returns (max elevation angle deg (360,), crest distance m (360,), normals (360, 3)). The normal
+    includes the Moon's curvature: a crest d away sits on ground tilted d/R away from the observer.
+    """
+    from horizonwalk.geo import site_frame
+
+    d = [near_res]
+    while d[-1] + max(near_res, 0.005 * d[-1]) <= max_m:
+        d.append(d[-1] + max(near_res, 0.005 * d[-1]))
+    d = np.array(d)
+    th = d / R
+    _, enu = site_frame(lat, lon, 0.0)
+    up, east, north = enu[2], enu[0], enu[1]
+    az = np.radians(np.arange(360))
+    t = np.sin(az)[:, None] * east + np.cos(az)[:, None] * north  # (360, 3) unit tangents
+    p = np.cos(th)[None, :, None] * up + np.sin(th)[None, :, None] * t[:, None, :]  # (360, n, 3)
+    x, y = 2 * R * p[..., 1] / (1 - p[..., 2]), 2 * R * p[..., 0] / (1 - p[..., 2])
+    flat_x, flat_y = x.ravel(), y.ravel()
+    h_near = sample(near, near_left, near_top, near_res, flat_x, flat_y).reshape(x.shape)
+    h_far = sample(far, far_left, far_top, far_res, flat_x, flat_y).reshape(x.shape)
+    h = np.where((d[None, :] < handover_m) & np.isfinite(h_near), h_near, h_far)
+    h[np.cumsum(~np.isfinite(h), axis=1) > 0] = np.nan  # the march stops where a ray leaves the DEM
+    r0, r1 = R + elev_m + eye_m, R + h
+    ang = np.arctan2(r1 * np.cos(th) - r0, r1 * np.sin(th))
+    k = np.nanargmax(np.where(np.isfinite(ang), ang, -np.inf), axis=1)
+    rows = np.arange(360)
+    cx, cy, cd = x[rows, k], y[rows, k], d[k]
+    # DEM gradient at the crest (map axes), central differences over two cells of the DEM in use there
+    normals = np.empty((360, 3))
+    for i in range(360):
+        dem, left, top, res = (
+            (near, near_left, near_top, near_res)
+            if cd[i] < handover_m
+            else (far, far_left, far_top, far_res)
+        )
+        e = 2 * res
+        sx = sample(
+            dem,
+            left,
+            top,
+            res,
+            np.array([cx[i] + e, cx[i] - e, cx[i], cx[i]]),
+            np.array([cy[i], cy[i], cy[i] + e, cy[i] - e]),
+        )
+        gx, gy = (sx[0] - sx[1]) / (2 * e), (sx[2] - sx[3]) / (2 * e)
+        if not (np.isfinite(gx) and np.isfinite(gy)):
+            gx = gy = 0.0
+        clat = 2.0 * np.degrees(np.arctan(np.hypot(cx[i], cy[i]) / (2.0 * R))) - 90.0
+        clon = np.degrees(np.arctan2(cx[i], cy[i]))
+        scale = 2.0 / (1.0 + np.sin(np.radians(-clat)))  # map distance per ground distance
+        lam = np.radians(clon)
+        dh_de = scale * (gx * np.cos(lam) - gy * np.sin(lam))
+        dh_dn = scale * (gx * np.sin(lam) + gy * np.cos(lam))
+        n_local = np.array([-dh_de, -dh_dn, 1.0])
+        _, crest_enu = site_frame(clat, clon, 0.0)
+        normals[i] = enu @ (crest_enu.T @ (n_local / np.linalg.norm(n_local)))
+    return np.degrees(ang[rows, k]), cd, normals

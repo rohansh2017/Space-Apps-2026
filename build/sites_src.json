@@ -130,45 +130,6 @@
    "links": [
     "https://pgda.gsfc.nasa.gov/products/78"
    ]
-  },
-  {
-   "id": "apollo11",
-   "name": "Apollo 11",
-   "lat": 0.67,
-   "lon": 23.47,
-   "coord_source": "Project spec (approximate)",
-   "approximate": true,
-   "terrain": false,
-   "mission": "Apollo 11",
-   "agency": "NASA",
-   "blurb": "Sun and Earth angle validation only; no terrain.",
-   "links": []
-  },
-  {
-   "id": "apollo15",
-   "name": "Apollo 15",
-   "lat": 26.13,
-   "lon": 3.63,
-   "coord_source": "Project spec (approximate)",
-   "approximate": true,
-   "terrain": false,
-   "mission": "Apollo 15",
-   "agency": "NASA",
-   "blurb": "Sun and Earth angle validation only; no terrain.",
-   "links": []
-  },
-  {
-   "id": "apollo17",
-   "name": "Apollo 17",
-   "lat": 20.19,
-   "lon": 30.77,
-   "coord_source": "Project spec (approximate)",
-   "approximate": true,
-   "terrain": false,
-   "mission": "Apollo 17",
-   "agency": "NASA",
-   "blurb": "Sun and Earth angle validation only; no terrain.",
-   "links": []
   }
  ],
  "pending": [

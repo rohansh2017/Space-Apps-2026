@@ -118,6 +118,7 @@ export async function loadDataset(): Promise<Dataset> {
 export interface Region {
   masks: Uint16Array // 360 per point, row = point index
   slopes: Uint8Array // degrees per point
+  ridges: Int8Array // 360 x 3: horizon-crest normal x 127 in the site's east/north/up axes, seen from the site centre
 }
 
 const regions = new Map<string, Promise<Region>>()
@@ -126,9 +127,10 @@ const regions = new Map<string, Promise<Region>>()
 export function loadRegion(region: string): Promise<Region> {
   let r = regions.get(region)
   if (!r) {
-    r = Promise.all([get(`masks/${region}.bin`), get(`slopes/${region}.bin`)]).then(async ([m, s]) => ({
+    r = Promise.all([get(`masks/${region}.bin`), get(`slopes/${region}.bin`), get(`ridges/${region}.bin`)]).then(async ([m, s, g]) => ({
       masks: new Uint16Array(await m.arrayBuffer()),
       slopes: new Uint8Array(await s.arrayBuffer()),
+      ridges: new Int8Array(await g.arrayBuffer()),
     }))
     regions.set(region, r)
   }

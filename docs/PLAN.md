@@ -15,6 +15,7 @@ Exit: Skyfield returns Sun and Earth directions for one hour in MOON_ME_DE440_ME
 - [x] Start downloads: LDEM_80S_20MPP_ADJ first (2.6 GB), then LDEM_80S_80MPP_ADJ, the slope map, de440s.bsp and the lunar kernels (all complete, hashes in DATA.md)
 - [x] Finalize the curated site list with a source per site (Artemis region centers, 2022 benchmarks, CLPS, Apollo 11, 15 and 17)
   - 12 sites with a source each in `build/sites_src.json`; 5 Artemis III regions deferred because no coordinate has been published (DECISIONS D17)
+  - 2026-11-15: Apollo 11, 15 and 17 removed from the app at the team's request (D44); 9 sites remain, all with terrain. They stay in `make validate`.
 
 ## P1 Engine + skeletons
 
