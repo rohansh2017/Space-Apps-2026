@@ -1,7 +1,9 @@
 import { defineConfig } from '@playwright/test'
 
-// GPU=1 runs Chromium on the machine's real GPU (macOS Metal) instead of software rendering: `make perf` uses it for the frame rate.
-const gpu = process.env.GPU ? { channel: 'chromium', launchOptions: { args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] } } : {}
+// GPU=1 runs Chromium on the machine's real GPU (Metal on macOS, Direct3D 11 on Windows, the default backend elsewhere)
+// instead of software rendering: `make perf` uses it for the frame rate.
+const angle = process.platform === 'darwin' ? ['--use-angle=metal'] : process.platform === 'win32' ? ['--use-angle=d3d11'] : []
+const gpu = process.env.GPU ? { channel: 'chromium', launchOptions: { args: [...angle, '--enable-gpu', '--ignore-gpu-blocklist'] } } : {}
 
 // BASE_URL=https://... runs the same tests against a deployed site instead of a local build (`make e2e-live`).
 const baseURL = process.env.BASE_URL ?? 'http://localhost:4173'
