@@ -134,3 +134,53 @@ test('lunar-day playback advances the scrubber and reports the frame rate', asyn
   await expect(page.getByTestId('play')).toHaveText('Play lunar day')
   expect(await hudOf(page)).toEqual(expectedHud(await observer(page)))
 })
+
+test('Moon view: orbiting the pole reports the frame time (Sun visibility baked, D74)', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  // the app's own WebGL context, to wait for the GPU after each frame (a 1-pixel read-back)
+  await page.addInitScript(() => {
+    const get = HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, options?: unknown) {
+      const ctx = get.call(this, type, options as never)
+      const w = window as unknown as { __gl?: WebGL2RenderingContext }
+      if (type === 'webgl2' && ctx && !w.__gl) w.__gl = ctx as WebGL2RenderingContext
+      return ctx
+    } as typeof get
+  })
+  await page.goto('/')
+  const moon = page.getByTestId('moon-view')
+  await expect(moon).toHaveAttribute('data-relief', 'loaded', { timeout: 30_000 })
+  await page.waitForTimeout(3000)
+  // per frame: from its start to the GPU having finished it, while the camera is dragged round the pole
+  await page.evaluate(() => {
+    const w = window as unknown as { __gl: WebGL2RenderingContext; __ms: number[]; __on: boolean }
+    w.__ms = []
+    w.__on = true
+    const px = new Uint8Array(4)
+    requestAnimationFrame(function tick(now) {
+      if (!w.__on) return
+      setTimeout(() => {
+        w.__gl.readPixels(0, 0, 1, 1, w.__gl.RGBA, w.__gl.UNSIGNED_BYTE, px)
+        w.__ms.push(performance.now() - now)
+        requestAnimationFrame(tick)
+      }, 0)
+    })
+  })
+  const box = (await moon.boundingBox())!
+  const [cx, cy] = [box.x + box.width * 0.6, box.y + box.height * 0.5]
+  await page.mouse.move(cx, cy)
+  await page.mouse.down()
+  const t0 = Date.now()
+  for (let i = 0; Date.now() - t0 < 3000; i++) await page.mouse.move(cx + 200 * Math.sin(i / 15), cy + 80 * Math.cos(i / 15))
+  await page.mouse.up()
+  const ms = await page.evaluate(() => {
+    const w = window as unknown as { __ms: number[]; __on: boolean }
+    w.__on = false
+    return w.__ms.sort((a, b) => a - b)
+  })
+  const median = ms[ms.length >> 1]
+  console.log(`PERF Moon view orbit at the pole: median ${median.toFixed(1)} ms per frame (${(1000 / median).toFixed(0)} fps) over ${ms.length} frames at 1200 x 1000`)
+  expect(ms.length).toBeGreaterThan(5)
+  expect(errors).toEqual([])
+})

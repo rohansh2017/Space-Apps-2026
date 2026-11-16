@@ -112,35 +112,112 @@ const RELIEF_GLSL = `
   uniform sampler2D rCap; uniform float hasRCap; uniform vec2 osCap; uniform float hwCap; uniform float cellCap; // the 75S cap (D71)
   uniform vec3 siteC; uniform vec3 siteE; uniform vec3 siteN; uniform float sitePx; uniform float siteSpan;
   float rg(sampler2D t, vec2 uv, vec2 os) { vec2 c = texture2D(t, uv).rg; return os.x + (c.r * 65280.0 + c.g * 255.0) * os.y; }
-  // height in metres above R of a unit MOON_ME direction: the finest loaded grid, blended over its edge; cell = its pixel size
+  // height in metres above R of a unit MOON_ME direction: the finest loaded grid, blended over its edge; cell = its pixel size.
+  // The same blend as globe -> cap -> pole -> context -> site layered coarse to fine, read fine to coarse so a grid that
+  // fully covers the point skips the coarser ones' texture reads (D74): rem is the weight the coarser grids still hold.
   float relief(vec3 me, out float cell) {
     float h = 0.0;
-    cell = cells.x;
-    if (hasRGlobe > 0.5) h = rg(rGlobe, vec2(fract(atan(me.y, me.x) / 6.2831853), 0.5 - asin(clamp(me.z, -1.0, 1.0)) / 3.1415927), osGlobe);
-    if (me.z > -0.5) return h;
-    vec2 st = 2.0 * vec2(me.y, me.x) / (1.0 - me.z);
-    vec2 uv = (st + hwCap) / (2.0 * hwCap);
-    vec2 e = min(uv, 1.0 - uv);
-    float w = hasRCap * smoothstep(0.0, 0.04, min(e.x, e.y));
-    if (w > 0.0) { h = mix(h, rg(rCap, vec2(uv.x, 1.0 - uv.y), osCap), w); cell = mix(cell, cellCap, w); }
-    uv = (st + hwPole) / (2.0 * hwPole);
-    e = min(uv, 1.0 - uv);
-    w = hasRPole * smoothstep(0.0, 0.04, min(e.x, e.y));
-    if (w > 0.0) { h = mix(h, rg(rPole, vec2(uv.x, 1.0 - uv.y), osPole), w); cell = mix(cell, cells.y, w); }
-    uv = (st - centre + hwContext) / (2.0 * hwContext);
-    e = min(uv, 1.0 - uv);
-    w = hasRCtx * smoothstep(0.0, 0.03, min(e.x, e.y));
-    if (w > 0.0) { h = mix(h, rg(rCtx, vec2(uv.x, 1.0 - uv.y), osCtx), w); cell = mix(cell, cells.z, w); }
-    if (hasRSite > 0.5) {
-      vec3 d = me - siteC;
-      float c = siteSpan / (sitePx - 1.0);
-      vec2 u3 = vec2((dot(d, siteE) * ${R_M.toFixed(1)} + siteSpan * 0.5) / c + 0.5, (siteSpan * 0.5 - dot(d, siteN) * ${R_M.toFixed(1)}) / c + 0.5) / sitePx;
-      e = min(u3, 1.0 - u3);
-      w = smoothstep(0.0, 0.03, min(e.x, e.y));
-      if (w > 0.0) { h = mix(h, rg(rSite, u3, osSite), w); cell = mix(cell, cells.w, w); }
+    float rem = 1.0;
+    cell = 0.0;
+    if (me.z <= -0.5) {
+      if (hasRSite > 0.5) {
+        vec3 d = me - siteC;
+        float c = siteSpan / (sitePx - 1.0);
+        vec2 u3 = vec2((dot(d, siteE) * ${R_M.toFixed(1)} + siteSpan * 0.5) / c + 0.5, (siteSpan * 0.5 - dot(d, siteN) * ${R_M.toFixed(1)}) / c + 0.5) / sitePx;
+        vec2 e3 = min(u3, 1.0 - u3);
+        float w = smoothstep(0.0, 0.03, min(e3.x, e3.y));
+        if (w > 0.0) { h += w * rg(rSite, u3, osSite); cell += w * cells.w; rem = 1.0 - w; }
+        if (rem <= 0.0) return h;
+      }
+      vec2 st = 2.0 * vec2(me.y, me.x) / (1.0 - me.z);
+      vec2 uv = (st - centre + hwContext) / (2.0 * hwContext);
+      vec2 e = min(uv, 1.0 - uv);
+      float w = hasRCtx * smoothstep(0.0, 0.03, min(e.x, e.y));
+      if (w > 0.0) { h += rem * w * rg(rCtx, vec2(uv.x, 1.0 - uv.y), osCtx); cell += rem * w * cells.z; rem *= 1.0 - w; }
+      if (rem <= 0.0) return h;
+      uv = (st + hwPole) / (2.0 * hwPole);
+      e = min(uv, 1.0 - uv);
+      w = hasRPole * smoothstep(0.0, 0.04, min(e.x, e.y));
+      if (w > 0.0) { h += rem * w * rg(rPole, vec2(uv.x, 1.0 - uv.y), osPole); cell += rem * w * cells.y; rem *= 1.0 - w; }
+      if (rem <= 0.0) return h;
+      uv = (st + hwCap) / (2.0 * hwCap);
+      e = min(uv, 1.0 - uv);
+      w = hasRCap * smoothstep(0.0, 0.04, min(e.x, e.y));
+      if (w > 0.0) { h += rem * w * rg(rCap, vec2(uv.x, 1.0 - uv.y), osCap); cell += rem * w * cellCap; rem *= 1.0 - w; }
+      if (rem <= 0.0) return h;
     }
+    cell += rem * cells.x;
+    if (hasRGlobe > 0.5) h += rem * rg(rGlobe, vec2(fract(atan(me.y, me.x) / 6.2831853), 0.5 - asin(clamp(me.z, -1.0, 1.0)) / 3.1415927), osGlobe);
     return h;
   }`
+
+// Visible fraction of the Sun's 0.53 degree disk over the terrain toward it (the same disk model as the engine's masks).
+// Needs RELIEF_GLSL, "const float R" and "uniform int steps".
+const SUN_GLSL = `
+    float sunVisible(vec3 me, float h0, vec3 sun, float alt, float cell) {
+      if (alt < -0.09) return 0.0; // more than 5 degrees below the level horizon: no polar peak sees it
+      vec3 dir = normalize(sun - dot(sun, me) * me);
+      float d = cell;
+      float f = pow(200000.0 / cell, 1.0 / float(max(steps - 1, 1)));
+      float best = -1.0;
+      for (int i = 0; i < 64; i++) {
+        if (i >= steps) break;
+        float c;
+        float hh = relief(normalize(me + dir * (d / R)), c);
+        best = max(best, (hh - h0 - d * d / (2.0 * R)) / d);
+        if (atan(best) > alt + 0.0047) return 0.0;
+        d *= f;
+      }
+      return clamp((alt - atan(best)) / 0.00925 + 0.5, 0.0, 1.0);
+    }`
+
+// The Sun's visibility depends on the terrain and the hour, not on the camera (D74): it is baked into textures once per
+// hour (and when a grid loads), so moving the camera only reads it back. Targets in the polar stereographic axes (centred
+// on bakeC, units of R, half-width bakeHalf) cover the 75S cap and a flown-to site's context, one in the site's own
+// east/north axes covers its 5 m heightmap, and an equirectangular one covers the whole Moon. The march stays out of the
+// main shader: compiled there it slowed every pixel even where it never ran (ANGLE on Direct3D). While the hour runs
+// (playback, scrubbing) the half-size drafts are baked, then the full size once it rests.
+const VIS = {
+  cap: [2048, 1024], // about 445 m per texel over the 75S cap, the cap and polar grids' own scale
+  ctx: [1024, 512], // 62.5 m over a flown-to site's context, the context grid's own scale
+  globe: [4096, 2048], // equirectangular, 2:1: about 2.7 km at the equator, the whole-Moon grid's own scale
+  site: [1024, 512], // about 5 m over the site's 5 x 5 km heightmap, its own scale
+}
+const DRAFT_MS = 400 // a bake this soon after the last one is a draft; the full bake follows once the hour rests
+const bakeShader = (uniforms: Record<string, THREE.IUniform>) => new THREE.ShaderMaterial({
+  uniforms: { ...uniforms, bakeC: { value: new THREE.Vector2() }, bakeHalf: { value: 1 }, bakeMode: { value: 0 } },
+  vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy * 2.0, 0.0, 1.0); }`,
+  fragmentShader: `${RELIEF_GLSL}
+    uniform vec3 sunDir; uniform int steps; uniform vec2 bakeC; uniform float bakeHalf; uniform float bakeMode; varying vec2 vUv;
+    const float R = ${R_M.toFixed(1)};
+    ${SUN_GLSL}
+    void main() {
+      vec3 me;
+      if (bakeMode > 1.5) {
+        // the site heightmap's texel (row 0 north, as the main shader's uv3 with v flipped) to its point on the sphere
+        vec2 u3 = vec2(vUv.x, 1.0 - vUv.y);
+        float c = siteSpan / (sitePx - 1.0);
+        float east = (u3.x * sitePx - 0.5) * c - siteSpan * 0.5;
+        float north = siteSpan * 0.5 - (u3.y * sitePx - 0.5) * c;
+        me = normalize(siteC + (east * siteE + north * siteN) / R);
+      } else if (bakeMode > 0.5) {
+        // u = longitude / 360 east of 0, v = 0.5 + latitude / 180 (the main shader's lookup)
+        float lon = vUv.x * 6.2831853;
+        float lat = (vUv.y - 0.5) * 3.1415927;
+        me = vec3(cos(lat) * cos(lon), cos(lat) * sin(lon), sin(lat));
+      } else {
+        vec2 st = bakeC + (vUv * 2.0 - 1.0) * bakeHalf;
+        float s = dot(st, st);
+        me = vec3(4.0 * st.y, 4.0 * st.x, s - 4.0) / (s + 4.0); // inverse south polar stereographic
+      }
+      float cell;
+      float h0 = relief(me, cell);
+      vec3 sun = vec3(sunDir.x, -sunDir.z, sunDir.y);
+      gl_FragColor = vec4(sunVisible(me, h0 + 2.0, sun, asin(clamp(dot(me, sun), -1.0, 1.0)), cell), 0.0, 0.0, 1.0);
+    }`,
+  depthTest: false,
+  depthWrite: false,
+})
 
 const globeShader = () => ({
   uniforms: {
@@ -156,6 +233,8 @@ const globeShader = () => ({
     osGlobe: { value: new THREE.Vector2() }, osPole: { value: new THREE.Vector2() }, osCtx: { value: new THREE.Vector2() }, osSite: { value: new THREE.Vector2() },
     cells: { value: new THREE.Vector4(10_000, 600, 62.5, 5) },
     exag: { value: 1 }, steps: { value: 40 }, ctxMesh: { value: 0 },
+    visCap: { value: null as THREE.Texture | null }, visCtx: { value: null as THREE.Texture | null }, visGlobe: { value: null as THREE.Texture | null },
+    visSite: { value: null as THREE.Texture | null }, hasVisCap: { value: 0 }, hasVisCtx: { value: 0 }, hasVisGlobe: { value: 0 }, hasVisSite: { value: 0 }, visHalf: { value: 1 },
     topo: { value: 0 }, contour: { value: 500 }, topoRange: { value: new THREE.Vector2(-8000, 8000) },
   },
   vertexShader: `${RELIEF_GLSL}
@@ -173,25 +252,10 @@ const globeShader = () => ({
     uniform float hwRegion; uniform vec3 sunDir; varying vec3 p; varying vec3 wpos;
     uniform sampler2D globeMap; uniform float hasGlobe; uniform sampler2D contextMap; uniform float hasContext;
     uniform sampler2D siteMap; uniform float hasSite;
+    uniform sampler2D visCap; uniform sampler2D visCtx; uniform sampler2D visGlobe; uniform sampler2D visSite;
+    uniform float hasVisCap; uniform float hasVisCtx; uniform float hasVisGlobe; uniform float hasVisSite; uniform float visHalf;
     uniform float clip; uniform float ctxMesh; uniform float capMesh; uniform int steps; uniform float topo; uniform float contour; uniform vec2 topoRange;
     const float R = ${R_M.toFixed(1)};
-    // visible fraction of the Sun's 0.53 degree disk over the terrain toward it (the same disk model as the engine's masks)
-    float sunVisible(vec3 me, float h0, vec3 sun, float alt, float cell) {
-      if (alt < -0.09) return 0.0; // more than 5 degrees below the level horizon: no polar peak sees it
-      vec3 dir = normalize(sun - dot(sun, me) * me);
-      float d = cell;
-      float f = pow(200000.0 / cell, 1.0 / float(max(steps - 1, 1)));
-      float best = -1.0;
-      for (int i = 0; i < 64; i++) {
-        if (i >= steps) break;
-        float c;
-        float hh = relief(normalize(me + dir * (d / R)), c);
-        best = max(best, (hh - h0 - d * d / (2.0 * R)) / d);
-        if (atan(best) > alt + 0.0047) return 0.0;
-        d *= f;
-      }
-      return clamp((alt - atan(best)) / 0.00925 + 0.5, 0.0, 1.0);
-    }
     void main() {
       vec3 q = normalize(p);
       vec3 me = vec3(q.x, -q.z, q.y); // three.js axes to MOON_ME
@@ -253,7 +317,18 @@ const globeShader = () => ({
         float mu0 = dot(n, sun);
         float mu = max(dot(n, eye), 0.05);
         float alt = asin(clamp(dot(me, sun), -1.0, 1.0));
-        float vis = mu0 > 0.0 ? sunVisible(me, h0 + 2.0, sun, alt, hcell) : 0.0;
+        // the Sun's visibility, baked once per hour (D74): the finest target that covers the point
+        float vis = 0.0;
+        if (mu0 > 0.0) {
+          vec2 uc = (st - centre + hwContext) / (2.0 * hwContext);
+          vec2 ub = st / (2.0 * visHalf) + 0.5;
+          vec2 ec = min(uc, 1.0 - uc);
+          vec2 eb = min(ub, 1.0 - ub);
+          if (hasVisSite > 0.5 && min(edge3.x, edge3.y) > 0.001) vis = texture2D(visSite, vec2(uv3.x, 1.0 - uv3.y)).r;
+          else if (hasVisCtx > 0.5 && min(ec.x, ec.y) > 0.001) vis = texture2D(visCtx, uc).r;
+          else if (hasVisCap > 0.5 && me.z < 0.0 && min(eb.x, eb.y) > 0.001) vis = texture2D(visCap, ub).r;
+          else vis = texture2D(visGlobe, vec2(u1, 0.5 + asin(clamp(me.z, -1.0, 1.0)) / 3.1415927)).r;
+        }
         float ls = mu0 > 0.0 ? mu0 / (mu0 + mu) : 0.0;
         // display aids (About the data): an exposure curve, and ground out of the Sun drawn dim with the basemaps' fixed
         // light (from the image's upper left at 35 degrees, relief x3), from these heights, or from the 20 m region map
@@ -365,13 +440,40 @@ function Globe({ data, hour, region, exag, topo, grids, onGrids }: {
     return [0, 1, 2, 3].map((clip) => new THREE.ShaderMaterial({ ...base, uniforms: { ...base.uniforms, clip: { value: clip } }, side: clip ? THREE.DoubleSide : THREE.FrontSide }))
   }, [])
   const material = materials[0]
-  // a software renderer (CI, old machines) gets coarser patches and a short shadow march; GPUs get the full detail
+  // a software renderer (CI, old machines) gets coarser patches and a short shadow march baked at a quarter size; GPUs get the full detail
   const gl = useThree((s) => s.gl)
   const soft = useMemo(() => {
     const ctx = gl.getContext()
     const info = ctx.getExtension('WEBGL_debug_renderer_info')
     return /swiftshader|llvmpipe|software/i.test(String(info ? ctx.getParameter(info.UNMASKED_RENDERER_WEBGL) : ctx.getParameter(ctx.RENDERER)))
   }, [gl])
+  // the Sun's visibility, baked when the hour, a grid or the flown-to site changes (D74), never when the camera moves
+  const bake = useMemo(() => {
+    const target = (w: number, h = w, wrap = false) => {
+      const t = new THREE.WebGLRenderTarget(w, h, {
+        format: THREE.RedFormat, type: THREE.UnsignedByteType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+        generateMipmaps: false, depthBuffer: false,
+      })
+      if (wrap) t.texture.wrapS = THREE.RepeatWrapping
+      return t
+    }
+    const sizes = (full: boolean) => {
+      const k = full ? 0 : 1
+      const n = (v: readonly number[]) => (soft ? v[k] / 4 : v[k]) // software renderers bake on the CPU: a quarter of each side
+      return { cap: target(n(VIS.cap)), ctx: target(n(VIS.ctx)), site: target(n(VIS.site)), globe: target(n(VIS.globe), n(VIS.globe) / 2, true) }
+    }
+    const mat = bakeShader(material.uniforms)
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat)
+    quad.frustumCulled = false
+    const scene = new THREE.Scene()
+    scene.add(quad)
+    return { full: sizes(true), draft: sizes(false), mat, quad, scene, camera: new THREE.OrthographicCamera(), key: '', at: -Infinity, drafted: false }
+  }, [material, soft])
+  useEffect(() => () => {
+    for (const set of [bake.full, bake.draft]) Object.values(set).forEach((t) => t.dispose())
+    bake.mat.dispose()
+    bake.quad.geometry.dispose()
+  }, [bake])
   const segs = soft ? 160 : 512
   // Rotated so the mesh's own poles (where its triangles pinch) sit on the lunar equator, not under the view. 1 degree
   // facets for the whole Moon (2 on software renderers); the polar caps and a site's context have dense patches (D67, D71).
@@ -391,6 +493,54 @@ function Globe({ data, hour, region, exag, topo, grids, onGrids }: {
     materials.forEach((m) => m.dispose())
   }, [geometry, polePatch, materials])
   const uniforms = useCallback(() => material.uniforms as Uniforms, [material])
+  useFrame(({ gl, invalidate: redraw }) => {
+    const u = uniforms()
+    if (u.hasRPole.value + u.hasRCap.value + u.hasRGlobe.value === 0) return
+    const tex = (t: THREE.Texture | null) => t?.uuid ?? '-'
+    const s = u.sunDir.value
+    const key = [s.x, s.y, s.z, u.steps.value, u.hasRGlobe.value, u.hasRCap.value, u.hasRPole.value, u.hasRCtx.value, u.hasRSite.value,
+      u.centre.value.x, u.centre.value.y, tex(u.rCtx.value), tex(u.rSite.value)].join(' ')
+    const now = performance.now()
+    let draft: boolean
+    if (key !== bake.key) draft = now - bake.at < DRAFT_MS // the hour is running: a quick draft, the full bake later
+    else if (bake.drafted && now - bake.at >= DRAFT_MS) draft = false // it rested: the full bake
+    else return
+    bake.key = key
+    bake.at = now
+    bake.drafted = draft
+    if (draft) setTimeout(() => redraw(), DRAFT_MS + 50)
+    const set = draft ? bake.draft : bake.full
+    const b = bake.mat.uniforms
+    const run = (target: THREE.WebGLRenderTarget, mode: 0 | 1 | 2, cx = 0, cy = 0, half = 1) => {
+      b.bakeMode.value = mode
+      b.bakeC.value.set(cx, cy)
+      b.bakeHalf.value = half
+      gl.setRenderTarget(target)
+      gl.render(bake.scene, bake.camera)
+    }
+    const prev = gl.getRenderTarget()
+    const half = u.hasRCap.value ? u.hwCap.value : u.hwPole.value
+    run(set.cap, 0, 0, 0, half)
+    run(set.globe, 1)
+    u.visCap.value = set.cap.texture
+    u.visGlobe.value = set.globe.texture
+    u.visHalf.value = half
+    u.hasVisCap.value = 1
+    u.hasVisGlobe.value = 1
+    u.hasVisCtx.value = 0
+    u.hasVisSite.value = 0
+    if (u.hasRCtx.value) {
+      run(set.ctx, 0, u.centre.value.x, u.centre.value.y, u.hwContext.value)
+      u.visCtx.value = set.ctx.texture
+      u.hasVisCtx.value = 1
+    }
+    if (u.hasRSite.value) {
+      run(set.site, 2)
+      u.visSite.value = set.site.texture
+      u.hasVisSite.value = 1
+    }
+    gl.setRenderTarget(prev)
+  })
   const invalidate = useThree((s) => s.invalidate)
   const [poleReady, setPoleReady] = useState(false)
   const [poleRelief, setPoleRelief] = useState(false)
