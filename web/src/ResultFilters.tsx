@@ -118,7 +118,7 @@ export default function ResultFilters({ id, filter: f, onChange, onClose, sites,
           const s = SLIDERS[c]
           const def = defs.find((d) => d.id === c)
           const v = thresholdOf(f, c, constraints)
-          const kept = on && s ? rows.filter((x) => meets(c, x.r, candidates[x.r.candidate], v)).length : 0
+          const kept = s ? rows.filter((x) => meets(c, x.r, candidates[x.r.candidate], v)).length : 0
           // continuous sun and dark cannot outlast the mission, so their sliders stop there (or at the current value, if beyond)
           const dur = Number(constraints.mission_duration_days)
           const cap = c === 'min_continuous_sun_days' ? dur : c === 'max_continuous_dark_hours' ? dur * 24 : Infinity
@@ -129,16 +129,22 @@ export default function ResultFilters({ id, filter: f, onChange, onClose, sites,
                 <input type="checkbox" checked={f.allPass || f.mustPass.includes(c)} disabled={f.allPass}
                   onChange={() => onChange({ ...f, mustPass: toggle(f.mustPass, c), thresholds: Object.fromEntries(Object.entries(f.thresholds).filter(([k]) => k !== c)) })} />{criterion(c)}
               </label>
-              {on && s && def && (
-                <div className="filter-slider indent" data-testid={`threshold-${c}`}>
+              {s && def && (
+                <div className={on || f.allPass ? 'filter-slider indent' : 'filter-slider indent off'} data-testid={`threshold-${c}`}>
                   <span className="filter-slider-value">
                     {thresholdText(c, v)}
                     {v !== Number(constraints[c]) && <span className="note"> · search used {fmt(Number(constraints[c]))}</span>}
                   </span>
                   <input type="range" min={def.min!} max={top} step={s.step} value={v} aria-label={`${criterion(c)} threshold`}
                     aria-valuetext={`${fmt(v)} ${s.unit}`}
-                    onChange={(e) => onChange({ ...f, thresholds: { ...f.thresholds, [c]: Number(e.target.value) } })} />
-                  <span className="note">{kept} of {rows.length} meet it</span>
+                    onChange={(e) => onChange({
+                      ...f,
+                      // moving a slider makes it filter: it ticks its criterion (from *Meets every constraint*, every criterion stays ticked)
+                      allPass: false,
+                      mustPass: f.allPass ? [...criteria] : f.mustPass.includes(c) ? f.mustPass : [...f.mustPass, c],
+                      thresholds: { ...f.thresholds, [c]: Number(e.target.value) },
+                    })} />
+                  <span className="note">{on || f.allPass ? `${kept} of ${rows.length} meet it` : `Not filtering · ${kept} of ${rows.length} would meet it`}</span>
                 </div>
               )}
             </div>
@@ -154,7 +160,7 @@ export default function ResultFilters({ id, filter: f, onChange, onClose, sites,
             {rankedOn !== null ? 'Ranked on the ticked criteria only.'
               : canFocus ? 'Rerun the search ranking on the ticked criteria only.'
                 : tuned ? 'Rerun the search with the slider values.'
-                  : 'Tick criteria to filter this list with sliders, or to rank on them alone.'}
+                  : 'Move a slider to filter this list, or tick criteria to rank on them alone.'}
             {tuned && ` Sets the Constraints panel to ${tunedText}.`}
           </span>
         </div>

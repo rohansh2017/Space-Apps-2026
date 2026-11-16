@@ -649,15 +649,19 @@ test('F32: a criterion slider filters the list without a search, and Recompute w
   const before = await page.getByTestId('finder-ms').innerText()
   await page.getByTestId('filter-toggle').click()
   const menu = page.getByTestId('results-filter')
-  await menu.getByRole('checkbox', { name: 'Max continuous darkness' }).check()
+  // every criterion's slider is there before anything is ticked; moving one ticks it
+  for (const name of ['Min continuous sunlight', 'Max continuous darkness', 'Min Earth visibility', 'Max terrain slope'])
+    await expect(menu.getByLabel(`${name} threshold`)).toBeVisible()
   const slider = menu.getByLabel('Max continuous darkness threshold')
   await expect(slider).toHaveValue('80') // starts at the search's constraint
+  await expect(menu.getByRole('checkbox', { name: 'Max continuous darkness' })).not.toBeChecked()
   const count = page.getByTestId('filter-count')
+  const total = Number((await count.innerText()).match(/of (\d+)/)![1]) // "Top 10 of N" while nothing filters
   const matches = async () => Number((await count.innerText()).match(/^(\d+) of/)![1])
-  const atDefault = await matches()
   await slider.fill('0')
+  await expect(menu.getByRole('checkbox', { name: 'Max continuous darkness' })).toBeChecked()
   await expect(menu.getByTestId('threshold-max_continuous_dark_hours')).toContainText('Dark up to 0 h')
-  expect(await matches()).toBeLessThanOrEqual(atDefault)
+  expect(await matches()).toBeLessThanOrEqual(total)
   await expect(page.getByTestId('finder-ms')).toHaveText(before) // filtered, not searched
   await expect(page.getByRole('button', { name: 'Remove filter: Dark up to 0 h' })).toBeVisible()
 
