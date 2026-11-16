@@ -2,6 +2,7 @@ import { ArrowUpDown, Globe, ListFilter, Minimize2, Pin, PinOff, RefreshCw } fro
 import type { RefObject } from 'react'
 import { useMemo, useState } from 'react'
 import Chips from './Chips'
+import type { ConstraintDef } from './data'
 import type { Constraints } from './engine/engine'
 import type { Candidate, FinderResult, Scored } from './engine/finder'
 import { CRITERIA, diffParts, relaxations } from './engine/finder'
@@ -21,7 +22,7 @@ interface Props {
   stale: boolean // constraints changed after this search
   busy: boolean
   onRerun: () => void
-  onRecompute: (only: string[] | null) => void // F31: rank on these constraints alone, or (null) on all of them again
+  onRecompute: (only: string[] | null, overrides?: Record<string, number>) => void // F31: rank on these constraints alone, or (null) on all of them again; F32: with new constraint values
   headingRef: RefObject<HTMLHeadingElement | null> // focused when a search finishes
   constraints: Constraints // the values this search ran with (they may have changed since)
   pinned: Set<string> // keys (point@hour) already in the compare tray
@@ -32,19 +33,20 @@ interface Props {
   filter: ResultFilter // F30: view filters over the ranked pool (kept in App so they survive minimizing)
   onFilter: (f: ResultFilter) => void
   onAnnounce: (text: string) => void // the app's one polite live region
+  defs: ConstraintDef[] // F32: the filter sliders' ends
 }
 
-export default function Results({ finder, candidates, opened, date, onOpen, onMoon, stale, busy, onRerun, onRecompute, headingRef, constraints, pinned, onPin, onMinimize, fresh, lead = '', filter, onFilter, onAnnounce }: Props) {
+export default function Results({ finder, candidates, opened, date, onOpen, onMoon, stale, busy, onRerun, onRecompute, headingRef, constraints, pinned, onPin, onMinimize, fresh, lead = '', filter, onFilter, onAnnounce, defs }: Props) {
   const passing = finder.results.filter((r) => r.evaluation.fails === 0).length
   const base = finder.baseline
   const [filtersOpen, setFiltersOpen] = useState(false)
   const rows = useMemo(() => rowsOf(finder.pool, candidates, finder.baseline), [finder, candidates])
   const sites = useMemo(() => [...new Set(rows.map((x) => candidates[x.r.candidate].label))].sort(), [rows, candidates])
-  const { shown, matches } = applyFilter(rows, candidates, filter)
+  const { shown, matches } = applyFilter(rows, candidates, filter, constraints)
   const active = activeCount(filter)
   const change = (f: ResultFilter) => {
     onFilter(f)
-    const n = applyFilter(rows, candidates, f).matches
+    const n = applyFilter(rows, candidates, f, constraints).matches
     onAnnounce(`${n} alternative${n === 1 ? '' : 's'} match${n === 1 ? 'es' : ''} the filters.`)
   }
   const criteria = CRITERIA.filter((k) => k !== 'landing_sun_and_earth_visible' || constraints.landing_sun_and_earth_visible)
@@ -73,7 +75,8 @@ export default function Results({ finder, candidates, opened, date, onOpen, onMo
       </div>
       {filtersOpen && (
         <ResultFilters id="results-filter" filter={filter} onChange={change} onClose={() => setFiltersOpen(false)} sites={sites}
-          criteria={criteria} maxDays={Number(constraints.slip_range_days)} rankedOn={only} busy={busy} onRecompute={onRecompute} />
+          criteria={criteria} maxDays={Number(constraints.slip_range_days)} rankedOn={only} busy={busy} onRecompute={onRecompute}
+          rows={rows} candidates={candidates} constraints={constraints} defs={defs} />
       )}
       {stale && (
         <p className="stale" data-testid="results-stale">
@@ -107,11 +110,11 @@ export default function Results({ finder, candidates, opened, date, onOpen, onMo
           </select>
         </label>
       </div>
-      <FilterPills filter={filter} onChange={change} />
+      <FilterPills filter={filter} onChange={change} constraints={constraints} />
       {!shown.length && (
         <p className="stale" data-testid="filter-empty">
           No alternatives match these filters.{' '}
-          <button type="button" onClick={() => change({ ...filter, minDays: null, maxDays: null, maxKm: null, sites: [], allPass: false, mustPass: [] })}>Clear filters</button>
+          <button type="button" onClick={() => change({ ...filter, minDays: null, maxDays: null, maxKm: null, sites: [], allPass: false, mustPass: [], thresholds: {} })}>Clear filters</button>
         </p>
       )}
       <ol className={stale ? 'results is-stale' : 'results'}>
