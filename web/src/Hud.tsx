@@ -1,7 +1,4 @@
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { useContext } from 'react'
-import { Term } from './Glossary'
-import { Guide, sunWords } from './guide'
 
 interface Props {
   sunEl: number
@@ -21,7 +18,6 @@ const span = (h: number | null) => (h === null ? '> 30 d' : h >= 24 ? `${Math.fl
 
 /** Every number here comes from the engine, never from the renderer. */
 export default function Hud({ sunEl, sunHorizon, earthEl, earthHorizon, lit, link, power, sunChangeH, earthChangeH, open, onToggle }: Props) {
-  const explorer = useContext(Guide).mode === 'explorer'
   return (
     <div className={open ? 'hud' : 'hud collapsed'} data-testid="hud">
       <button type="button" className="icon-button hud-toggle" onClick={onToggle} aria-expanded={open}
@@ -39,9 +35,9 @@ export default function Hud({ sunEl, sunHorizon, earthEl, earthHorizon, lit, lin
         </div>
       </div>
       <dl hidden={!open}>
-        <dt><Term id="Solar elevation">Solar elevation</Term></dt>
+        <dt>Solar elevation</dt>
         <dd data-testid="hud-sun-el">{sunEl.toFixed(2)}°</dd>
-        <dt className="sub"><Term id="Horizon mask">Horizon toward Sun</Term></dt>
+        <dt className="sub">Horizon toward Sun</dt>
         <dd className="sub" data-testid="hud-sun-horizon">{sunHorizon.toFixed(2)}°</dd>
         <dt>Earth elevation</dt>
         <dd data-testid="hud-earth-el">{earthEl.toFixed(2)}°</dd>
@@ -49,19 +45,11 @@ export default function Hud({ sunEl, sunHorizon, earthEl, earthHorizon, lit, lin
         <dd className="sub" data-testid="hud-earth-horizon">{earthHorizon.toFixed(2)}°</dd>
         <dt>Sun</dt>
         <dd data-testid="hud-lit" className={lit > 0 ? 'sunlit' : 'bad'}>{lit > 0 ? `Lit ${(lit * 100).toFixed(0)}%` : 'Dark'}</dd>
-        <dt><Term id="Earth link">Earth link</Term></dt>
+        <dt>Earth link</dt>
         <dd data-testid="hud-link" className={link ? 'ok' : 'bad'}>{link ? 'Link' : 'No link'}</dd>
-        <dt><Term id="Power index">Power index</Term></dt>
-        <dd data-testid="hud-power">
-          {explorer && <span className="battery" aria-hidden="true"><i style={{ width: `${Math.round(power * 100)}%` }} /></span>}
-          {power.toFixed(2)}
-        </dd>
+        <dt>Power index</dt>
+        <dd data-testid="hud-power">{power.toFixed(2)}</dd>
       </dl>
-      {explorer && open && (
-        <p className="hud-words" data-testid="hud-words">
-          {sunWords(lit)}. {link ? 'You can call home.' : 'Earth is hidden, so there is no direct link.'}
-        </p>
-      )}
     </div>
   )
 }

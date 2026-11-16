@@ -1,8 +1,7 @@
 import { Crosshair, Eye, Globe, GripVertical, Pin, PinOff, Target } from 'lucide-react'
-import { useContext, useState } from 'react'
+import { useState } from 'react'
 import Chips from './Chips'
 import type { Angles, Constraints, Evaluation, Metrics } from './engine/engine'
-import { Guide } from './guide'
 import Panorama from './Panorama'
 import Summary from './Summary'
 
@@ -46,7 +45,6 @@ const BETTER: Record<Key, 1 | -1> = { sunlitPct: 1, longestLitH: 1, longestDarkH
 /** The compare tray: up to four pinned scenarios, drawn the same way, scrubbed together, compared to one baseline, reordered by drag or Alt+arrows. */
 export default function Tray({ pinned, baseline, t, constraints, pending, stage, onView, onMoon, onUnpin, onAdopt, onSetBaseline, onMove,
   onReplace, onCancelPending, onPinView, viewPinned, canPin }: Props) {
-  const explorer = useContext(Guide).mode === 'explorer'
   const columns = pinned
   const [drag, setDrag] = useState<{ from: number; over: number | null } | null>(null)
   const base = columns.find((c) => c.key === baseline) ?? columns[0]
@@ -172,7 +170,7 @@ export default function Tray({ pinned, baseline, t, constraints, pending, stage,
           <div className="tray-labels" aria-hidden="true">
             <span />
             <span>Constraints</span>
-            {explorer ? <span className="span6" /> : ['Sunlit', 'Longest lit', 'Longest dark', 'Earth visible', 'Power index', 'Mean elevation while lit'].map((l) => <span key={l}>{l}</span>)}
+            {['Sunlit', 'Longest lit', 'Longest dark', 'Earth visible', 'Power index', 'Mean elevation while lit'].map((l) => <span key={l}>{l}</span>)}
             <span>Skyline</span>
             <span />
           </div>

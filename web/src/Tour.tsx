@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 interface Step {
@@ -8,7 +9,6 @@ interface Step {
 
 interface Props {
   steps: Step[]
-  onStep: (id: string) => void // the app reacts to a step (e.g. starts playback)
   onClose: () => void
 }
 
@@ -30,35 +30,34 @@ function SunriseContrast() {
   )
 }
 
-export default function Tour({ steps, onStep, onClose }: Props) {
+export default function Tour({ steps, onClose }: Props) {
   const [i, setI] = useState(0)
   const box = useRef<HTMLElement>(null)
   const step = steps[i]
   const last = i + 1 === steps.length
-  useEffect(() => onStep(steps[0].id), []) // eslint-disable-line react-hooks/exhaustive-deps -- fire once for the first step
   useEffect(() => box.current?.focus(), []) // the tour takes focus when it opens
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
-  const go = (n: number) => {
-    setI(n)
-    onStep(steps[n].id)
-  }
   return (
     <section className="panel tour" role="dialog" aria-label="Guided tour" data-testid="tour" ref={box} tabIndex={-1}>
-      <h2>Why is the pole so hard? · step {i + 1} of {steps.length}</h2>
+      <div className="tour-head">
+        <h2>Why is the pole so hard? · step {i + 1} of {steps.length}</h2>
+        <button type="button" className="icon-button" onClick={onClose} aria-label="Close tour (Escape)" title="Close tour">
+          <X size={15} aria-hidden="true" />
+        </button>
+      </div>
       <div aria-live="polite">
         <h3>{step.title}</h3>
         {i === 0 && <SunriseContrast />}
         <p>{step.body}</p>
       </div>
       <div className="tour-nav">
-        <button type="button" onClick={() => go(i - 1)} disabled={i === 0}>Back</button>
+        {i > 0 && <button type="button" onClick={() => setI(i - 1)}>Back</button>}
         {/* one button that changes from Next to Finish, so keyboard focus is not lost on the last step */}
-        <button type="button" className="primary" onClick={() => (last ? onClose() : go(i + 1))}>{last ? 'Finish' : 'Next'}</button>
-        <button type="button" onClick={onClose} aria-label="Close tour (Escape)">Close</button>
+        <button type="button" className="primary" onClick={() => (last ? onClose() : setI(i + 1))}>{last ? 'Finish' : 'Next'}</button>
       </div>
     </section>
   )

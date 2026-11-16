@@ -81,34 +81,30 @@ test('F14: nudging the plan by one grid step or one day marks what changed', asy
   await expect(view).toContainText('2026-11-19 00:00 UTC landing')
 })
 
-test('F13: the Explorer tour walks three steps and starts playback on step 2', async ({ page }) => {
+test('F13: the logo opens the tour, which walks three steps without starting playback', async ({ page }) => {
   await page.goto('/')
   await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan:')
-  await expect(page.getByRole('button', { name: 'Start tour' })).toHaveCount(0) // Planner mode has no tour
-  await page.getByRole('button', { name: 'Explorer' }).click()
-  await page.getByRole('button', { name: 'Start tour' }).click()
+  await expect(page.getByRole('button', { name: 'Explorer' })).toHaveCount(0) // Planner only (D77)
+  await page.getByTestId('logo-tour').click()
   const tour = page.getByTestId('tour')
   await expect(tour).toContainText('step 1 of 3')
   await expect(tour).toContainText('On Earth, the Sun climbs')
-  await expect(tour.locator('svg')).toBeVisible()
+  await expect(tour.getByRole('img', { name: /^Sketch/ })).toBeVisible()
+  await expect(tour.getByRole('button', { name: 'Back' })).toHaveCount(0) // no Back on step 1
+  await expect(tour.getByRole('button', { name: 'Close tour (Escape)' })).toBeVisible()
   await expect(page.getByTestId('play')).toHaveText('Play lunar day')
   await tour.getByRole('button', { name: 'Next' }).click()
   await expect(tour).toContainText('step 2 of 3')
-  await expect(page.getByTestId('play')).toHaveText('Pause') // playback started
+  await expect(tour.getByRole('button', { name: 'Back' })).toBeVisible()
+  await expect(page.getByTestId('play')).toHaveText('Play lunar day') // the tour never starts playback
   await page.waitForTimeout(1500)
   await page.screenshot(shot('12-tour-step-2'))
   await tour.getByRole('button', { name: 'Next' }).click()
   await expect(tour).toContainText('step 3 of 3')
-  await expect(page.getByTestId('play')).toHaveText('Play lunar day') // playback paused for the last step
   await expect(tour.getByRole('button', { name: 'Next' })).toHaveCount(0)
   await tour.getByRole('button', { name: 'Finish' }).click()
   await expect(tour).toHaveCount(0)
-  // switching back to Planner closes an open tour
-  await page.getByRole('button', { name: 'Start tour' }).click()
-  await expect(page.getByTestId('tour')).toBeVisible()
-  await page.getByRole('button', { name: 'Planner' }).click()
-  await expect(page.getByTestId('tour')).toHaveCount(0)
 })
 
 test('F21: a typed requirement fills the panel only after the user confirms, and bad values are rejected', async ({ page }) => {
@@ -265,7 +261,7 @@ test('F29: "slipped by 11 days, stay near the rim" moves the landing 11 days fro
   expect(calls).toEqual(['copilot', 'copilot', 'copilot', 'copilot']) // one call per press
 })
 
-test('F17: the URL carries site, point, date, constraints and mode, and reopens to the same state', async ({ page, context }) => {
+test('F17: the URL carries site, point, date, constraints and pins, and reopens to the same state', async ({ page, context }) => {
   await page.goto('/')
   await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan: Shackleton rim')
@@ -273,12 +269,10 @@ test('F17: the URL carries site, point, date, constraints and mode, and reopens 
   await page.getByRole('button', { name: '500 m E' }).click()
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
   await page.getByLabel('Max continuous darkness').fill('60')
-  await page.getByRole('button', { name: 'Explorer' }).click()
   await expect(page).toHaveURL(/site=connecting-ridge/)
   await expect(page).toHaveURL(/point=\d+/)
   await expect(page).toHaveURL(/t=2026-12-01T00%3A00Z/)
   await expect(page).toHaveURL(/c=max_continuous_dark_hours%3A60/)
-  await expect(page).toHaveURL(/mode=explorer/)
   const state = await observer(page)
   await page.getByRole('button', { name: 'Copy link' }).click()
   await expect(page.getByText('Link copied')).toBeVisible()
@@ -289,7 +283,6 @@ test('F17: the URL carries site, point, date, constraints and mode, and reopens 
   await expect(again.getByTestId('view')).toContainText('Plan: Connecting Ridge (Barker Site 01), custom point')
   await expect(again.getByTestId('view')).toContainText('2026-12-01 00:00 UTC landing')
   await expect(again.getByLabel('Max continuous darkness')).toHaveValue('60')
-  await expect(again.getByRole('button', { name: 'Explorer' })).toHaveAttribute('aria-pressed', 'true')
   expect((await observer(again)).point).toBe(state.point)
   expect(await hudOf(again)).toEqual(expectedHud(await observer(again)))
 })
@@ -429,7 +422,6 @@ test('the first view is quiet, and locations survive a reload from the bare addr
   await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
   await expandPanels(page)
   await page.getByRole('button', { name: 'Pin this view' }).click()
-  await page.getByRole('button', { name: 'Explorer' }).click()
   const stored = await page.evaluate(() => localStorage.getItem('tranquility-base:locations'))
   expect(stored).toContain('site=connecting-ridge')
   expect(stored).toContain('pins=connecting-ridge%3A220%40')
@@ -440,7 +432,6 @@ test('the first view is quiet, and locations survive a reload from the bare addr
   await expect(page.getByTestId('view')).toContainText('2026-12-01 00:00 UTC landing')
   await expect(page.getByTestId('tray-pin')).toHaveCount(1) // restored from storage, not re-pinned
   await expect(page.getByRole('button', { name: 'Unpin this view' })).toBeEnabled() // what is in view is that pin
-  await expect(page.getByRole('button', { name: 'Planner' })).toHaveAttribute('aria-pressed', 'true') // mode is not stored
 })
 
 test('the tray starts empty; any column can be the baseline the others are compared to', async ({ page }) => {

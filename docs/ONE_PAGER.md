@@ -34,7 +34,7 @@ At the lunar south pole, low Sun and Earth angles make local terrain decisive: a
 
 ## 5. What it is and how it works
 
-An orbitable Moon view shows site pins and sunlight/Earth maps. Zoom down and stand on LOLA terrain in 3D. The HUD, 360° horizon, playback, ranked finder, scenario matrix and comparison tray explain results in Planner and Explorer modes.
+An orbitable Moon view shows site pins and sunlight/Earth maps. Zoom down and stand on LOLA terrain in 3D. The HUD, 360° horizon, playback, ranked finder, scenario matrix and comparison tray explain results; clicking the logo opens a three-step tour of why the pole is hard.
 
 Python precomputes the data. React, TypeScript, Three.js and a Web Worker handle visualization and search; 5,000 candidate points across a 60-day range took 856 ms in a measured run. Cloudflare Workers host the app; R2 serves regional data. **Code:** https://github.com/rohansh2017/Space-Apps-2026
 
@@ -44,7 +44,7 @@ Stand at a point to see why it passes or fails; the view and metrics share one e
 
 ## 7. How you will present
 
-We will give a virtual three-minute presentation with slides and a working screen-share demo. We will start at the Shackleton rim and move through time to show the Sun setting behind a ridge. Then we will slip the landing date, use the finder to identify a backup, and inspect that alternative in 3D. We will close by showing Explorer mode and the validation results.
+We will give a virtual three-minute presentation with slides and a working screen-share demo. We will start at the Shackleton rim and move through time to show the Sun setting behind a ridge. Then we will slip the landing date, use the finder to identify a backup, and inspect that alternative in 3D. We will close by showing the validation results.
 
 ## Special awards
 
