@@ -272,7 +272,7 @@ test('Moon view: finder results and tray pins are marked, and a pinned scenario 
   await page.screenshot(shot('20-moon-alternative'))
 })
 
-test('D75: the other sites stand on the skyline in 3D, one click stands there, and one Sites toggle hides them in every view', async ({ page }) => {
+test('D75: the other sites stand on the skyline in 3D, one click stands there; Sites hides them there, never in the Moon view', async ({ page }) => {
   test.setTimeout(150_000) // looking around the 3D view on software WebGL is slow
   await page.goto('/')
   await expect(page.getByTestId('moon-view')).toBeVisible()
@@ -300,15 +300,18 @@ test('D75: the other sites stand on the skyline in 3D, one click stands there, a
   await shown.dispatchEvent('click') // the camera's damping keeps it drifting for seconds on software WebGL
   await expect(page.getByTestId('view')).toContainText(`Plan: ${name}`)
   await expect(page.getByTestId('stage-pole')).toBeVisible()
-  // Sites off: no pins on the skyline; back at the Moon only the focused site's pin stays; the choice survives a reload
+  // Sites off: no pins on the skyline; the Moon view still shows every site's pin; the choice survives a reload
   await page.getByTestId('stage-sites').click()
   await expect(page.getByTestId('stage-sites')).toHaveAttribute('aria-pressed', 'false')
   await expect(pins).toHaveCount(0)
   await page.getByTestId('stage-pole').click()
-  await expect(page.locator('.moon-pin-wrap')).toHaveCount(1)
-  await page.reload()
-  await expect(page.getByTestId('moon-sites')).toHaveAttribute('aria-pressed', 'false')
-  await expect(page.locator('.moon-pin-wrap')).toHaveCount(1)
-  await page.getByTestId('moon-sites').click()
   await expect(page.locator('.moon-pin-wrap')).toHaveCount(9)
+  await expect(page.getByTestId('moon-sites')).toHaveCount(0)
+  await page.reload()
+  await expect(page.locator('.moon-pin-wrap')).toHaveCount(9)
+  await page.getByTestId('moon-stand').click()
+  await expect(page.getByTestId('stage-sites')).toHaveAttribute('aria-pressed', 'false')
+  await expect(pins).toHaveCount(0)
+  await page.getByTestId('stage-sites').click()
+  await expect(pins).toHaveCount(8)
 })

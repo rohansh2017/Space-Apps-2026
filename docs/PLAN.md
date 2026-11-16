@@ -127,7 +127,7 @@ Goal: rapid, intuitive comparison of several scenarios, in full screen. Run thro
 - [x] Moon view in 3D: LOLA relief raised with a Height slider, lit by the real Sun with terrain shadows; Topo layer with contour lines (D67, D68)
 - [x] Moon view: sharp terrain out to 75°S (LOLA 75°S DEM), a finer whole-Moon grid, Height ×1 by default (D71)
 - [x] Moon view: smooth camera movement, the Sun's visibility baked once per hour (D74)
-- [x] The other sites on the standing view's skyline (one click stands there); a *Sites* toggle for both views (D75)
+- [x] The other sites on the standing view's skyline (one click stands there), with a *Sites* toggle there; the Moon view always shows its pins (D75)
 - [ ] Adapt (phones)
 - [x] Polish from the test screenshots (2026-11-15)
 - [x] Critique against the comparison objective (25/40); its three P1s fixed: tray fits a 720p full screen, tray reads as a table, *Make this the plan* (D50)

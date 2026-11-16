@@ -57,7 +57,8 @@ const writeLocations = (v: string) => { try { window.localStorage.setItem(LOCATI
 const FIRST_PARAMS = new URLSearchParams(window.location.search)
 const readOnboarded = () => { try { return window.localStorage.getItem(ONBOARDED_KEY) === '1' } catch { return false } }
 const writeOnboarded = () => { try { window.localStorage.setItem(ONBOARDED_KEY, '1') } catch { /* asked again next visit */ } }
-// D75: the Sites toggle (the other sites' pins in the Moon and standing views) is remembered per viewer, never shared
+// D75: the standing view's Sites toggle (the other sites' pins on its skyline) is remembered per viewer, never shared;
+// the Moon view always shows every site's pin
 const SITES_KEY = 'tranquility-base:sites'
 const readShowSites = () => { try { return window.localStorage.getItem(SITES_KEY) !== 'off' } catch { return true } }
 const writeShowSites = (on: boolean) => { try { window.localStorage.setItem(SITES_KEY, on ? 'on' : 'off') } catch { /* this visit only */ } }
@@ -945,7 +946,6 @@ export default function App() {
               marker={observer ? pointById.get(observer.id) ?? null : null} draggable={!viewed} pins={moonPins} grid={moonGrid} badges={moonBadges}
               constraints={constraints} sunEl={(onGrid?.now ?? poleAngles!).sunEl} earthEl={(onGrid?.now ?? poleAngles!).earthEl}
               onSite={flyToSite} onBack={backToPole} onPick={pickOnMoon} onNudge={nudge} onStand={standHere} onStandAt={standAt}
-              showSites={showSites} onToggleSites={toggleSites}
               onPin={() => { if (viewRef) { togglePin(viewRef); setBandOpen(true) } }} viewPinned={viewPinned} canPin={Boolean(viewRef)} sky={moonSky} host={overlays}>
               {/* invariant 9: the snap note stays in sight when the Plan panel and the map are closed */}
               {snapNote && !sideOpen && <p className="tag" role="status" data-testid="snap-note">{snapNote}</p>}

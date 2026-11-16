@@ -532,8 +532,7 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
 .moon-exag { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--dim); }
 .moon-exag input { width: 5.5rem; accent-color: var(--text); }
 .moon-exag-value { min-width: 2.2em; color: var(--text); font-variant-numeric: tabular-nums; }
-@media (max-width: 600px) { .moon-exag { display: none; } }
-@media (max-width: 600px) { .moon-sites span { display: none; } } /* icon only on phones: the bar stays clear of the pins (D75) */ /* phones keep x1; the bar stays clear of the pins (PLAN: Adapt) */
+@media (max-width: 600px) { .moon-exag { display: none; } } /* phones keep x1; the bar stays clear of the pins (PLAN: Adapt) */
 .moon-topo { pointer-events: auto; padding: 0.3rem 0.6rem; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; text-align: center; text-wrap: pretty; font-variant-numeric: tabular-nums; }
 .moon-topo .legend i.topo-ramp { width: 5rem; background: linear-gradient(90deg, #2b1c54, #cbc2f3); }
 .tray-letter { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; margin-right: 0.35rem; border-radius: 4px; background: var(--text); color: #141416; font-size: 0.68rem; font-weight: 700; vertical-align: 1px; }
