@@ -2,6 +2,8 @@
 
 **A lunar south-pole landing site navigator** · NASA Space Apps 2026 · *Lunar Landing Site Navigator* challenge
 
+**Winner at NASA Space Apps NYC 2026: Best Use of Code & Technology and Best Use of Gemini.** Built by a team of four.
+
 **▶ Live: [tranquility-base.rohansh2017.workers.dev](https://tranquility-base.rohansh2017.workers.dev)**
 
 Pick a site and a landing time, stand on the real LRO LOLA terrain in 3D, and see the Sun and Earth exactly where they
