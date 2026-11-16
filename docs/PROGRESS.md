@@ -431,3 +431,7 @@ Team request: the Moon view's site pins in the standing view too, and a show/hid
 ## 2026-11-15 — *Sites* toggle in the standing view only (D75) (branch `redesign/new-visual-identity`)
 
 Team feedback: turning the pins off on the ground also hid them in the Moon view. The team asked for the Moon view (pole and site level) to show its pins at all times. Removed the Moon view's *Sites* button and its filter; the toggle now lives only in the standing view. Updated the D75 e2e test: Sites off on the ground leaves all 9 Moon pins, the choice survives a reload, and turning it back on restores the 8 skyline pins.
+
+## 2026-11-15 — Quick tour tests (F28) (branch `redesign/new-visual-identity`)
+
+Team request: fix the quick tour. The tour's code was not broken. Its two failing tests failed on timing under software WebGL. (1) The *find* step ends when the search does, which loads every region first. The test allowed 15 s; under load, or with the per-pixel shadow march before D74, the search took longer. The test now allows 40 s for that step. (2) "Opens by itself… never over a shared link" opens the shared link in a fresh browser context, which loads every file cold; the default 5 s timed out once in three runs beside another browser. It now allows 20 s. Results: onboarding specs 12 out of 12 over three repeats with 2 workers, and 4 out of 4 against the live site (tour steps 3.2 + 1.0 + 3.7 + 8.1 s in software WebGL).
