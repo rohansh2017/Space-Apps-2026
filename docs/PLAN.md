@@ -126,6 +126,7 @@ Goal: rapid, intuitive comparison of several scenarios, in full screen. Run thro
 - [x] Stars on the Moon view, Pole button everywhere, fewer clicks, Map drawer folded into the Moon view (D61); 20 m context maps around each site (D62)
 - [x] Moon view in 3D: LOLA relief raised with a Height slider, lit by the real Sun with terrain shadows; Topo layer with contour lines (D67, D68)
 - [x] Moon view: sharp terrain out to 75°S (LOLA 75°S DEM), a finer whole-Moon grid, Height ×1 by default (D71)
+- [x] Ground view: the search grid's dots stay visible in the Moon view's colours, a click stands on a dot, *Dots* toggle (D74)
 - [ ] Adapt (phones)
 - [x] Polish from the test screenshots (2026-11-15)
 - [x] Critique against the comparison objective (25/40); its three P1s fixed: tray fits a 720p full screen, tray reads as a table, *Make this the plan* (D50)

@@ -419,3 +419,8 @@ Team request (D73): a recompute button in the filter menu for criteria the user 
 ## 2026-11-15 — Merged main; deployed alternatives filters and recompute (F30, F31) (branch `build/tranquility-base`)
 
 Merged `origin/main` (Moon view sharp terrain out to 75°S, Height ×1, main's D71). Only DECISIONS and PROGRESS conflicted; both sides were kept, and the filter and recompute decisions were renumbered D72 and D73 because main had used D71. `make check`: lint, typecheck, Python (30), 121 + 46 unit tests and parity passed; 35 browser tests passed and 2 quick-tour tests failed under load (the full walk timed out; the phone test missed an element). The whole onboarding spec passed alone (4 of 4), and `make e2e-room` passed. Deployed at the team's request (version 705d1676). `make e2e-live`: 40 passed, 1 failed (the quick tour's full walk, a 60 s timeout again); rerun alone against the live site it passed (actions 9.5 s), as did F30 and F31.
+
+## 2026-11-15 — Ground view: the search grid's dots (D74) (branch `feat/ground-dots`)
+
+Team request: keep the Moon view's grid dots visible when standing on the ground, clickable to move there without leaving the ground view, with a toggle beside *Pole* and *Pin* that starts on. `Scene3D` gained a 2D dot canvas projected each frame (`DotLayer`), hover tooltip and click-to-stand; `App` shares the colour layer between both views, keeps the grid computed on the ground while dots are on, and adds *Dots*. Test: a new `moon.spec.ts` case (dots drawn, tooltip numbers, a click stands on the dot with the HUD equal to the engine's, the toggle hides and shows them); screenshot `29-ground-dots`.
+

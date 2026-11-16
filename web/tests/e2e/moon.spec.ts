@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { expandPanels, expectedHud, expectedPole, shot } from './hud'
+import { expandPanels, expectedHud, expectedPole, shot, standOnTheGround } from './hud'
 
 const observer = (page: Page) => page.getByTestId('view').evaluate((el: HTMLElement) => ({ ...el.dataset }) as Record<string, string>)
 const centreOf = async (page: Page, testId: string) => {
@@ -270,4 +270,38 @@ test('Moon view: finder results and tray pins are marked, and a pinned scenario 
   expect(await page.getByTestId('view').getAttribute('data-point')).toBe(before)
   await page.waitForTimeout(600)
   await page.screenshot(shot('20-moon-alternative'))
+})
+
+// D74: the search grid stays on the ground, in the Moon view's colours; a click on a dot stands there; a toggle hides it
+test('Ground view: the search grid dots, a click to stand on one, and their toggle', async ({ page }) => {
+  test.slow()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto('/')
+  await standOnTheGround(page)
+  const toggle = page.getByTestId('stage-dots')
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true') // on at every start
+  const dots = page.getByTestId('ground-dots')
+  await expect.poll(async () => Number(await dots.getAttribute('data-count')), { timeout: 15000 }).toBeGreaterThan(20)
+  await expect.poll(async () => (await dots.getAttribute('data-sample')) ?? '').not.toBe('')
+  await page.screenshot(shot('29-ground-dots'))
+
+  // the dot's tooltip carries the engine's numbers; a click (not a drag) stands on it, still on the ground
+  const [index, x, y] = (await dots.getAttribute('data-sample'))!.split(',').map(Number)
+  const stage = (await page.locator('.stage').boundingBox())!
+  await page.mouse.move(stage.x + x, stage.y + y)
+  await expect(page.getByTestId('ground-dot-tip')).toContainText(/Sunlit \d+\.\d% · Earth \d+\.\d% · longest dark \d+ h/)
+  await page.mouse.click(stage.x + x, stage.y + y)
+  await expect.poll(async () => (await observer(page)).point).toBe(`change7-shackleton-rim:${index}`)
+  await expect(page.getByTestId('moon-view')).toHaveCount(0)
+  expect({ sunEl: await page.getByTestId('hud-sun-el').textContent(), earthEl: await page.getByTestId('hud-earth-el').textContent(), lit: await page.getByTestId('hud-lit').textContent() })
+    .toEqual(expectedHud(await observer(page)))
+
+  // the toggle hides the dots and shows them again
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await expect(dots).toHaveCount(0)
+  await toggle.click()
+  await expect(dots).toHaveCount(1)
+  expect(errors).toEqual([])
 })

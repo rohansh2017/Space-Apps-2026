@@ -1,11 +1,15 @@
 import { OrbitControls } from '@react-three/drei'
-import { Canvas, useThree } from '@react-three/fiber'
-import { memo, useEffect, useMemo, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { Site } from './data'
 import { loadHeightmap } from './data'
 import type { Angles } from './engine/engine'
 import { SUN_RADIUS_DEG, maskAt } from './engine/engine'
+import type { GridStats } from './moon'
+import type { Layer } from './MoonView'
+import { BAD, Numbers, OK } from './MoonView'
+import { EARTH_RAMP, SUN_RAMP, colour } from './ramp'
 import { regolith } from './regolith'
 import { sceneMatrix, starField } from './starfield'
 
@@ -48,6 +52,38 @@ interface Props {
   sky: number[] // ICRF -> local east/north/up at this hour (engine skyMatrix)
   ridges: Int8Array | null // horizon-crest normals (360 x 3, x 127) in the site's east/north/up axes
   stars: Float32Array // catalogue rows: ICRF unit vector, V magnitude, B-V
+  dots: GroundDot[] | null // the 500 m search grid (D74); null = hidden
+  grid: GridStats | null // the engine's per-point results that colour the dots
+  layer: Layer // Verdict, Sunlight or Earth, as on the Moon view
+  here: number | null // the observer's own grid index (not drawn: it is underfoot)
+  onDot: ((index: number) => void) | null // stand on a dot; null while an alternative is on show
+}
+
+/** A grid point in the scene's site-centred metres; `up` is its LOLA height above the observer's ground. */
+export interface GroundDot {
+  index: number
+  east: number
+  north: number
+  up: number
+  lat: number
+  lon: number
+}
+interface OnScreen { index: number; x: number; y: number; r: number }
+
+/** Dots within this many pixels of the pointer can be hovered or clicked. */
+const HIT_PX = 5
+const v = new THREE.Vector3() // scratch for projecting dots
+/** The dot nearest the pointer, or null; overlapping dots go to the one nearer the camera (drawn last, on top). */
+function hit(screen: OnScreen[], x: number, y: number): OnScreen | null {
+  let best: OnScreen | null = null
+  for (const d of screen) if (Math.hypot(d.x - x, d.y - y) <= d.r + HIT_PX) best = d
+  return best
+}
+
+/** Repaints the dots' 2D canvas after every frame, with the frame's camera (D74). */
+function DotLayer({ paint }: { paint: (camera: THREE.Camera, size: { width: number; height: number }) => void }) {
+  useFrame(({ camera, size }) => paint(camera, size))
+  return null
 }
 
 function Camera({ eye, look }: { eye: THREE.Vector3; look: THREE.Vector3 }) {
@@ -104,7 +140,74 @@ function useTrail(track: Angles[], pick: (a: Angles) => [number, number], colour
 }
 
 /** First-person view from 2 m above the terrain, in local metric coordinates centred on the site. */
-function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, sky, stars, ridges }: Props) {
+function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, sky, stars, ridges, dots, grid, layer, here, onDot }: Props) {
+  // grid dots (D74): their screen positions from the last frame, the hovered one, and where a press started
+  const dotCanvas = useRef<HTMLCanvasElement>(null)
+  const onScreen = useRef<OnScreen[]>([])
+  const pressedAt = useRef<[number, number] | null>(null)
+  const [hover, setHover] = useState<{ index: number; x: number; y: number; up: boolean } | null>(null)
+  const showDots = Boolean(dots && grid)
+  /**
+   * The search grid's dots over the 3D view (D74), drawn like the Moon view's: Verdict is solid green (meets every
+   * constraint) or a hollow red ring, Sunlight and Earth fill each dot from the engine's per-point %. Projected every
+   * frame onto a 2D canvas, far dots first, sized by distance, and drawn through hills so every dot stays in reach.
+   */
+  const hoverIndex = hover?.index ?? null
+  const paintDots = useCallback((camera: THREE.Camera, size: { width: number; height: number }) => {
+    if (!dots || !grid) return
+    const cv = dotCanvas.current
+    if (!cv) return
+    const dpr = Math.min(2, window.devicePixelRatio || 1)
+    const [w, h] = [Math.round(size.width * dpr), Math.round(size.height * dpr)]
+    if (cv.width !== w || cv.height !== h) [cv.width, cv.height] = [w, h]
+    const g = cv.getContext('2d')!
+    g.setTransform(dpr, 0, 0, dpr, 0, 0)
+    g.clearRect(0, 0, size.width, size.height)
+    const out: OnScreen[] = []
+    const far = dots.map((d) => ({ d, dist: v.set(d.east, d.up, -d.north).distanceTo(camera.position) })).sort((a, b) => b.dist - a.dist)
+    for (const { d, dist } of far) {
+      if (d.index === here) continue
+      v.set(d.east, d.up, -d.north).project(camera)
+      if (v.z < -1 || v.z > 1 || Math.abs(v.x) > 1.02 || Math.abs(v.y) > 1.02) continue // behind the camera or off screen
+      const [x, y] = [(v.x * 0.5 + 0.5) * size.width, (0.5 - v.y * 0.5) * size.height]
+      const r = Math.min(10, Math.max(4, 5000 / dist)) // 10 px at 500 m, 4 px from 1.25 km
+      const verdict = grid.verdicts[d.index]
+      g.beginPath()
+      g.arc(x, y, r, 0, 2 * Math.PI)
+      g.lineWidth = Math.max(1.2, r * 0.3) + 1.5 // a dark halo keeps dots readable on sunlit ground
+      g.strokeStyle = 'rgb(5 6 8 / 55%)'
+      g.stroke()
+      if (layer !== 'verdict') {
+        g.fillStyle = layer === 'sun' ? colour(grid.sun[d.index], 100, SUN_RAMP) : colour(grid.earth[d.index], 100, EARTH_RAMP)
+        g.fill()
+      } else if (verdict && verdict.evaluation.fails === 0) {
+        g.fillStyle = OK
+        g.fill()
+      } else {
+        // pass = solid, fail = hollow: the shape carries it, not only the colour
+        g.lineWidth = Math.max(1.2, r * 0.3)
+        g.strokeStyle = verdict ? BAD : 'rgb(236 232 225 / 40%)'
+        g.stroke()
+      }
+      if (d.index === hoverIndex) {
+        g.beginPath()
+        g.arc(x, y, r + 3, 0, 2 * Math.PI)
+        g.lineWidth = 1.5
+        g.strokeStyle = '#ece8e1'
+        g.stroke()
+      }
+      out.push({ index: d.index, x, y, r })
+    }
+    onScreen.current = out
+    // for the browser tests: how many dots are drawn, and the nearest one in the middle of the view
+    cv.dataset.count = String(out.length)
+    const mid = out.filter((d) => Math.abs(d.x - size.width / 2) < size.width * 0.3 && Math.abs(d.y - size.height / 2) < size.height * 0.3)
+    cv.dataset.sample = mid.length ? `${mid[mid.length - 1].index},${mid[mid.length - 1].x.toFixed(0)},${mid[mid.length - 1].y.toFixed(0)}` : ''
+  }, [dots, grid, layer, here, hoverIndex])
+  const local = (e: React.PointerEvent | React.MouseEvent) => {
+    const b = e.currentTarget.getBoundingClientRect()
+    return [e.clientX - b.left, e.clientY - b.top, b.height] as const
+  }
   const hm = site.heightmap!
   const [loaded, setLoaded] = useState<{ file: string; heights: Uint16Array } | null>(null)
   useEffect(() => {
@@ -259,7 +362,24 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
     col.needsUpdate = true
   }
   return (
-    <Canvas className="scene" shadows camera={{ near: 0.5, far: 30000, fov: 60 }}>
+    <>
+    <Canvas className="scene" shadows camera={{ near: 0.5, far: 30000, fov: 60 }}
+      style={hover && onDot ? { cursor: 'pointer' } : undefined}
+      onPointerDown={(e) => { pressedAt.current = [e.clientX, e.clientY] }}
+      onPointerMove={(e) => {
+        if (!showDots || e.buttons) return setHover(null)
+        const [x, y, h] = local(e)
+        const d = hit(onScreen.current, x, y)
+        setHover((o) => (d ? (o?.index === d.index ? o : { index: d.index, x: d.x, y: d.y, up: d.y > h / 2 }) : null))
+      }}
+      onPointerLeave={() => setHover(null)}
+      onClick={(e) => {
+        // a click, not a look-around drag, on a dot stands there
+        const p = pressedAt.current
+        if (!showDots || !onDot || !p || Math.hypot(e.clientX - p[0], e.clientY - p[1]) > 5) return
+        const d = hit(onScreen.current, ...local(e).slice(0, 2) as [number, number])
+        if (d) onDot(d.index)
+      }}>
       <color attach="background" args={['#000']} />
       <Camera eye={eye} look={look} />
       <ambientLight intensity={0.05} />
@@ -302,7 +422,21 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
         // The keys keep React from reusing one mesh object for both branches (its geometry prop would go stale).
         <mesh key="level" geometry={level} material={soil} rotation={[-Math.PI / 2, 0, 0]} position={[east, 0, -north]} />
       )}
+      {showDots && <DotLayer paint={paintDots} />}
     </Canvas>
+    {showDots && <canvas ref={dotCanvas} className="ground-dots" data-testid="ground-dots" aria-hidden="true" />}
+    {showDots && hover && (() => {
+      const d = dots!.find((p) => p.index === hover.index)
+      const v = grid!.verdicts[hover.index]
+      return d && v && (
+        <div className={hover.up ? 'moon-tip dot up' : 'moon-tip dot'} style={{ left: hover.x, top: hover.y, pointerEvents: 'none' }} data-testid="ground-dot-tip">
+          <strong>{d.lat.toFixed(4)}°, {d.lon.toFixed(3)}°E · {(Math.hypot(d.east - east, d.north - north) / 1000).toFixed(1)} km away</strong>
+          <Numbers v={v} />
+          {onDot && <span className="dim">Click to stand here</span>}
+        </div>
+      )
+    })()}
+    </>
   )
 }
 

@@ -30,11 +30,11 @@ const EXPOSURE = 3
 const SHADOW_FLOOR = 0.14
 const SUN = '#f0b955'
 const EARTH = '#5fa8ff'
-const OK = '#86d3a1'
-const BAD = '#ff8f84'
+export const OK = '#86d3a1'
+export const BAD = '#ff8f84'
 const TEXT = '#ece8e1'
 
-type Layer = 'sun' | 'earth' | 'verdict'
+export type Layer = 'sun' | 'earth' | 'verdict'
 type Dir = 'N' | 'E' | 'S' | 'W'
 
 export interface MoonPin {
@@ -59,6 +59,8 @@ interface Props {
   draggable: boolean // false while an alternative, not the plan, is shown
   pins: MoonPin[]
   grid: GridStats | null // per-point results for the focus site's grid
+  layer: Layer // what colours the grid and pins (kept in App, so the ground view's dots match)
+  onLayer: (l: Layer) => void
   badges: MoonBadge[]
   constraints: Constraints
   sunEl: number // at the bearing lines' origin (the pole, or the landing point once zoomed in), from the engine
@@ -761,7 +763,7 @@ function failing(v: Verdict): string[] {
 }
 
 /** The numbers for one point, all from the engine. */
-function Numbers({ v }: { v: Verdict }) {
+export function Numbers({ v }: { v: Verdict }) {
   const fails = failing(v)
   return (
     <>
@@ -776,7 +778,7 @@ function Numbers({ v }: { v: Verdict }) {
  * and the landing point is dragged on the grid. The renderer supplies positions only; colours, labels and numbers
  * come from the engine through the props.
  */
-function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, grid, badges, constraints, sunEl, earthEl, onSite, onBack, onPick, onNudge, onStand, onStandAt, onPin, viewPinned, canPin, sky, host, children }: Props) {
+function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, grid, layer, onLayer, badges, constraints, sunEl, earthEl, onSite, onBack, onPick, onNudge, onStand, onStandAt, onPin, viewPinned, canPin, sky, host, children }: Props) {
   const id = useId()
   const root = useRef<HTMLDivElement>(null)
   const overlay = useRef<HTMLCanvasElement>(null)
@@ -789,7 +791,6 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
   const paint = useRef<Paint | null>(null)
   const markerAt = useRef<[number, number] | null>(null)
   const dotAt = useRef<(index: number) => readonly [number, number] | null>(() => null)
-  const [layer, setLayer] = useState<Layer>('verdict')
   const [exag, setExag] = useState(1) // relief height exaggeration (D67; true height by default, D71): geometry only, never a number
   const [topo, setTopo] = useState(false) // Topo layer (D68)
   const cursorEl = useRef<HTMLSpanElement>(null)
@@ -1166,7 +1167,7 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
         </button>
         <div className="modes" role="group" aria-label={zoomed ? 'Colour the grid by' : 'Colour the site pins by'}>
           {(['verdict', 'sun', 'earth'] as const).map((l) => (
-            <button key={l} type="button" aria-pressed={layer === l} onClick={() => setLayer(l)}>{l === 'sun' ? 'Sunlight' : l === 'earth' ? 'Earth' : 'Verdict'}</button>
+            <button key={l} type="button" aria-pressed={layer === l} onClick={() => onLayer(l)}>{l === 'sun' ? 'Sunlight' : l === 'earth' ? 'Earth' : 'Verdict'}</button>
           ))}
         </div>
         <span className="note moon-legend" data-testid="moon-legend">

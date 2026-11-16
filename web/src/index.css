@@ -43,6 +43,7 @@ input[aria-invalid='true'] { border-color: var(--bad); }
 .app.side-closed { grid-template-areas: 'top top top' 'rail over over' 'band band band' 'foot foot foot'; }
 .stage { grid-area: 2 / 1 / 3 / -1; position: relative; z-index: 0; background: #000; } /* the view fills the space between header and band */
 .scene { position: absolute !important; inset: 0; }
+.ground-dots { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; } /* the search grid over the ground view (D74) */
 .topbar, .rail, .side, .over, .band, .footline { position: relative; z-index: 1; }
 
 .topbar { grid-area: top; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 var(--gap);

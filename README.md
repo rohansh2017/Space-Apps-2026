@@ -89,6 +89,7 @@ by a date). You confirm, and the finder runs. The search settings stay as remova
 | Moon | Landing marker · dots · arrow keys | Move the landing point; *Stand here* (or Enter) stands on it |
 | Moon / 3D | *Pole* · *Pin* | Back to the pole · pin the view to the Compare tray |
 | 3D | Drag | Look around |
+| 3D | Grid dots · *Dots* | The 500 m search grid in the Moon view's colours: hover for its numbers, click to stand there · hide or show it (on at every start) |
 | Bottom panel | Scrubber · *Play* | Move through the lunar day |
 | Bottom panel | Tab on the top edge · drag the edge | Open/close · resize (arrow keys work; double-click resets) |
 | Compare tray | Pin · grip · Alt+arrow | Up to four columns (a fifth asks which to replace) · reorder |

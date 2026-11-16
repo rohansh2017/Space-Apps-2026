@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Compass, Globe, Info, Pin, PinOff, ListOrdered, Link2, Maximize2, Minimize2, PanelLeftClose, Pause, Play, Users, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Compass, Globe, Info, Pin, PinOff, Grid3x3, ListOrdered, Link2, Maximize2, Minimize2, PanelLeftClose, Pause, Play, Users, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Chips from './Chips'
@@ -9,7 +9,7 @@ import type { Dataset, Region, SitePoint, Sky } from './data'
 import { loadDataset, loadRegion, loadSitePoint } from './data'
 import { horizonFacts } from './describe'
 import HorizonText from './HorizonText'
-import type { Constraints, Metrics } from './engine/engine'
+import type { Constraints, Metrics, SiteFrame } from './engine/engine'
 import Drawer from './Drawer'
 import { buildSeries, evaluate, maskAt, nextChange, nudgeNeighbour, siteAngles, siteFrame, skyMatrix, snapToGrid, windowMetrics } from './engine/engine'
 import type { Candidate, FinderResult, Scored } from './engine/finder'
@@ -20,7 +20,7 @@ import { Guide } from './guide'
 import Hud from './Hud'
 import Matrix from './Matrix'
 import { gridStats, icrfToThree, verdict } from './moon'
-import type { MoonBadge, MoonPin } from './MoonView'
+import type { Layer, MoonBadge, MoonPin } from './MoonView'
 import MoonView from './MoonView'
 import Panorama from './Panorama'
 import { defaults } from './presets'
@@ -30,6 +30,7 @@ import { NO_FILTER } from './resultFilter'
 import type { Room, RoomState } from './room'
 import { connectRoom, newRoomId, roomIdFromUrl, roomLink, stateKey, validConstraints } from './room'
 import Scene3D from './Scene3D'
+import type { GroundDot } from './Scene3D'
 import Summary from './Summary'
 import { decodeShare, encodeShare, pickLocations, withStoredLocations } from './share'
 import Tour from './Tour'
@@ -76,6 +77,13 @@ function smooth(update: () => void, after?: () => void) {
 type ScenarioRef = { point: string; hour: number }
 const refKey = (r: ScenarioRef) => `${r.point}@${r.hour}`
 
+
+/** A point's offset from a site's centre in that site's east/north axes, metres: the 3D scene's coordinates. */
+function offsetFrom(home: SiteFrame, lat: number, lon: number, elevM: number): [number, number] {
+  const d = siteFrame(lat, lon, elevM).pos.map((v, i) => (v - home.pos[i]) * 1000)
+  const dot = (a: readonly number[]) => a[0] * d[0] + a[1] * d[1] + a[2] * d[2]
+  return [dot(home.east), dot(home.north)]
+}
 export default function App() {
   const [data, setData] = useState<Dataset | null>(null)
   const [error, setError] = useState('')
@@ -98,6 +106,8 @@ export default function App() {
   const asked = useRef(new Set<string>())
   const [overlays, setOverlays] = useState<HTMLDivElement | null>(null) // the Moon view draws its bar here, above the cards
   const [sky, setSky] = useState<Sky | null>(null) // star field inputs: the catalogue and the orientation years loaded so far
+  const [layer, setLayer] = useState<Layer>('verdict') // what colours the grid, on the Moon and on the ground (D74)
+  const [dotsOn, setDotsOn] = useState(true) // the search grid's dots in the ground view (D74): on at every start, never stored
   const [moonZoom, setMoonZoom] = useState(false) // Moon view: down on a site's search grid (false = the whole polar region)
   const [pendingPin, setPendingPin] = useState<ScenarioRef | null>(null) // waiting for a free column
   const [matrix, setMatrix] = useState(false)
@@ -269,6 +279,12 @@ export default function App() {
   const viewStart = viewed && viewing ? viewing.hour : planHour
   const pinnedKeys = useMemo(() => new Set(pins.map(refKey)), [pins])
 
+  /** The plan site's centre frame: the 3D scene's origin and axes. */
+  const siteHome = useMemo(() => {
+    if (!data || !site) return null
+    const centre = data.points.find((p) => p.region === site.id && p.index === data.centreIndex)
+    return siteFrame(site.lat, site.lon, centre?.elev_m ?? 0)
+  }, [data, site])
   /** Everything about one observer's lunar day from a landing hour that does not depend on the scrubber position. */
   const dayOf = useCallback((obs: Candidate, start: number) => {
     if (!data || !site || !plan || constraints.mission_duration_days === undefined) return null
@@ -281,12 +297,9 @@ export default function App() {
     const dur = Math.round(Number(constraints.mission_duration_days) * 24)
     const metrics = dur <= n ? windowMetrics(series, 0, dur) : null
     // observer offset from the site centre in the site's east/north axes, metres
-    const centre = data.points.find((p) => p.region === site.id && p.index === data.centreIndex)
-    const home = siteFrame(site.lat, site.lon, centre?.elev_m ?? 0)
-    const d = frame.pos.map((v, i) => (v - home.pos[i]) * 1000)
-    const dot = (a: number[]) => a[0] * d[0] + a[1] * d[1] + a[2] * d[2]
-    return { mask, series, track, metrics, evaluation: metrics && evaluate(metrics, obs.slopeDeg, constraints), east: dot(home.east), north: dot(home.north) }
-  }, [data, site, plan, constraints])
+    const [east, north] = offsetFrom(siteHome!, obs.lat, obs.lon, obs.elevM)
+    return { mask, series, track, metrics, evaluation: metrics && evaluate(metrics, obs.slopeDeg, constraints), east, north }
+  }, [data, site, plan, constraints, siteHome])
   const day = useMemo(() => (observer ? dayOf(observer, viewStart) : null), [dayOf, observer, viewStart])
   /** The plan's own day: the compare tray's first column, whatever the 3D view shows. */
   const planDay = useMemo(() => (plan ? dayOf(plan, planHour) : null), [dayOf, plan, planHour])
@@ -453,9 +466,25 @@ export default function App() {
   const viewedRegion = viewing ? regions[viewedRegionId] : undefined
   const moonGrid = useMemo(() => {
     if (!viewing) return planGrid
-    if (stageView !== 'moon' || !moonZoom || !data || !viewedRegion || constraints.mission_duration_days === undefined) return null
+    if ((stageView === 'moon' ? !moonZoom : !dotsOn) || !data || !viewedRegion || constraints.mission_duration_days === undefined) return null
     return gridStats(data.points, viewedRegionId, 2 * data.centreIndex + 1, viewedRegion.masks, viewedRegion.slopes, data.ephemeris, data.hours, viewing.hour, constraints, siteFrame)
-  }, [viewing, viewedRegionId, viewedRegion, planGrid, stageView, moonZoom, data, constraints])
+  }, [viewing, viewedRegionId, viewedRegion, planGrid, stageView, moonZoom, dotsOn, data, constraints])
+  /** D74: the grid's dots in the ground view, at the plan site's grid (the scene's frame), each at its own LOLA height. */
+  const groundDots = useMemo((): GroundDot[] | null => {
+    if (!data || !site?.terrain || !siteHome || !observer || stageView !== 'ground' || !dotsOn || moonGrid?.region !== site.id) return null
+    return data.points.filter((p) => p.region === site.id).map((p) => {
+      const [east, north] = offsetFrom(siteHome, p.lat, p.lon, p.elev_m)
+      return { index: p.index, east, north, up: p.elev_m - observer.elevM, lat: p.lat, lon: p.lon }
+    })
+  }, [data, site, siteHome, observer, stageView, dotsOn, moonGrid])
+  /** D74: a click on a ground-view dot stands on that grid point, like a click on the Moon view's grid. */
+  const standOnDot = useCallback((index: number) => {
+    if (!data || viewing) return
+    setSnapNote('')
+    selectSite(siteId, index === data.centreIndex ? null : index)
+    const p = data.points.find((q) => q.region === siteId && q.index === index)
+    if (p) setAnnounce(`Standing at ${p.lat.toFixed(4)}°, ${p.lon.toFixed(3)}°E.`)
+  }, [data, viewing, siteId, selectSite])
   const moonHour = view ? viewStart + view.t : planHour
   /** Sun and Earth as the engine sees them from the pole itself, for the pole-level bearing lines. */
   const poleAngles = useMemo(() => (data ? siteAngles(data.ephemeris, moonHour, siteFrame(-90, 0, 0)) : null), [data, moonHour])
@@ -927,7 +956,7 @@ export default function App() {
           {/* one WebGL context at a time: the Moon view and the ground view replace each other */}
           {stageView === 'moon' ? (
             <MoonView data={data} hour={moonHour} when={date(planHour)} zoomed={moonZoom && focusSite.terrain} focus={focusSite}
-              marker={observer ? pointById.get(observer.id) ?? null : null} draggable={!viewed} pins={moonPins} grid={moonGrid} badges={moonBadges}
+              marker={observer ? pointById.get(observer.id) ?? null : null} draggable={!viewed} pins={moonPins} grid={moonGrid} layer={layer} onLayer={setLayer} badges={moonBadges}
               constraints={constraints} sunEl={(onGrid?.now ?? poleAngles!).sunEl} earthEl={(onGrid?.now ?? poleAngles!).earthEl}
               onSite={flyToSite} onBack={backToPole} onPick={pickOnMoon} onNudge={nudge} onStand={standHere} onStandAt={standAt}
               onPin={() => { if (viewRef) { togglePin(viewRef); setBandOpen(true) } }} viewPinned={viewPinned} canPin={Boolean(viewRef)} sky={moonSky} host={overlays}>
@@ -941,7 +970,9 @@ export default function App() {
           ) : site.terrain && view && day && observer && sky && view.sky && (
             <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
               sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky} stars={sky.stars}
-              ridges={regions[observer.id.split(':')[0]]?.ridges ?? null} />
+              ridges={regions[observer.id.split(':')[0]]?.ridges ?? null}
+              dots={groundDots} grid={moonGrid} layer={layer} onDot={viewed ? null : standOnDot}
+              here={observer.id.startsWith(`${site.id}:`) ? Number(observer.id.split(':')[1]) : null} />
           )}
         </div>
 
@@ -1132,6 +1163,12 @@ export default function App() {
                       onClick={() => { if (viewRef) { togglePin(viewRef); setBandOpen(true) } }}>
                       {viewPinned ? <PinOff size={15} aria-hidden="true" /> : <Pin size={15} aria-hidden="true" />}{viewPinned ? 'Unpin' : 'Pin'}
                     </button>
+                    {site.terrain && (
+                      <button type="button" data-testid="stage-dots" aria-pressed={dotsOn} onClick={() => setDotsOn(!dotsOn)}
+                        title={dotsOn ? 'Hide the 500 m search grid' : 'Show the 500 m search grid: click a dot to stand there'}>
+                        <Grid3x3 size={15} aria-hidden="true" />Dots
+                      </button>
+                    )}
                   </div>
                 )}
                 {stageView === 'ground' && levelGround && (
