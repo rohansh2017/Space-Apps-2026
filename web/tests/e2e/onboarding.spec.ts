@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test'
 import { shot } from './hud'
 
 const coach = (page: Page) => page.getByTestId('coach')
-const atStep = (page: Page, id: string) => expect(coach(page)).toHaveAttribute('data-step', id, { timeout: 15_000 })
+const atStep = (page: Page, id: string, timeout = 15_000) => expect(coach(page)).toHaveAttribute('data-step', id, { timeout })
 /** The card glides to its next spot (0.25 s): give it a moment to stop before a screenshot (a visual aid, never a failure). */
 const settled = async (page: Page, name: string) => {
   let last: { x: number; y: number } | null = null
@@ -27,10 +27,10 @@ test('F28: the quick tour walks four real actions, each step moving on by itself
   // time only the tour itself (the user's clicks and the app's responses), not the screenshots
   const times: string[] = []
   let total = 0
-  const timed = async (name: string, act: () => Promise<void>, next: string) => {
+  const timed = async (name: string, act: () => Promise<void>, next: string, timeout?: number) => {
     const t = Date.now()
     await act()
-    await atStep(page, next)
+    await atStep(page, next, timeout)
     const s = (Date.now() - t) / 1000
     total += s
     times.push(`${name} ${s.toFixed(1)} s`)
@@ -40,7 +40,8 @@ test('F28: the quick tour walks four real actions, each step moving on by itself
   await timed('play', () => page.locator('[data-tour="play"]').click(), 'stand')
   await timed('stand', () => page.locator('[data-tour="stand"]').click(), 'find')
   await settled(page, '28-tour-4-find')
-  await timed('find', () => page.locator('[data-tour="find"]').click(), 'end')
+  // the step ends when the search does: it loads every region first, slow on a loaded CPU with software WebGL
+  await timed('find', () => page.locator('[data-tour="find"]').click(), 'end', 40_000)
   await expect(page.getByTestId('coach-spot')).toHaveCount(0) // the closing card is centred, with nothing ringed
   await settled(page, '28-tour-5-end')
   await coach(page).getByRole('button', { name: 'Finish' }).click()
@@ -76,7 +77,8 @@ test('F28: it opens by itself on a first visit, only once, and never over a shar
   const shared = await visitor.newPage()
   await asPerson(shared)
   await shared.goto('/?site=haworth')
-  await expect(shared.getByTestId('view')).toContainText('Plan: Haworth')
+  // a fresh browser context loads every file cold, beside other software-WebGL browsers on the same CPU
+  await expect(shared.getByTestId('view')).toContainText('Plan: Haworth', { timeout: 20_000 })
   await expect(coach(shared)).toHaveCount(0)
   await visitor.close()
 })

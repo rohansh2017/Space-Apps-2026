@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Compass, Globe, Info, Pin, PinOff, ListOrdered, Link2, Maximize2, Minimize2, PanelLeftClose, Pause, Play, Users, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Compass, Globe, Info, MapPin, Pin, PinOff, ListOrdered, Link2, Maximize2, Minimize2, PanelLeftClose, Pause, Play, Users, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Chips from './Chips'
@@ -57,6 +57,11 @@ const writeLocations = (v: string) => { try { window.localStorage.setItem(LOCATI
 const FIRST_PARAMS = new URLSearchParams(window.location.search)
 const readOnboarded = () => { try { return window.localStorage.getItem(ONBOARDED_KEY) === '1' } catch { return false } }
 const writeOnboarded = () => { try { window.localStorage.setItem(ONBOARDED_KEY, '1') } catch { /* asked again next visit */ } }
+// D76: the standing view's Sites toggle (the other sites' pins on its skyline) is remembered per viewer, never shared;
+// the Moon view always shows every site's pin
+const SITES_KEY = 'tranquility-base:sites'
+const readShowSites = () => { try { return window.localStorage.getItem(SITES_KEY) !== 'off' } catch { return true } }
+const writeShowSites = (on: boolean) => { try { window.localStorage.setItem(SITES_KEY, on ? 'on' : 'off') } catch { /* this visit only */ } }
 
 /**
  * Panel opens and closes morph instead of jumping (View Transitions, ~200 ms); instant where unsupported or with reduced
@@ -94,7 +99,12 @@ export default function App() {
   const [pins, setPins] = useState<ScenarioRef[]>([]) // the compare tray's pinned scenarios
   const [baseline, setBaseline] = useState<string | null>(null) // the column the others are compared to; null = the first
   const [stageView, setStageView] = useState<'moon' | 'ground'>('moon') // the stage: the orbitable Moon, or the first-person ground view
-  const [sitePoints, setSitePoints] = useState<Record<string, SitePoint>>({}) // each site's own mask row and slope, for the Moon view's pins
+  const [sitePoints, setSitePoints] = useState<Record<string, SitePoint>>({}) // each site's own mask row and slope, for the site pins
+  const [showSites, setShowSites] = useState(readShowSites) // D76
+  const toggleSites = useCallback(() => setShowSites((on) => {
+    writeShowSites(!on)
+    return !on
+  }), [])
   const asked = useRef(new Set<string>())
   const [overlays, setOverlays] = useState<HTMLDivElement | null>(null) // the Moon view draws its bar here, above the cards
   const [sky, setSky] = useState<Sky | null>(null) // star field inputs: the catalogue and the orientation years loaded so far
@@ -414,19 +424,20 @@ export default function App() {
     return loaded
   }, [terrain])
 
-  // --- Moon view: every curated site as a pin, the grid of the site on show, and where the tray pins and results are
-  // a pin needs its site's own horizon mask and slope only: one 720-byte row per site, not the whole region (D58)
+  // --- every curated site as a pin (Moon view and, D76, the standing view's skyline), the grid of the site on show, and
+  // where the tray pins and results are. A pin needs its site's own horizon mask and slope only: one 720-byte row per
+  // site, not the whole region (D58)
   useEffect(() => {
-    if (!data || stageView !== 'moon') return
+    if (!data) return
     for (const s of terrain) {
       if (asked.current.has(s.id)) continue
       asked.current.add(s.id)
       loadSitePoint(s.id, data.centreIndex).then((p) => setSitePoints((all) => ({ ...all, [s.id]: p })), () => asked.current.delete(s.id))
     }
-  }, [data, stageView, terrain])
+  }, [data, terrain])
   /** Each site's own point, evaluated like the plan for the planned landing hour: solid pin = passes, hollow = fails. */
   const moonPins = useMemo((): MoonPin[] => {
-    if (!data || stageView !== 'moon') return []
+    if (!data) return []
     const i = data.centreIndex
     return terrain.map((s) => {
       const r = regions[s.id]
@@ -435,7 +446,7 @@ export default function App() {
       const ready = own && c && constraints.mission_duration_days !== undefined
       return { site: s, verdict: ready ? verdict(data.ephemeris, data.hours, planHour, siteFrame(s.lat, s.lon, c.elev_m), own.mask, own.slopeDeg, constraints) : null }
     })
-  }, [data, stageView, terrain, regions, sitePoints, pointById, planHour, constraints])
+  }, [data, terrain, regions, sitePoints, pointById, planHour, constraints])
   const moonBadges = useMemo((): MoonBadge[] => {
     const out: MoonBadge[] = []
     found?.finder.results.forEach((r, i) => {
@@ -500,6 +511,11 @@ export default function App() {
     () => (data && sky?.covers(moonHour) ? { matrix: icrfToThree(sky.orientation, moonHour), stars: sky.stars } : null),
     [data, sky, moonHour],
   )
+  /** D76: the standing view's pins, every site but the one stood on (none while the Sites toggle is off). */
+  const groundSite = observer ? observer.id.split(':')[0] : ''
+  const groundPins = useMemo(() => (showSites ? moonPins.filter((p) => p.site.id !== groundSite) : []), [showSites, moonPins, groundSite])
+  const groundAt = observer ? pointById.get(observer.id) : undefined
+  const groundFrom = useMemo(() => (groundAt ? { lat: groundAt.lat, lon: groundAt.lon } : null), [groundAt])
   const standHere = useCallback(() => {
     setStageView('ground')
     focusView.current = true
@@ -942,7 +958,7 @@ export default function App() {
           ) : site.terrain && view && day && observer && sky && view.sky && (
             <Scene3D site={site} east={day.east} north={day.north} mask={day.mask} track={day.track} t={view.t}
               sunFraction={view.lit} earthDistKm={view.earthDistKm} sky={view.sky} stars={sky.stars}
-              ridges={regions[observer.id.split(':')[0]]?.ridges ?? null} />
+              ridges={regions[observer.id.split(':')[0]]?.ridges ?? null} pins={groundPins} from={groundFrom} onStandAt={standAt} />
           )}
         </div>
 
@@ -1133,6 +1149,10 @@ export default function App() {
                       onClick={() => { if (viewRef) { togglePin(viewRef); setBandOpen(true) } }}>
                       {viewPinned ? <PinOff size={15} aria-hidden="true" /> : <Pin size={15} aria-hidden="true" />}{viewPinned ? 'Unpin' : 'Pin'}
                     </button>
+                    <button type="button" data-testid="stage-sites" aria-pressed={showSites} onClick={toggleSites}
+                      title={showSites ? "Hide the other sites' pins on the skyline" : "Show the other sites on the skyline"}>
+                      <MapPin size={15} aria-hidden="true" />Sites
+                    </button>
                   </div>
                 )}
                 {stageView === 'ground' && levelGround && (
@@ -1273,6 +1293,7 @@ export default function App() {
             <p>Gemini (on the deployed site only) reads typed sentences into constraint values, a later landing and a site, which you confirm before anything changes; it may also reword the horizon and "why not" sentences on request, and that wording is kept only if every number in it came from the engine. It never computes a number: the finder, the metrics and the "why not" fixes are the engine's.</p>
             <h3>What the views invent, for legibility</h3>
             <ul>
+              <li>Standing view: the other sites' pins sit on the skyline in each site's true direction, with its great-circle distance; their height above the skyline is for legibility, not the site's elevation angle.</li>
               <li>Moon view: the terrain is drawn at true height by default; the Height slider can exaggerate it (up to ×5) for the eye; lighting, shadows, contours and every number use the true height. The ground has one uniform brightness (no albedo map), seen through an exposure curve; ground the Sun does not reach is drawn dimly with a fixed, illustrative light so its shape stays visible (real lunar shadow is black); until the relief loads, the day/night line is drawn on a smooth sphere with the night side at a quarter brightness.</li>
               <li>Soil texture finer than about 1.5 m, and the rock texture on the distant ranges.</li>
               <li>The ground colour, the Sun's glare and Earth's surface pattern.</li>

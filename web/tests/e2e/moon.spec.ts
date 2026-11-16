@@ -271,3 +271,47 @@ test('Moon view: finder results and tray pins are marked, and a pinned scenario 
   await page.waitForTimeout(600)
   await page.screenshot(shot('20-moon-alternative'))
 })
+
+test('D76: the other sites stand on the skyline in 3D, one click stands there; Sites hides them there, never in the Moon view', async ({ page }) => {
+  test.setTimeout(150_000) // looking around the 3D view on software WebGL is slow
+  await page.goto('/')
+  await expect(page.getByTestId('moon-view')).toBeVisible()
+  await page.getByTestId('moon-pin-malapert-massif').hover()
+  await page.getByTestId('moon-stand-malapert-massif').click()
+  await expect(page.getByTestId('view')).toContainText('Plan: Malapert Massif')
+  // every terrain site but the one stood on, each with its great-circle distance
+  const pins = page.locator('[data-testid^="ground-pin-"]')
+  await expect(pins).toHaveCount(8)
+  await expect(page.getByTestId('ground-pin-malapert-massif')).toHaveCount(0)
+  await expect(page.getByTestId('ground-pin-im2-mons-mouton')).toContainText(/Mons Mouton · \d+ km/)
+  // look around until one is in front of the camera; clicking it stands there, still in 3D
+  const shown = page.locator('[data-testid^="ground-pin-"]:visible').first()
+  const box = (await page.locator('.stage').boundingBox())!
+  for (let turn = 0; turn < 7 && !(await shown.isVisible()); turn++) {
+    // about 55 degrees a drag; software WebGL takes seconds a frame here
+    await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.5, { steps: 2 })
+    await page.mouse.up()
+    await page.waitForTimeout(500)
+  }
+  await expect(shown).toBeVisible()
+  const name = (await shown.getAttribute('aria-label'))!.split(',')[0]
+  await shown.dispatchEvent('click') // the camera's damping keeps it drifting for seconds on software WebGL
+  await expect(page.getByTestId('view')).toContainText(`Plan: ${name}`)
+  await expect(page.getByTestId('stage-pole')).toBeVisible()
+  // Sites off: no pins on the skyline; the Moon view still shows every site's pin; the choice survives a reload
+  await page.getByTestId('stage-sites').click()
+  await expect(page.getByTestId('stage-sites')).toHaveAttribute('aria-pressed', 'false')
+  await expect(pins).toHaveCount(0)
+  await page.getByTestId('stage-pole').click()
+  await expect(page.locator('.moon-pin-wrap')).toHaveCount(9)
+  await expect(page.getByTestId('moon-sites')).toHaveCount(0)
+  await page.reload()
+  await expect(page.locator('.moon-pin-wrap')).toHaveCount(9)
+  await page.getByTestId('moon-stand').click()
+  await expect(page.getByTestId('stage-sites')).toHaveAttribute('aria-pressed', 'false')
+  await expect(pins).toHaveCount(0)
+  await page.getByTestId('stage-sites').click()
+  await expect(pins).toHaveCount(8)
+})

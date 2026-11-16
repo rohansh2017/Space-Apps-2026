@@ -6,7 +6,7 @@ import type { Constraints } from './engine/engine'
 import { R_MOON_KM, buildSeries, evaluate, latLonToXY, quatRotate, siteFrame, snapToGrid, windowMetrics } from './engine/engine'
 import type { Vec3 } from './moon'
 import type { ReliefGrid } from './moon'
-import { contourInterval, flyPose, globeUV, gridHeight, icrfToThree, gridIndex, latLonToMe, meToLatLon, meToThree, meToXY, packRG8, pickGrid, raySphere, rayRelief, reliefAt, siteHillshade, siteUV, threeToMe, verdict, xyToMe } from './moon'
+import { bearingTo, contourInterval, flyPose, globeUV, gridHeight, icrfToThree, gridIndex, latLonToMe, meToLatLon, meToThree, meToXY, packRG8, pickGrid, raySphere, rayRelief, reliefAt, siteHillshade, siteUV, threeToMe, verdict, xyToMe } from './moon'
 
 const points = pointsFile.points
 const region = points.filter((p) => p.region === 'change7-shackleton-rim')
@@ -221,5 +221,32 @@ describe('relief grids (D67)', () => {
 
   it('spaces contours by level', () => {
     expect([contourInterval('pole'), contourInterval('site'), contourInterval('patch')]).toEqual([1000, 100, 20])
+  })
+})
+
+describe('bearingTo (D76)', () => {
+  const R = 1737.4
+  const haversine = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {
+    const r = Math.PI / 180
+    const h = Math.sin(((b.lat - a.lat) * r) / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(((b.lon - a.lon) * r) / 2) ** 2
+    return 2 * R * Math.asin(Math.sqrt(h))
+  }
+  it('points north along a meridian and east along a parallel', () => {
+    const n = bearingTo({ lat: -88, lon: 40 }, { lat: -87, lon: 40 })
+    expect(n.azDeg < 1e-6 || n.azDeg > 360 - 1e-6).toBe(true)
+    expect(n.distKm).toBeCloseTo((R * Math.PI) / 180, 6)
+    const s = bearingTo({ lat: -87, lon: 40 }, { lat: -88, lon: 40 })
+    expect(s.azDeg).toBeCloseTo(180, 6)
+    // a short hop along the equator to the east is due east
+    expect(bearingTo({ lat: 0, lon: 10 }, { lat: 0, lon: 10.01 }).azDeg).toBeCloseTo(90, 6)
+  })
+  it('agrees with an independent haversine, and the distance is symmetric', () => {
+    const a = { lat: -89.45, lon: -137.31 } // two arbitrary south-polar points
+    const b = { lat: -85.995, lon: -0.236 }
+    const ab = bearingTo(a, b)
+    expect(ab.distKm).toBeCloseTo(haversine(a, b), 6)
+    expect(bearingTo(b, a).distKm).toBeCloseTo(ab.distKm, 9)
+    expect(ab.azDeg).toBeGreaterThanOrEqual(0)
+    expect(ab.azDeg).toBeLessThan(360)
   })
 })

@@ -1,7 +1,7 @@
 // Geometry for the Moon view (unit sphere, R = 1). Pure: no DOM, no three.js. The renderer takes positions from
 // here; every number shown to the user still comes from engine.ts.
 import type { Constraints, Evaluation, Metrics, SiteFrame } from './engine/engine'
-import { R_MOON_KM, buildSeries, evaluate, quatRotate, windowMetrics } from './engine/engine'
+import { R_MOON_KM, buildSeries, evaluate, quatRotate, siteFrame, windowMetrics } from './engine/engine'
 
 export type Vec3 = [number, number, number]
 const R_M = R_MOON_KM * 1000
@@ -25,6 +25,18 @@ export function xyToMe(x: number, y: number): Vec3 {
   const [sx, sy] = [x / (2 * R_M), y / (2 * R_M)]
   const k = 1 + sx * sx + sy * sy
   return [(2 * sy) / k, (2 * sx) / k, (sx * sx + sy * sy - 1) / k]
+}
+
+/**
+ * Direction and distance from one point to another on the sphere (D76): the azimuth in degrees east of north in the
+ * starting point's own east/north axes (the engine's site frame), and the great-circle distance in km on R.
+ */
+export function bearingTo(from: { lat: number; lon: number }, to: { lat: number; lon: number }): { azDeg: number; distKm: number } {
+  const f = siteFrame(from.lat, from.lon, 0)
+  const t = latLonToMe(to.lat, to.lon)
+  const d = (a: Readonly<Vec3>) => a[0] * t[0] + a[1] * t[1] + a[2] * t[2]
+  const az = Math.atan2(d(f.east), d(f.north)) / RAD
+  return { azDeg: ((az % 360) + 360) % 360, distKm: Math.acos(Math.max(-1, Math.min(1, d(f.up)))) * R_MOON_KM }
 }
 
 export const meToLatLon = (m: Readonly<Vec3>): [number, number] => [Math.asin(Math.max(-1, Math.min(1, m[2]))) / RAD, Math.atan2(m[1], m[0]) / RAD]
