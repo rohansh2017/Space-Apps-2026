@@ -1,13 +1,16 @@
 // F30: the Alternatives panel's filter menu (hidden by default) and the removable pills for active filters.
 import { RefreshCw, X } from 'lucide-react'
-import type { ResultFilter } from './resultFilter'
-import { NO_FILTER, criterion, pillsOf, sameSet } from './resultFilter'
+import type { ConstraintDef } from './data'
+import type { Constraints } from './engine/engine'
+import type { Candidate } from './engine/finder'
+import type { ResultFilter, Row } from './resultFilter'
+import { NO_FILTER, SLIDERS, criterion, meets, overridesOf, pillsOf, sameSet, thresholdOf, thresholdText } from './resultFilter'
 
-const num = (v: string): number | null => (v.trim() === '' || !Number.isFinite(Number(v)) ? null : Math.max(0, Number(v)))
+const fmt = (v: number) => String(Number(v.toFixed(1)))
 
 /** Active filters as removable pills, shown whether or not the menu is open. */
-export function FilterPills({ filter, onChange }: { filter: ResultFilter; onChange: (f: ResultFilter) => void }) {
-  const pills = pillsOf(filter)
+export function FilterPills({ filter, onChange, constraints }: { filter: ResultFilter; onChange: (f: ResultFilter) => void; constraints: Constraints }) {
+  const pills = pillsOf(filter, constraints)
   if (!pills.length) return null
   return (
     <div className="filter-pills" data-testid="filter-pills">
@@ -31,16 +34,27 @@ interface Props {
   maxDays: number // the search's slip range
   rankedOn: string[] | null // F31: the constraints the current results were ranked on (null: all)
   busy: boolean
-  onRecompute: (only: string[] | null) => void
+  onRecompute: (only: string[] | null, overrides: Record<string, number>) => void // F32: overrides go into the Constraints panel
+  rows: Row[] // F32: the whole pool, for the sliders' ranges and counts
+  candidates: Candidate[]
+  constraints: Constraints // the values this search ran with
+  defs: ConstraintDef[] // slider ends
 }
 
 const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
 
-export default function ResultFilters({ id, filter: f, onChange, onClose, sites, criteria, maxDays, rankedOn, busy, onRecompute }: Props) {
+export default function ResultFilters({ id, filter: f, onChange, onClose, sites, criteria, maxDays, rankedOn, busy, onRecompute, rows, candidates, constraints, defs }: Props) {
   // F31: recompute ranks on the ticked criteria alone; pressed again, it goes back to every criterion
   const ticked = f.allPass ? [] : f.mustPass
   const canFocus = ticked.length > 0 && ticked.length < criteria.length
-  const changed = rankedOn !== null && canFocus && !sameSet(ticked, rankedOn)
+  // F32: slider values that differ from the search's constraints; Recompute writes them into the Constraints panel
+  const overrides = overridesOf(f, constraints)
+  const tuned = Object.keys(overrides).length > 0
+  const changed = rankedOn !== null && ((canFocus && !sameSet(ticked, rankedOn)) || tuned)
+  const only = canFocus ? ticked : null
+  const kmMax = Math.max(0.5, Math.ceil(Math.max(0, ...rows.map((x) => x.km)) * 2) / 2)
+  const daysTop = Math.max(0.5, maxDays)
+  const tunedText = Object.entries(overrides).map(([k, v]) => thresholdText(k, v)).join(', ')
   return (
     <div id={id} className="results-filter" role="group" aria-label="Filter the alternatives" data-testid="results-filter">
       <div className="results-filter-head">
@@ -50,23 +64,36 @@ export default function ResultFilters({ id, filter: f, onChange, onClose, sites,
         </button>
       </div>
       <fieldset>
-        <legend>Days out</legend>
-        <div className="filter-range">
-          <input type="number" inputMode="numeric" min={0} max={maxDays} step={1} aria-label="Minimum days out" placeholder="0"
-            value={f.minDays ?? ''} onChange={(e) => onChange({ ...f, minDays: num(e.target.value) })} />
-          <span aria-hidden="true">to</span>
-          <input type="number" inputMode="numeric" min={0} max={maxDays} step={1} aria-label="Maximum days out" placeholder={String(maxDays)}
-            value={f.maxDays ?? ''} onChange={(e) => onChange({ ...f, maxDays: num(e.target.value) })} />
-          <span className="note">days</span>
+        <legend>Days out <span className="legend-note">after the planned landing</span></legend>
+        <div className="filter-slider">
+          <span className="filter-slider-value" data-testid="days-value">
+            {f.minDays === null && f.maxDays === null ? 'Any' : `${fmt(f.minDays ?? 0)} to ${fmt(f.maxDays ?? daysTop)} days`}
+          </span>
+          <label className="filter-slider-row"><span>From</span>
+            <input type="range" min={0} max={daysTop} step={0.5} aria-label="Minimum days out" value={f.minDays ?? 0}
+              aria-valuetext={`${fmt(f.minDays ?? 0)} days`}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                onChange({ ...f, minDays: v <= 0 ? null : v, maxDays: f.maxDays !== null && f.maxDays < v ? v : f.maxDays })
+              }} />
+          </label>
+          <label className="filter-slider-row"><span>To</span>
+            <input type="range" min={0} max={daysTop} step={0.5} aria-label="Maximum days out" value={f.maxDays ?? daysTop}
+              aria-valuetext={`${fmt(f.maxDays ?? daysTop)} days`}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                onChange({ ...f, maxDays: v >= daysTop ? null : v, minDays: f.minDays !== null && f.minDays > v ? (v <= 0 ? null : v) : f.minDays })
+              }} />
+          </label>
         </div>
       </fieldset>
       <fieldset>
         <legend>Distance from plan</legend>
-        <div className="filter-range">
-          <span aria-hidden="true">Within</span>
-          <input type="number" inputMode="decimal" min={0} step={0.5} aria-label="Maximum distance from the plan in km" placeholder="any"
-            value={f.maxKm ?? ''} onChange={(e) => onChange({ ...f, maxKm: num(e.target.value) })} />
-          <span className="note">km</span>
+        <div className="filter-slider">
+          <span className="filter-slider-value" data-testid="km-value">{f.maxKm === null ? 'Any' : `Within ${fmt(f.maxKm)} km`}</span>
+          <input type="range" min={0} max={kmMax} step={0.5} aria-label="Maximum distance from the plan in km" value={f.maxKm ?? kmMax}
+            aria-valuetext={f.maxKm === null ? 'any distance' : `${fmt(f.maxKm)} km`}
+            onChange={(e) => { const v = Number(e.target.value); onChange({ ...f, maxKm: v >= kmMax ? null : v }) }} />
         </div>
       </fieldset>
       {sites.length > 1 && (
@@ -86,20 +113,55 @@ export default function ResultFilters({ id, filter: f, onChange, onClose, sites,
         <label className="filter-check">
           <input type="checkbox" checked={f.allPass} onChange={() => onChange({ ...f, allPass: !f.allPass })} />Meets every constraint
         </label>
-        {criteria.map((c) => (
-          <label key={c} className="filter-check">
-            <input type="checkbox" checked={f.allPass || f.mustPass.includes(c)} disabled={f.allPass}
-              onChange={() => onChange({ ...f, mustPass: toggle(f.mustPass, c) })} />{criterion(c)}
-          </label>
-        ))}
+        {criteria.map((c) => {
+          const on = !f.allPass && f.mustPass.includes(c)
+          const s = SLIDERS[c]
+          const def = defs.find((d) => d.id === c)
+          const v = thresholdOf(f, c, constraints)
+          const kept = s ? rows.filter((x) => meets(c, x.r, candidates[x.r.candidate], v)).length : 0
+          // continuous sun and dark cannot outlast the mission, so their sliders stop there (or at the current value, if beyond)
+          const dur = Number(constraints.mission_duration_days)
+          const cap = c === 'min_continuous_sun_days' ? dur : c === 'max_continuous_dark_hours' ? dur * 24 : Infinity
+          const top = def ? Math.max(Math.min(def.max!, cap), v) : v
+          return (
+            <div key={c} className="filter-criterion">
+              <label className="filter-check">
+                <input type="checkbox" checked={f.allPass || f.mustPass.includes(c)} disabled={f.allPass}
+                  onChange={() => onChange({ ...f, mustPass: toggle(f.mustPass, c), thresholds: Object.fromEntries(Object.entries(f.thresholds).filter(([k]) => k !== c)) })} />{criterion(c)}
+              </label>
+              {s && def && (
+                <div className={on || f.allPass ? 'filter-slider indent' : 'filter-slider indent off'} data-testid={`threshold-${c}`}>
+                  <span className="filter-slider-value">
+                    {thresholdText(c, v)}
+                    {v !== Number(constraints[c]) && <span className="note"> · search used {fmt(Number(constraints[c]))}</span>}
+                  </span>
+                  <input type="range" min={def.min!} max={top} step={s.step} value={v} aria-label={`${criterion(c)} threshold`}
+                    aria-valuetext={`${fmt(v)} ${s.unit}`}
+                    onChange={(e) => onChange({
+                      ...f,
+                      // moving a slider makes it filter: it ticks its criterion (from *Meets every constraint*, every criterion stays ticked)
+                      allPass: false,
+                      mustPass: f.allPass ? [...criteria] : f.mustPass.includes(c) ? f.mustPass : [...f.mustPass, c],
+                      thresholds: { ...f.thresholds, [c]: Number(e.target.value) },
+                    })} />
+                  <span className="note">{on || f.allPass ? `${kept} of ${rows.length} meet it` : `Not filtering · ${kept} of ${rows.length} would meet it`}</span>
+                </div>
+              )}
+            </div>
+          )
+        })}
         <div className="recompute">
-          <button type="button" aria-pressed={rankedOn !== null} disabled={busy || (rankedOn === null && !canFocus)} data-testid="recompute" aria-describedby={`${id}-recompute-note`}
-            onClick={() => onRecompute(rankedOn === null ? ticked : null)}>
-            <RefreshCw size={13} aria-hidden="true" />{rankedOn === null ? 'Recompute for ticked' : 'Recomputed · undo'}
+          <button type="button" aria-pressed={rankedOn !== null} disabled={busy || (rankedOn === null && !canFocus && !tuned)} data-testid="recompute" aria-describedby={`${id}-recompute-note`}
+            onClick={() => (rankedOn === null ? onRecompute(only, overrides) : onRecompute(null, {}))}>
+            <RefreshCw size={13} aria-hidden="true" />{rankedOn !== null ? 'Recomputed · undo' : !tuned ? 'Recompute for ticked' : canFocus ? 'Recompute ticked with these values' : 'Recompute with these values'}
           </button>
-          {changed && <button type="button" className="quiet" disabled={busy} onClick={() => onRecompute(ticked)}>Update</button>}
+          {changed && <button type="button" className="quiet" disabled={busy} onClick={() => onRecompute(canFocus ? ticked : rankedOn, overrides)}>Update</button>}
           <span className="note" id={`${id}-recompute-note`}>
-            {rankedOn !== null ? 'Ranked on the ticked criteria only.' : canFocus ? 'Rerun the search ranking on the ticked criteria only.' : 'Tick one or more criteria (not all) to rank on them alone.'}
+            {rankedOn !== null ? 'Ranked on the ticked criteria only.'
+              : canFocus ? 'Rerun the search ranking on the ticked criteria only.'
+                : tuned ? 'Rerun the search with the slider values.'
+                  : 'Move a slider to filter this list, or tick criteria to rank on them alone.'}
+            {tuned && ` Sets the Constraints panel to ${tunedText}.`}
           </span>
         </div>
       </fieldset>

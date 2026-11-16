@@ -50,7 +50,7 @@ interface Props {
   sky: number[] // ICRF -> local east/north/up at this hour (engine skyMatrix)
   ridges: Int8Array | null // horizon-crest normals (360 x 3, x 127) in the site's east/north/up axes
   stars: Float32Array // catalogue rows: ICRF unit vector, V magnitude, B-V
-  pins: MoonPin[] // the other sites (D75), with the engine's verdict for the plan; empty when the Sites toggle is off
+  pins: MoonPin[] // the other sites (D76), with the engine's verdict for the plan; empty when the Sites toggle is off
   from: { lat: number; lon: number } | null // where the observer stands, for each pin's bearing and distance
   onStandAt: (siteId: string) => void
 }
@@ -125,7 +125,7 @@ function useTrail(track: Angles[], pick: (a: Angles) => [number, number], colour
 
 /** First-person view from 2 m above the terrain, in local metric coordinates centred on the site. */
 function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, sky, stars, ridges, pins, from, onStandAt }: Props) {
-  // D75: the other sites, each in its true direction from the observer, a little above the skyline at that bearing
+  // D76: the other sites, each in its true direction from the observer, a little above the skyline at that bearing
   const skyPins = useMemo((): SkyPin[] => (from ? pins.map((p) => {
     const { azDeg, distKm } = bearingTo(from, p.site)
     return { ...p, azDeg, distKm, at: direction(azDeg, (mask ? maskAt(mask, azDeg) : 0) + PIN_LIFT_DEG).multiplyScalar(RING_M - 50) }

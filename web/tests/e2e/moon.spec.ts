@@ -272,7 +272,7 @@ test('Moon view: finder results and tray pins are marked, and a pinned scenario 
   await page.screenshot(shot('20-moon-alternative'))
 })
 
-test('D75: the other sites stand on the skyline in 3D, one click stands there; Sites hides them there, never in the Moon view', async ({ page }) => {
+test('D76: the other sites stand on the skyline in 3D, one click stands there; Sites hides them there, never in the Moon view', async ({ page }) => {
   test.setTimeout(150_000) // looking around the 3D view on software WebGL is slow
   await page.goto('/')
   await expect(page.getByTestId('moon-view')).toBeVisible()

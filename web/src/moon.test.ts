@@ -224,7 +224,7 @@ describe('relief grids (D67)', () => {
   })
 })
 
-describe('bearingTo (D75)', () => {
+describe('bearingTo (D76)', () => {
   const R = 1737.4
   const haversine = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {
     const r = Math.PI / 180

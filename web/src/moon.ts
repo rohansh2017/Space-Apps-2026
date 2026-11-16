@@ -28,7 +28,7 @@ export function xyToMe(x: number, y: number): Vec3 {
 }
 
 /**
- * Direction and distance from one point to another on the sphere (D75): the azimuth in degrees east of north in the
+ * Direction and distance from one point to another on the sphere (D76): the azimuth in degrees east of north in the
  * starting point's own east/north axes (the engine's site frame), and the great-circle distance in km on R.
  */
 export function bearingTo(from: { lat: number; lon: number }, to: { lat: number; lon: number }): { azDeg: number; distKm: number } {

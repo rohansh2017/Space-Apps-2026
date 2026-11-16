@@ -57,7 +57,7 @@ const writeLocations = (v: string) => { try { window.localStorage.setItem(LOCATI
 const FIRST_PARAMS = new URLSearchParams(window.location.search)
 const readOnboarded = () => { try { return window.localStorage.getItem(ONBOARDED_KEY) === '1' } catch { return false } }
 const writeOnboarded = () => { try { window.localStorage.setItem(ONBOARDED_KEY, '1') } catch { /* asked again next visit */ } }
-// D75: the standing view's Sites toggle (the other sites' pins on its skyline) is remembered per viewer, never shared;
+// D76: the standing view's Sites toggle (the other sites' pins on its skyline) is remembered per viewer, never shared;
 // the Moon view always shows every site's pin
 const SITES_KEY = 'tranquility-base:sites'
 const readShowSites = () => { try { return window.localStorage.getItem(SITES_KEY) !== 'off' } catch { return true } }
@@ -100,7 +100,7 @@ export default function App() {
   const [baseline, setBaseline] = useState<string | null>(null) // the column the others are compared to; null = the first
   const [stageView, setStageView] = useState<'moon' | 'ground'>('moon') // the stage: the orbitable Moon, or the first-person ground view
   const [sitePoints, setSitePoints] = useState<Record<string, SitePoint>>({}) // each site's own mask row and slope, for the site pins
-  const [showSites, setShowSites] = useState(readShowSites) // D75
+  const [showSites, setShowSites] = useState(readShowSites) // D76
   const toggleSites = useCallback(() => setShowSites((on) => {
     writeShowSites(!on)
     return !on
@@ -424,7 +424,7 @@ export default function App() {
     return loaded
   }, [terrain])
 
-  // --- every curated site as a pin (Moon view and, D75, the standing view's skyline), the grid of the site on show, and
+  // --- every curated site as a pin (Moon view and, D76, the standing view's skyline), the grid of the site on show, and
   // where the tray pins and results are. A pin needs its site's own horizon mask and slope only: one 720-byte row per
   // site, not the whole region (D58)
   useEffect(() => {
@@ -511,7 +511,7 @@ export default function App() {
     () => (data && sky?.covers(moonHour) ? { matrix: icrfToThree(sky.orientation, moonHour), stars: sky.stars } : null),
     [data, sky, moonHour],
   )
-  /** D75: the standing view's pins, every site but the one stood on (none while the Sites toggle is off). */
+  /** D76: the standing view's pins, every site but the one stood on (none while the Sites toggle is off). */
   const groundSite = observer ? observer.id.split(':')[0] : ''
   const groundPins = useMemo(() => (showSites ? moonPins.filter((p) => p.site.id !== groundSite) : []), [showSites, moonPins, groundSite])
   const groundAt = observer ? pointById.get(observer.id) : undefined
@@ -533,8 +533,9 @@ export default function App() {
   }, [])
 
   /** `only` (F31): rank on these constraints alone; a new search passes null, *Run again* keeps the current results' choice. */
-  async function runFinder(only: string[] | null = null) {
+  async function runFinder(only: string[] | null = null, override?: Constraints) {
     if (!data || !site || !plan || !planPoint) return
+    const used = override ?? constraints // F32: Recompute passes the values it just wrote, before the state update lands
     setBusy(true)
     setFinderError('')
     setAnnounce('Searching for alternatives…')
@@ -543,7 +544,7 @@ export default function App() {
       // own points; the copilot's search spec (F29) narrows this to the plan's site or named sites, or widens it to every grid
       const loaded = await loadAll()
       const spec = searchSpec
-      const radiusM = (spec.withinKm ?? Number(constraints.search_radius_km)) * 1000
+      const radiusM = (spec.withinKm ?? Number(used.search_radius_km)) * 1000
       const candidates: Candidate[] = [plan]
       for (const p of data.points) {
         const own = p.region === site.id
@@ -563,7 +564,7 @@ export default function App() {
       worker.current ??= new Worker(new URL('./engine/finder.worker.ts', import.meta.url), { type: 'module' })
       const slipHours = windowHours(spec, data.startMs + planHour * HOUR_MS) ?? undefined
       const request: FinderRequest = {
-        table: data.ephemeris, tableHours: data.hours, candidates, start: planHour, constraints, options: { order: spec.order, slipHours, only: only ?? undefined },
+        table: data.ephemeris, tableHours: data.hours, candidates, start: planHour, constraints: used, options: { order: spec.order, slipHours, only: only ?? undefined },
       }
       const reply = await new Promise<{ ok: boolean; result?: FinderResult; error?: string }>((resolve) => {
         worker.current!.onmessage = (e) => resolve(e.data)
@@ -571,7 +572,7 @@ export default function App() {
       })
       if (!reply.ok) throw new Error(reply.error)
       const result = reply.result!
-      setFound({ finder: result, candidates, constraints })
+      setFound({ finder: result, candidates, constraints: used })
       // F30: filters carry over to a new search, minus sites it no longer reaches
       const reached = new Set(result.pool.map((r) => candidates[r.candidate].label))
       setResultFilter((f) => (f.sites.every((s) => reached.has(s)) ? f : { ...f, sites: f.sites.filter((s) => reached.has(s)) }))
@@ -584,7 +585,7 @@ export default function App() {
       setViewing(null)
       setStale(false)
       const passing = result.results.filter((r) => r.evaluation.fails === 0).length
-      setAnnounce(copilot || (only
+      setAnnounce(copilot || (override ? `Recomputed with the new values: ${passing} of ${result.results.length} alternatives meet ${only ? 'the chosen criteria' : 'every constraint'}.` : only
         ? `Recomputed on ${only.length} chosen criteri${only.length === 1 ? 'on' : 'a'}: ${passing} of ${result.results.length} alternatives meet them.`
         : `Search finished: ${result.results.length} alternatives ranked, ${passing} meet every constraint.`))
       focusResults.current = true // the effect below moves focus once the results have rendered
@@ -1171,7 +1172,14 @@ export default function App() {
               )}
               {found && !resultsMin && <Results finder={found.finder} fresh={resultsFresh} onMinimize={() => smooth(() => { setResultsMin(true); setResultsFresh(false) }, () => resultsChip.current?.focus())} candidates={found.candidates} opened={openedIndex >= 0 && viewing ? refKey(viewing) : null} date={date} stale={stale}
                 filter={resultFilter} onFilter={setResultFilter} onAnnounce={setAnnounce}
-                headingRef={resultsHeading} onRerun={() => runFinder(found.finder.only)} onRecompute={(only) => runFinder(only)} busy={busy} constraints={found.constraints} lead={copilotText}
+                headingRef={resultsHeading} onRerun={() => runFinder(found.finder.only)} onRecompute={(only, overrides) => {
+                  // F32: slider values become the constraints (one source of truth, shared with the room), then the search reruns on them
+                  if (!overrides || !Object.keys(overrides).length) return runFinder(only)
+                  const next = validConstraints(data.constraintDefs, { ...constraints, ...overrides })
+                  setConstraints(next)
+                  setResultFilter((f) => ({ ...f, thresholds: {} })) // the sliders now sit at the constraint values
+                  return runFinder(only, next)
+                }} busy={busy} constraints={found.constraints} defs={data.constraintDefs} lead={copilotText}
                 pinned={pinnedKeys} onPin={(s) => { const r = resultRef(s); if (r) togglePin(r) }}
                 onMoon={(s) => { const r = resultRef(s); if (r) showOnMoon(r) }}
                 onOpen={(s) => {
