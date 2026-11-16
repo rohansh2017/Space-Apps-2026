@@ -1,6 +1,6 @@
 import { OrbitControls } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Eye, Mountain, Pin, PinOff, Target } from 'lucide-react'
+import { Eye, MapPin, Mountain, Pin, PinOff, Target } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as THREE from 'three'
@@ -69,6 +69,8 @@ interface Props {
   onNudge: (dir: Dir) => void
   onStand: () => void
   onStandAt: (siteId: string) => void // a pin's own 3D button: stand on that site's point in one click
+  showSites: boolean // the other sites' pins on or off (D75); the focused site's pin always shows
+  onToggleSites: () => void
   onPin: () => void // pin (or unpin) what is in view
   viewPinned: boolean
   canPin: boolean
@@ -926,7 +928,9 @@ function Numbers({ v }: { v: Verdict }) {
  * and the landing point is dragged on the grid. The renderer supplies positions only; colours, labels and numbers
  * come from the engine through the props.
  */
-function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, grid, badges, constraints, sunEl, earthEl, onSite, onBack, onPick, onNudge, onStand, onStandAt, onPin, viewPinned, canPin, sky, host, children }: Props) {
+function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, grid, badges, constraints, sunEl, earthEl, onSite, onBack, onPick, onNudge, onStand, onStandAt, showSites, onToggleSites, onPin, viewPinned, canPin, sky, host, children }: Props) {
+  // the Sites toggle (D75): the other sites' pins hide; the focused site's stays, it marks where you are
+  const shownPins = showSites ? pins : pins.filter((p) => p.site.id === focus.id)
   const id = useId()
   const root = useRef<HTMLDivElement>(null)
   const overlay = useRef<HTMLCanvasElement>(null)
@@ -1167,7 +1171,7 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
     })
 
     // site pins: a dot at the true position, a leader to the label
-    for (const p of pins) {
+    for (const p of shownPins) {
       const xy = zoomed && p.site.id === focus.id ? null : at(pinVecs.get(p.site.id)!)
       place(pinEls.current[p.site.id] ?? null, xy)
       if (!xy) continue
@@ -1330,6 +1334,8 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
         </span>
         <button type="button" onClick={() => setTopo((t) => !t)} aria-pressed={topo} disabled={!data.basemap.relief} data-testid="moon-topo"
           title="Colour the terrain by height and draw contour lines (LOLA)"><Mountain size={15} aria-hidden="true" />Topo</button>
+        <button type="button" onClick={onToggleSites} aria-pressed={showSites} data-testid="moon-sites" aria-label="Sites" className="moon-sites"
+          title={showSites ? "Hide the other sites' pins" : "Show the other sites' pins"}><MapPin size={15} aria-hidden="true" /><span>Sites</span></button>
         <label className="moon-exag" title="Raise the terrain's height for the eye. Every number stays at true height.">
           Height <input type="range" min={1} max={5} step={0.5} value={exag} onChange={(e) => setExag(Number(e.target.value))}
             disabled={!data.basemap.relief} data-testid="moon-exag" aria-valuetext={`${exag} times`} />
@@ -1359,7 +1365,7 @@ function MoonView({ data, hour, when, zoomed, focus, marker, draggable, pins, gr
       <span className="moon-bearing sunlit" ref={sunLabel} data-testid="moon-sun">Sun {sunEl.toFixed(2)}°</span>
       <span className="moon-bearing earthlit" ref={earthLabel} data-testid="moon-earth">Earth {earthEl.toFixed(2)}°</span>
 
-      {pins.map(({ site, verdict }) => {
+      {shownPins.map(({ site, verdict }) => {
         const pass = verdict ? verdict.evaluation.fails === 0 : null
         // which constraints fail is in the description: their names here would collide with the constraint inputs' labels
         const state = pass === null ? 'not evaluated yet' : pass ? 'solid pin, meets every constraint' : `hollow pin, fails ${verdict!.evaluation.fails} of ${Object.keys(verdict!.evaluation.passes).length} constraints`

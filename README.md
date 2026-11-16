@@ -88,6 +88,8 @@ by a date). You confirm, and the finder runs. The search settings stay as remova
 | Moon | *Height* slider | Raise the 3D terrain ×1 to ×5 for the eye (numbers always use the true height) |
 | Moon | Landing marker · dots · arrow keys | Move the landing point; *Stand here* (or Enter) stands on it |
 | Moon / 3D | *Pole* · *Pin* | Back to the pole · pin the view to the Compare tray |
+| Moon / 3D | *Sites* | Show or hide the other sites' pins (remembered on this browser) |
+| 3D | A site's pin on the skyline | Its direction and distance; click to stand there |
 | 3D | Drag | Look around |
 | Bottom panel | Scrubber · *Play* | Move through the lunar day |
 | Bottom panel | Tab on the top edge · drag the edge | Open/close · resize (arrow keys work; double-click resets) |

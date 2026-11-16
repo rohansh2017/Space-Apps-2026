@@ -481,14 +481,19 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
 .moon-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .rail-button[aria-pressed='true'] { color: var(--text); background: rgb(224 216 200 / 8%); }
 /* pass = solid, fail = hollow: the shape says it as well as the colour */
-:is(.moon, .moon-foot) :is(i.pass, i.fail, i.pending) { display: inline-block; width: 0.62rem; height: 0.62rem; border-radius: 50%; border: 2px solid var(--ok); vertical-align: -1px; flex: none; }
-:is(.moon, .moon-foot) i.pass { background: var(--ok); }
-:is(.moon, .moon-foot) i.fail { border-color: var(--bad); }
-:is(.moon, .moon-foot) i.pending { border: 1px dashed var(--mute); }
+:is(.moon, .moon-foot, .ground-pin) :is(i.pass, i.fail, i.pending) { display: inline-block; width: 0.62rem; height: 0.62rem; border-radius: 50%; border: 2px solid var(--ok); vertical-align: -1px; flex: none; }
+:is(.moon, .moon-foot, .ground-pin) i.pass { background: var(--ok); }
+:is(.moon, .moon-foot, .ground-pin) i.fail { border-color: var(--bad); }
+:is(.moon, .moon-foot, .ground-pin) i.pending { border: 1px dashed var(--mute); }
 /* pins: the label is the button; a leader on the canvas joins it to the site's true position */
 .moon-pin { position: relative; gap: 0.35rem; padding: 0.1rem 0.5rem 0.1rem 0.4rem; border-radius: 999px; font-size: 0.74rem;
   background: rgb(5 6 8 / 80%); border-color: var(--line-strong); color: var(--text); }
 .moon-pin.selected { border-color: var(--text); font-weight: 650; }
+/* the other sites on the standing view's skyline (D75): the Moon view's pin, placed each frame by Scene3D's projector */
+.ground-pins { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.ground-pins .ground-pin { position: absolute; left: 0; top: 0; pointer-events: auto; }
+.ground-pin .dim { color: var(--dim); }
+@media (max-width: 600px) { .ground-pin .dim { display: none; } }
 .moon-pin-wrap:hover, .moon-pin-wrap:focus-within { z-index: 2; }
 /* a pin and its one-click "stand here in 3D" button; the label is placed by the overlay painter */
 .moon-pin-wrap { position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 3px; }
@@ -496,7 +501,7 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
 .moon-pin-stand { padding: 0.18rem; border-radius: 999px; background: rgb(5 6 8 / 80%); border-color: var(--line-strong); color: var(--text); opacity: 0; transition: opacity 0.12s; }
 .moon-pin-wrap:hover .moon-pin-stand, .moon-pin-wrap:focus-within .moon-pin-stand, .moon-pin-stand:focus-visible { opacity: 1; }
 @media (hover: none) { .moon-pin-stand { opacity: 1; } }
-:is(.moon, .moon-foot) i.tinted { display: inline-block; width: 0.66rem; height: 0.66rem; border-radius: 50%; border: 1px solid rgb(236 232 225 / 55%); vertical-align: -1px; flex: none; }
+:is(.moon, .moon-foot, .ground-pin) i.tinted { display: inline-block; width: 0.66rem; height: 0.66rem; border-radius: 50%; border: 1px solid rgb(236 232 225 / 55%); vertical-align: -1px; flex: none; }
 .moon-tip { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 3; gap: 0.15rem; width: max-content; max-width: 19rem; padding: 0.45rem 0.6rem; text-align: left; white-space: normal;
   background: #232326; color: var(--text); border: 1px solid var(--line-strong); border-radius: 6px; font-size: 0.76rem; font-weight: 400; box-shadow: 0 6px 20px rgb(0 0 0 / 50%); pointer-events: none; }
 .moon-pin:hover .moon-tip, .moon-pin:focus-visible .moon-tip, .moon-tip.dot { display: grid; }
@@ -527,7 +532,8 @@ button:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
 .moon-exag { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--dim); }
 .moon-exag input { width: 5.5rem; accent-color: var(--text); }
 .moon-exag-value { min-width: 2.2em; color: var(--text); font-variant-numeric: tabular-nums; }
-@media (max-width: 600px) { .moon-exag { display: none; } } /* phones keep x1; the bar stays clear of the pins (PLAN: Adapt) */
+@media (max-width: 600px) { .moon-exag { display: none; } }
+@media (max-width: 600px) { .moon-sites span { display: none; } } /* icon only on phones: the bar stays clear of the pins (D75) */ /* phones keep x1; the bar stays clear of the pins (PLAN: Adapt) */
 .moon-topo { pointer-events: auto; padding: 0.3rem 0.6rem; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; text-align: center; text-wrap: pretty; font-variant-numeric: tabular-nums; }
 .moon-topo .legend i.topo-ramp { width: 5rem; background: linear-gradient(90deg, #2b1c54, #cbc2f3); }
 .tray-letter { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; margin-right: 0.35rem; border-radius: 4px; background: var(--text); color: #141416; font-size: 0.68rem; font-weight: 700; vertical-align: 1px; }

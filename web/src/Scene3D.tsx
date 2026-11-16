@@ -1,11 +1,13 @@
 import { OrbitControls } from '@react-three/drei'
-import { Canvas, useThree } from '@react-three/fiber'
-import { memo, useEffect, useMemo, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { Site } from './data'
 import { loadHeightmap } from './data'
 import type { Angles } from './engine/engine'
 import { SUN_RADIUS_DEG, maskAt } from './engine/engine'
+import type { MoonPin } from './MoonView'
+import { bearingTo } from './moon'
 import { regolith } from './regolith'
 import { sceneMatrix, starField } from './starfield'
 
@@ -48,6 +50,24 @@ interface Props {
   sky: number[] // ICRF -> local east/north/up at this hour (engine skyMatrix)
   ridges: Int8Array | null // horizon-crest normals (360 x 3, x 127) in the site's east/north/up axes
   stars: Float32Array // catalogue rows: ICRF unit vector, V magnitude, B-V
+  pins: MoonPin[] // the other sites (D75), with the engine's verdict for the plan; empty when the Sites toggle is off
+  from: { lat: number; lon: number } | null // where the observer stands, for each pin's bearing and distance
+  onStandAt: (siteId: string) => void
+}
+
+const PIN_LIFT_DEG = 1.2 // a pin sits this far above the skyline at its bearing: a direction marker, not an elevation
+
+/** A pin on the skyline: its site, verdict, bearing and distance (from moon.ts), and where it sits in the scene. */
+interface SkyPin extends MoonPin {
+  azDeg: number
+  distKm: number
+  at: THREE.Vector3 // scene position, relative to the eye
+}
+
+/** Inside the canvas: calls back every frame with the camera, so the pins' DOM labels follow it (as in the Moon view). */
+function OnFrame({ run }: { run: (camera: THREE.Camera, size: { width: number; height: number }) => void }) {
+  useFrame(({ camera, size }) => run(camera, size))
+  return null
 }
 
 function Camera({ eye, look }: { eye: THREE.Vector3; look: THREE.Vector3 }) {
@@ -104,7 +124,28 @@ function useTrail(track: Angles[], pick: (a: Angles) => [number, number], colour
 }
 
 /** First-person view from 2 m above the terrain, in local metric coordinates centred on the site. */
-function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, sky, stars, ridges }: Props) {
+function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, sky, stars, ridges, pins, from, onStandAt }: Props) {
+  // D75: the other sites, each in its true direction from the observer, a little above the skyline at that bearing
+  const skyPins = useMemo((): SkyPin[] => (from ? pins.map((p) => {
+    const { azDeg, distKm } = bearingTo(from, p.site)
+    return { ...p, azDeg, distKm, at: direction(azDeg, (mask ? maskAt(mask, azDeg) : 0) + PIN_LIFT_DEG).multiplyScalar(RING_M - 50) }
+  }) : []), [pins, from, mask])
+  const pinEls = useRef<Record<string, HTMLElement | null>>({})
+  const projected = useMemo(() => new THREE.Vector3(), [])
+  const placePins = (camera: THREE.Camera, size: { width: number; height: number }) => {
+    for (const p of skyPins) {
+      const el = pinEls.current[p.site.id]
+      if (!el) continue
+      const v = projected.copy(p.at).add(eye).project(camera)
+      const shown = v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1 // in front of the camera and on screen
+      // write only what changed: a style write every frame repaints the page, which software compositing cannot afford
+      const vis = shown ? 'visible' : 'hidden'
+      if (el.style.visibility !== vis) el.style.visibility = vis
+      if (!shown) continue
+      const tf = `translate(${Math.round(((v.x + 1) / 2) * size.width)}px, ${Math.round(((1 - v.y) / 2) * size.height)}px) translate(-50%, -50%)`
+      if (el.style.transform !== tf) el.style.transform = tf
+    }
+  }
   const hm = site.heightmap!
   const [loaded, setLoaded] = useState<{ file: string; heights: Uint16Array } | null>(null)
   useEffect(() => {
@@ -259,7 +300,9 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
     col.needsUpdate = true
   }
   return (
+    <>
     <Canvas className="scene" shadows camera={{ near: 0.5, far: 30000, fov: 60 }}>
+      <OnFrame run={placePins} />
       <color attach="background" args={['#000']} />
       <Camera eye={eye} look={look} />
       <ambientLight intensity={0.05} />
@@ -303,6 +346,25 @@ function Scene3D({ site, east, north, mask, track, t, sunFraction, earthDistKm, 
         <mesh key="level" geometry={level} material={soil} rotation={[-Math.PI / 2, 0, 0]} position={[east, 0, -north]} />
       )}
     </Canvas>
+    <div className="ground-pins">
+      {skyPins.map(({ site, verdict, azDeg, distKm }) => {
+        const pass = verdict ? verdict.evaluation.fails === 0 : null
+        const state = pass === null ? 'not evaluated yet' : pass ? 'meets every constraint' : `fails ${verdict!.evaluation.fails} constraints`
+        const name = site.name.replace(/ \(.*\)$/, '')
+        const km = distKm >= 10 ? distKm.toFixed(0) : distKm.toFixed(1)
+        return (
+          <button key={site.id} type="button" className="moon-pin ground-pin" ref={(el) => { pinEls.current[site.id] = el }} style={{ visibility: 'hidden' }}
+            data-testid={`ground-pin-${site.id}`} data-verdict={pass === null ? 'pending' : pass ? 'pass' : 'fail'}
+            aria-label={`${name}, ${km} km: ${state}, bearing ${azDeg.toFixed(0)}°. Stand there in 3D.`}
+            title={`${site.name}: ${km} km away, bearing ${azDeg.toFixed(0)}° (great circle). Shown on the skyline in its direction, not at its elevation. Click to stand there.`}
+            onClick={() => onStandAt(site.id)}>
+            <i className={pass === null ? 'pending' : pass ? 'pass' : 'fail'} aria-hidden="true" />
+            {name} <span className="dim">· {km} km</span>
+          </button>
+        )
+      })}
+    </div>
+    </>
   )
 }
 
