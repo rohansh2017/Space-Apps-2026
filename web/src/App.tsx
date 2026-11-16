@@ -517,8 +517,9 @@ export default function App() {
   }, [])
 
   /** `only` (F31): rank on these constraints alone; a new search passes null, *Run again* keeps the current results' choice. */
-  async function runFinder(only: string[] | null = null) {
+  async function runFinder(only: string[] | null = null, override?: Constraints) {
     if (!data || !site || !plan || !planPoint) return
+    const used = override ?? constraints // F32: Recompute passes the values it just wrote, before the state update lands
     setBusy(true)
     setFinderError('')
     setAnnounce('Searching for alternatives…')
@@ -527,7 +528,7 @@ export default function App() {
       // own points; the copilot's search spec (F29) narrows this to the plan's site or named sites, or widens it to every grid
       const loaded = await loadAll()
       const spec = searchSpec
-      const radiusM = (spec.withinKm ?? Number(constraints.search_radius_km)) * 1000
+      const radiusM = (spec.withinKm ?? Number(used.search_radius_km)) * 1000
       const candidates: Candidate[] = [plan]
       for (const p of data.points) {
         const own = p.region === site.id
@@ -547,7 +548,7 @@ export default function App() {
       worker.current ??= new Worker(new URL('./engine/finder.worker.ts', import.meta.url), { type: 'module' })
       const slipHours = windowHours(spec, data.startMs + planHour * HOUR_MS) ?? undefined
       const request: FinderRequest = {
-        table: data.ephemeris, tableHours: data.hours, candidates, start: planHour, constraints, options: { order: spec.order, slipHours, only: only ?? undefined },
+        table: data.ephemeris, tableHours: data.hours, candidates, start: planHour, constraints: used, options: { order: spec.order, slipHours, only: only ?? undefined },
       }
       const reply = await new Promise<{ ok: boolean; result?: FinderResult; error?: string }>((resolve) => {
         worker.current!.onmessage = (e) => resolve(e.data)
@@ -555,7 +556,7 @@ export default function App() {
       })
       if (!reply.ok) throw new Error(reply.error)
       const result = reply.result!
-      setFound({ finder: result, candidates, constraints })
+      setFound({ finder: result, candidates, constraints: used })
       // F30: filters carry over to a new search, minus sites it no longer reaches
       const reached = new Set(result.pool.map((r) => candidates[r.candidate].label))
       setResultFilter((f) => (f.sites.every((s) => reached.has(s)) ? f : { ...f, sites: f.sites.filter((s) => reached.has(s)) }))
@@ -568,7 +569,7 @@ export default function App() {
       setViewing(null)
       setStale(false)
       const passing = result.results.filter((r) => r.evaluation.fails === 0).length
-      setAnnounce(copilot || (only
+      setAnnounce(copilot || (override ? `Recomputed with the new values: ${passing} of ${result.results.length} alternatives meet ${only ? 'the chosen criteria' : 'every constraint'}.` : only
         ? `Recomputed on ${only.length} chosen criteri${only.length === 1 ? 'on' : 'a'}: ${passing} of ${result.results.length} alternatives meet them.`
         : `Search finished: ${result.results.length} alternatives ranked, ${passing} meet every constraint.`))
       focusResults.current = true // the effect below moves focus once the results have rendered
@@ -1151,7 +1152,14 @@ export default function App() {
               )}
               {found && !resultsMin && <Results finder={found.finder} fresh={resultsFresh} onMinimize={() => smooth(() => { setResultsMin(true); setResultsFresh(false) }, () => resultsChip.current?.focus())} candidates={found.candidates} opened={openedIndex >= 0 && viewing ? refKey(viewing) : null} date={date} stale={stale}
                 filter={resultFilter} onFilter={setResultFilter} onAnnounce={setAnnounce}
-                headingRef={resultsHeading} onRerun={() => runFinder(found.finder.only)} onRecompute={(only) => runFinder(only)} busy={busy} constraints={found.constraints} lead={copilotText}
+                headingRef={resultsHeading} onRerun={() => runFinder(found.finder.only)} onRecompute={(only, overrides) => {
+                  // F32: slider values become the constraints (one source of truth, shared with the room), then the search reruns on them
+                  if (!overrides || !Object.keys(overrides).length) return runFinder(only)
+                  const next = validConstraints(data.constraintDefs, { ...constraints, ...overrides })
+                  setConstraints(next)
+                  setResultFilter((f) => ({ ...f, thresholds: {} })) // the sliders now sit at the constraint values
+                  return runFinder(only, next)
+                }} busy={busy} constraints={found.constraints} defs={data.constraintDefs} lead={copilotText}
                 pinned={pinnedKeys} onPin={(s) => { const r = resultRef(s); if (r) togglePin(r) }}
                 onMoon={(s) => { const r = resultRef(s); if (r) showOnMoon(r) }}
                 onOpen={(s) => {

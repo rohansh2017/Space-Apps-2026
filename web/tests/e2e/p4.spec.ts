@@ -571,8 +571,9 @@ test('F30: filters hide behind the funnel, narrow the alternatives, stay visible
   const menu = page.getByTestId('results-filter')
   await expect(menu).toBeVisible()
 
-  // days out: every shown landing is at most 3 days after the plan
+  // days out (a slider since F32): every shown landing is at most 3 days after the plan
   await menu.getByLabel('Maximum days out').fill('3')
+  await expect(menu.getByTestId('days-value')).toHaveText('0 to 3 days')
   const shiftHours = (t: string) => {
     const m = t.match(/· ([+−])([\d.]+) (h|days?)$/)
     return m ? Number(m[2]) * (m[3] === 'h' ? 1 : 24) : 0 // "same date"
@@ -580,7 +581,7 @@ test('F30: filters hide behind the funnel, narrow the alternatives, stay visible
   for (const t of await page.getByTestId('result-title').allInnerTexts()) expect(shiftHours(t)).toBeLessThanOrEqual(72)
 
   // site: only the first result's site
-  await menu.getByLabel('Maximum days out').fill('')
+  await page.getByTestId('filter-pills').getByRole('button', { name: /^Remove filter: Up to 3 days out$/ }).click()
   const site = (await rows.first().locator('.result-title > span').innerText()).split(' · ')[0]
   const siteBox = menu.getByRole('checkbox', { name: site, exact: true })
   if (await siteBox.count()) {
@@ -637,4 +638,38 @@ test('F31: Recompute ranks on the ticked criteria alone, and pressing it again r
   await expect(page.getByTestId('focus-note')).toHaveCount(0)
   await expect(page.getByTestId('finder-summary')).toContainText('meet every constraint')
   await expect(page.locator('.results li').first().locator('.chip')).not.toHaveCount(2)
+})
+
+test('F32: a criterion slider filters the list without a search, and Recompute writes its value into the Constraints panel', async ({ page }) => {
+  await page.goto('/')
+  await expandPanels(page)
+  await page.getByLabel('Landing date and time (UTC)').fill('2026-12-01T00:00')
+  await page.getByRole('button', { name: 'Find alternatives' }).click()
+  await expect(page.getByTestId('result')).toHaveCount(10)
+  const before = await page.getByTestId('finder-ms').innerText()
+  await page.getByTestId('filter-toggle').click()
+  const menu = page.getByTestId('results-filter')
+  // every criterion's slider is there before anything is ticked; moving one ticks it
+  for (const name of ['Min continuous sunlight', 'Max continuous darkness', 'Min Earth visibility', 'Max terrain slope'])
+    await expect(menu.getByLabel(`${name} threshold`)).toBeVisible()
+  const slider = menu.getByLabel('Max continuous darkness threshold')
+  await expect(slider).toHaveValue('80') // starts at the search's constraint
+  await expect(menu.getByRole('checkbox', { name: 'Max continuous darkness' })).not.toBeChecked()
+  const count = page.getByTestId('filter-count')
+  const total = Number((await count.innerText()).match(/of (\d+)/)![1]) // "Top 10 of N" while nothing filters
+  const matches = async () => Number((await count.innerText()).match(/^(\d+) of/)![1])
+  await slider.fill('0')
+  await expect(menu.getByRole('checkbox', { name: 'Max continuous darkness' })).toBeChecked()
+  await expect(menu.getByTestId('threshold-max_continuous_dark_hours')).toContainText('Dark up to 0 h')
+  expect(await matches()).toBeLessThanOrEqual(total)
+  await expect(page.getByTestId('finder-ms')).toHaveText(before) // filtered, not searched
+  await expect(page.getByRole('button', { name: 'Remove filter: Dark up to 0 h' })).toBeVisible()
+
+  await slider.fill('120')
+  await expect(menu.getByTestId('recompute')).toHaveText('Recompute ticked with these values')
+  await menu.getByTestId('recompute').click()
+  await expect(page.getByTestId('focus-note')).toContainText('Ranked on Max continuous darkness only') // F31 still applies to the ticked set
+  await expect(page.locator('#constraint-max_continuous_dark_hours')).toHaveValue('120') // the Constraints panel field
+  await expect(page.getByTestId('results-stale')).toHaveCount(0)
+  await expect(page.getByTestId('results-filter').getByLabel('Max continuous darkness threshold')).toHaveValue('120')
 })

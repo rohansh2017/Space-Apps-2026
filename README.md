@@ -68,7 +68,10 @@ A **quick tour** opens on your first visit. *Quick tour* in the top bar replays 
 4. **Slip the date** and press *Find alternatives*. Each result says how it differs from the plan; a failing one
    says *why not*. The funnel button filters the list (days out, distance, site, criteria met) and the
    sort menu switches between best margin and soonest landing; active filters stay as removable pills.
-   Tick some criteria and press *Recompute for ticked* to rank on those alone; press it again for the full search.
+   Each criterion has a slider: drag it to filter the list already returned (days out and distance are sliders too;
+   days out counts from the planned landing date and time). Press *Recompute* to rerun the search with the slider values,
+   which also sets them in the Constraints panel; with only some criteria ticked it ranks on those alone, and pressing
+   it again restores the full search.
 5. **Compare.** Pin results to the tray, choose a baseline with *Compare to this*, and *Copy link* to share the exact view.
 
 Or describe the whole slip in one go: *Ask Gemini* with *"my mission slipped by 11 days, stay near the rim"* or
