@@ -18,7 +18,7 @@
 | **1:20** | "So we ask what still works. You can just say what you need." | Type *survive 4 days of dark, talk to Earth half the time* → **Ask Gemini** → show the proposal (96 h, 50%) → **Apply and find alternatives**: ten ranked options in well under a second, each with a one-line difference. If the slipped plan still fails, point at its **Why not?** line above them: what would make it pass. |
 | **1:50** | "Here's the plan next to the best alternatives." | Press the **pin** on results #1 and #2: they appear in the Compare tray beside the plan. **Open in 3D** on #1 to stand there. |
 | **2:15** | "Mission control isn't one person." | **Mission room** → **Start mission room**, open the link in the second window, change the date there: the first window follows. |
-| **2:40** | "Every number is real JPL ephemeris and real LRO terrain, checked against Horizons to a thousandth of a degree and against NASA's illumination maps at r 0.95 to 0.99. Explorer mode says the same in plain words." | Switch to **Explorer**. Point at the plain-language sentence. Close on *About the data*. |
+| **2:40** | "Every number is real JPL ephemeris and real LRO terrain, checked against Horizons to a thousandth of a degree and against NASA's illumination maps at r 0.95 to 0.99." | Close on *About the data*. |
 
 > **If a step misbehaves, skip it.** The 0:00–1:05 steps and the close use no network services, so they always work.
 

@@ -44,21 +44,18 @@ test('constraints: out-of-range input shows an error and keeps the last valid va
   await expect(page.getByTestId('constraint-error')).toHaveCount(0)
 })
 
-test('tour takes focus, closes on Escape and returns focus; glossary text is readable', async ({ page }) => {
+test('tour opens from the logo, takes focus, closes on Escape and returns focus', async ({ page }) => {
   await page.goto('/')
   await expandPanels(page)
   await expect(page.getByTestId('view')).toContainText('Plan:')
-  await page.getByRole('button', { name: 'Explorer' }).click()
-  const term = page.getByTestId('term').first()
-  const tipId = (await term.getAttribute('aria-describedby'))!
-  expect((await page.locator(`[id="${tipId}"]`).textContent())!.length).toBeGreaterThan(40)
-  await page.getByRole('button', { name: 'Start tour' }).click()
+  const logo = page.getByRole('button', { name: /Why is the pole so hard/ })
+  await logo.click()
   await expect(page.getByTestId('tour')).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('tour')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Start tour' })).toBeFocused()
+  await expect(logo).toBeFocused()
   // keyboard through the tour: Next keeps focus as it turns into Finish
-  await page.getByRole('button', { name: 'Start tour' }).click()
+  await logo.click()
   const next = page.getByTestId('tour').getByRole('button', { name: 'Next' })
   await next.focus()
   await page.keyboard.press('Enter')

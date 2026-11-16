@@ -15,8 +15,6 @@ import { buildSeries, evaluate, maskAt, nextChange, nudgeNeighbour, siteAngles, 
 import type { Candidate, FinderResult, Scored } from './engine/finder'
 import { diffParts } from './engine/finder'
 import type { FinderRequest } from './engine/finder.worker'
-import type { Mode } from './guide'
-import { Guide } from './guide'
 import Hud from './Hud'
 import Matrix from './Matrix'
 import { gridStats, icrfToThree, verdict } from './moon'
@@ -84,7 +82,6 @@ const refKey = (r: ScenarioRef) => `${r.point}@${r.hour}`
 export default function App() {
   const [data, setData] = useState<Dataset | null>(null)
   const [error, setError] = useState('')
-  const [mode, setMode] = useState<Mode>('planner')
   const [siteId, setSiteId] = useState('')
   const [pointIndex, setPointIndex] = useState<number | null>(null) // grid point within the site's region; null = the site itself
   const [snapNote, setSnapNote] = useState('')
@@ -159,7 +156,7 @@ export default function App() {
   useEffect(() => {
     loadDataset().then((d) => {
       setData(d)
-      // F17: a shared link restores site, point, landing time, changed constraints and mode
+      // F17: a shared link restores site, point, landing time, changed constraints and pins
       const s = decodeShare(withStoredLocations(new URLSearchParams(window.location.search), readLocations()))
       const site = d.sites.find((x) => x.id === s.site) ?? d.sites[0]
       setSiteId(site.id)
@@ -169,7 +166,6 @@ export default function App() {
       const h = s.utc ? Math.round((Date.parse(s.utc) - d.startMs) / HOUR_MS) : NaN
       if (h >= 0 && h < d.hours) setPlanHour(h)
       setConstraints(validConstraints(d.constraintDefs, { ...defaults(d.constraintDefs), ...s.constraints }))
-      if (s.mode) setMode(s.mode)
       const known = new Set(d.points.map((p) => p.id))
       // links and stored locations from before D59 may carry the live plan column ("plan"): it becomes a snapshot of the plan
       const planRef: ScenarioRef = {
@@ -406,15 +402,6 @@ export default function App() {
     }
     setSnapNote('')
     setNudgeFrom(from) // after clearResults, so this write wins
-  }
-
-  /** F13: what the app does as the tour reaches each step (step ids come from tour.json). */
-  const tourStep = (id: string) => {
-    if (id === 'pole-sun' && site?.terrain) {
-      playFrom.current = 0
-      setOffset(0)
-      setPlaying(true)
-    } else setPlaying(false)
   }
 
   const terrain = useMemo(() => data?.sites.filter((s) => s.terrain) ?? [], [data])
@@ -663,11 +650,11 @@ export default function App() {
   useEffect(() => {
     if (!data || !siteId) return
     const params = encodeShare(new URLSearchParams(window.location.search), {
-      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, mode, pins, ref: baseline,
+      site: siteId, point: pointIndex, utc: new Date(data.startMs + planHour * HOUR_MS).toISOString(), constraints, defs: data.constraintDefs, pins, ref: baseline,
     })
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
     writeLocations(pickLocations(params))
-  }, [data, siteId, pointIndex, planHour, constraints, mode, pins, baseline])
+  }, [data, siteId, pointIndex, planHour, constraints, pins, baseline])
   const [copied, setCopied] = useState(false)
   const copyLink = () => {
     navigator.clipboard?.writeText(window.location.href).catch(() => undefined)
@@ -892,11 +879,6 @@ export default function App() {
     }
   }
 
-  const guide = useMemo(
-    () => ({ mode, glossary: new Map((data?.tour.glossary ?? []).map((g) => [g.term.toLowerCase(), g.definition])) }),
-    [mode, data],
-  )
-
   if (error)
     return (
       <main>
@@ -938,8 +920,8 @@ export default function App() {
   const levelGround = Boolean(day && site.heightmap && Math.max(Math.abs(day.east), Math.abs(day.north)) >= site.heightmap.span_m / 2 - 20)
 
   return (
-    <Guide.Provider value={guide}>
-      <div className={`app ${mode}${found ? ' has-results' : ''}${sideOpen ? '' : ' side-closed'}${fullscreen ? ' cinematic' : ''}${fullscreen && idle ? ' idle' : ''}`}>
+    <>
+      <div className={`app${found ? ' has-results' : ''}${sideOpen ? '' : ' side-closed'}${fullscreen ? ' cinematic' : ''}${fullscreen && idle ? ' idle' : ''}`}>
         <div className="stage">
           {/* one WebGL context at a time: the Moon view and the ground view replace each other */}
           {stageView === 'moon' ? (
@@ -964,12 +946,18 @@ export default function App() {
 
         <header className="topbar">
           <div className="brand">
-            <h1><img className="brand-logo" src="/tranquility-base.png" alt="" width="48" height="48" />Tranquility Base</h1>
+            <h1>
+              {/* the logo opens the three-slide "Why is the pole so hard?" tour (F13) */}
+              <button type="button" className="brand-button" ref={startTourButton} disabled={tour} onClick={() => { setCoach(false); setTour(true) }}
+                aria-label="Why is the pole so hard? A three-step tour" title="Why is the pole so hard?" data-testid="logo-tour">
+                <img className="brand-logo" src="/tranquility-base.png" alt="" width="48" height="48" />
+              </button>
+              Tranquility Base
+            </h1>
             <span>Lunar south-pole landing site navigator</span>
           </div>
           <div className="topbar-actions">
             <button type="button" disabled={coach} onClick={() => { setTour(false); setCoach(true) }} data-testid="quick-tour"><Compass size={15} aria-hidden="true" />Quick tour</button>
-            {mode === 'explorer' && <button type="button" ref={startTourButton} disabled={tour} onClick={() => { setCoach(false); setTour(true) }}>Start tour</button>}
             {copied && <span className="note" role="status">Link copied</span>}
             <button type="button" onClick={copyLink}><Link2 size={15} aria-hidden="true" />Copy link</button>
             <button type="button" ref={roomButton} aria-expanded={drawer === 'room'} onClick={() => setDrawer(drawer === 'room' ? null : 'room')}>
@@ -982,11 +970,6 @@ export default function App() {
                 {fullscreen ? 'Exit full screen' : 'Full screen'}
               </button>
             )}
-            <div className="modes" role="group" aria-label="Mode">
-              {(['planner', 'explorer'] as const).map((m) => (
-                <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); if (m === 'planner') setTour(false) }}>{m === 'planner' ? 'Planner' : 'Explorer'}</button>
-              ))}
-            </div>
           </div>
         </header>
         {/* F28: outside every panel, so no layout change (results, stage switch) unmounts it mid-tour */}
@@ -1051,7 +1034,6 @@ export default function App() {
                 </form>
                 {snapNote && <p className="note snap" role="status" data-testid="snap-note">{snapNote}</p>}
                 <p className="note">{site.mission} · {site.agency}<br />{(plan?.lat ?? site.lat).toFixed(3)}°, {(plan?.lon ?? site.lon).toFixed(3)}°E · {site.coord_source}</p>
-                {mode === 'explorer' && site.blurb && <p className="note">{site.blurb}</p>}
               </section>
               <ConstraintPanel defs={data.constraintDefs} value={constraints} copilot={copilotHooks} onChange={(c) => {
                 setConstraints(c)
@@ -1129,9 +1111,8 @@ export default function App() {
                 </div>
                 {statusOpen && (day.evaluation ? <Chips evaluation={day.evaluation} constraints={constraints} /> : <span className="note">Mission window runs past 2035</span>)}
               </div>
-              {tour && <Tour steps={data.tour.steps} onStep={tourStep} onClose={() => {
+              {tour && <Tour steps={data.tour.steps} onClose={() => {
                 setTour(false)
-                setPlaying(false)
                 requestAnimationFrame(() => startTourButton.current?.focus()) // the button is re-enabled on the next render
               }} />}
               </div>
@@ -1334,6 +1315,6 @@ export default function App() {
           </Drawer>
         )}
       </div>
-    </Guide.Provider>
+    </>
   )
 }

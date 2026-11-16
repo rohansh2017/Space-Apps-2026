@@ -101,7 +101,7 @@ by a date). You confirm, and the finder runs. The search settings stay as remova
 | Results | Minimize | Fold the list into its corner; the chip reopens it |
 | Left rail | *Plan* · *Moon* · *Scenario matrix* | Plan panel · Moon view · every site against a range of dates |
 | Top bar | *Copy link* · *Mission room* · *Full screen* | Shareable URL · shared room · cinematic mode for a projector |
-| Top bar | *Planner / Explorer* | Explorer mode adds plain-language wording and a science tour (*Start tour*) |
+| Top bar | The logo | Opens the three-step science tour, *Why is the pole so hard?* |
 | Footer | *About the data* | Every source, and everything the views invent |
 
 Your plan's site, point, date and pinned scenarios are kept in this browser, so a refresh brings them back; a shared
@@ -144,7 +144,7 @@ Measured by `make validate` and `make perf`. Full tables: [docs/VALIDATION.md](d
 - **Validation:** JPL Horizons (topocentric angles); PGDA average solar illumination maps (Mazarico et al. 2011); the LOLA slope map.
 - **Site coordinates:** NASA Artemis III (October 2024) and CLPS releases; PGDA product 78 site footprints. Each site records its source and whether it is approximate.
 - **Stars:** Yale Bright Star Catalogue, 5th revised edition (Hoffleit & Warren 1991), via Harvard's Telescope Data Center copy of VizieR V/50.
-- **Explorer text:** written by the team in our own words from NASA mission pages and Canadian Space Agency (CSA) Moon Exploration material.
+- **Tour text:** written by the team in our own words from NASA mission pages and Canadian Space Agency (CSA) Moon Exploration material.
 
 File names, sizes and SHA-256 hashes: [docs/DATA.md](docs/DATA.md).
 

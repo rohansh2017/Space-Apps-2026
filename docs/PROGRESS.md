@@ -452,3 +452,11 @@ Team request: fix the quick tour. The tour's code was not broken. Its two failin
 ## 2026-11-15 — Merged main before merging this branch into it (branch `redesign/new-visual-identity`)
 
 Merged `origin/main` (F32 criterion sliders, main's D75). Conflicts only in DECISIONS and PROGRESS, where both branches appended entries; both kept. Both branches had used D75: main's (criterion sliders) keeps it, and this branch's site-pins decision is renumbered D76 everywhere (code comments, the e2e test name, PLAN, TRACEABILITY, web/CLAUDE.md).
+
+## 2026-11-15 — Planner only; the logo opens the tour (D77) (branch `redesign/new-visual-identity`)
+
+Team request: remove Explorer mode and the Planner/Explorer switch, and open the three-slide tour from the logo. Removed the mode state, the switch, *Start tour* and the Explorer-only UI (plain-English summary, HUD sentence and battery, glossary tooltips, site blurb); deleted `Glossary.tsx` and `guide.ts`; `share.ts` no longer writes `mode` and strips it from old links (new unit test). The logo is a button that opens the tour. Tests updated: p4 F13 opens the tour from the logo, F17 and the stored-locations test no longer touch modes, a11y checks focus returns to the logo, p3's Explorer test and its screenshot removed. F9 marked removed in TRACEABILITY. README, DEMO_SCRIPT and ONE_PAGER no longer mention Explorer.
+
+Team follow-up the same day: the tour card's *Close* became an X at its top right, step 1 has no *Back*, *Next*/*Finish* sit at the bottom right, and step 2 no longer starts playback (`Tour.tsx` lost its `onStep` hook; `App.tsx tourStep` removed). p4 F13 now checks there is no Back on step 1 and that playback stays off; F13 and the a11y tour test pass.
+
+Checks and deploy for D77: `make check` passed lint, typecheck, 129 + 46 unit tests and parity; browser tests 35 passed, 4 failed under parallel load (F28 walk-through and first-visit, p3 playback, p4 F11), all 4 passed alone, and `make e2e-room` passed. Deployed on the team's say-so despite that (version f86e2fe3). Live browser tests without Gemini: 37 passed, 3 skipped, 3 failed (p4 F11, F28 walk-through, F24 room), all 3 passed when re-run one at a time; data served from R2.

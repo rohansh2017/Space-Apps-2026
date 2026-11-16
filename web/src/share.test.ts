@@ -7,25 +7,29 @@ const defs = schema.constraints as ConstraintDef[]
 const defaults = Object.fromEntries(defs.map((d) => [d.id, d.default]))
 
 describe('shareable URL', () => {
-  it('round-trips site, point, time, changed constraints and mode, and keeps the room', () => {
+  it('round-trips site, point, time, changed constraints, and keeps the room', () => {
     const p = encodeShare(new URLSearchParams('room=tb-abc123'), {
       site: 'connecting-ridge', point: 241, utc: '2026-12-01T00:00:00.000Z',
-      constraints: { ...defaults, max_continuous_dark_hours: 60, landing_sun_and_earth_visible: false }, defs, mode: 'explorer',
+      constraints: { ...defaults, max_continuous_dark_hours: 60, landing_sun_and_earth_visible: false }, defs,
     })
     expect(p.get('room')).toBe('tb-abc123')
-    expect(p.toString()).toBe('room=tb-abc123&site=connecting-ridge&point=241&t=2026-12-01T00%3A00Z&c=max_continuous_dark_hours%3A60%2Clanding_sun_and_earth_visible%3Afalse&mode=explorer')
+    expect(p.toString()).toBe('room=tb-abc123&site=connecting-ridge&point=241&t=2026-12-01T00%3A00Z&c=max_continuous_dark_hours%3A60%2Clanding_sun_and_earth_visible%3Afalse')
     const d = decodeShare(p)
-    expect(d).toEqual({ site: 'connecting-ridge', point: 241, utc: '2026-12-01T00:00Z', constraints: { max_continuous_dark_hours: 60, landing_sun_and_earth_visible: false }, mode: 'explorer', pins: [], planInTray: false })
+    expect(d).toEqual({ site: 'connecting-ridge', point: 241, utc: '2026-12-01T00:00Z', constraints: { max_continuous_dark_hours: 60, landing_sun_and_earth_visible: false }, pins: [], planInTray: false })
     expect(Date.parse(d.utc!)).toBe(Date.parse('2026-12-01T00:00:00Z'))
   })
+  it('drops the retired mode parameter from old links (D77)', () => {
+    const p = encodeShare(new URLSearchParams('mode=explorer'), { site: 'haworth', point: null, utc: '2026-11-19T00:00:00.000Z', constraints: defaults, defs })
+    expect(p.has('mode')).toBe(false)
+  })
   it('leaves defaults out and ignores junk', () => {
-    const p = encodeShare(new URLSearchParams(), { site: 'haworth', point: null, utc: '2026-11-19T00:00:00.000Z', constraints: defaults, defs, mode: 'planner' })
+    const p = encodeShare(new URLSearchParams(), { site: 'haworth', point: null, utc: '2026-11-19T00:00:00.000Z', constraints: defaults, defs })
     expect(p.toString()).toBe('site=haworth&t=2026-11-19T00%3A00Z')
     expect(decodeShare(new URLSearchParams('point=abc&t=yesterday&c=nonsense,:5&mode=god&pins=x,haworth:9@abc&ref=x'))).toEqual({ constraints: {}, pins: [], planInTray: false })
   })
   it('round-trips pinned scenarios', () => {
     const pins = [{ point: 'change7-shackleton-rim:382', hour: 8112 }, { point: 'im2-mons-mouton:220', hour: 8064 }]
-    const p = encodeShare(new URLSearchParams(), { site: 'haworth', point: null, utc: '2026-11-19T00:00:00.000Z', constraints: defaults, defs, mode: 'planner', pins })
+    const p = encodeShare(new URLSearchParams(), { site: 'haworth', point: null, utc: '2026-11-19T00:00:00.000Z', constraints: defaults, defs, pins })
     expect(p.get('pins')).toBe('change7-shackleton-rim:382@8112,im2-mons-mouton:220@8064')
     expect(decodeShare(p).pins).toEqual(pins)
   })
@@ -43,7 +47,7 @@ it('only locations are stored, and a link with its own site wins over them', () 
 
 it('round-trips the baseline; a legacy live-plan column still decodes, and is never written', () => {
   const defs = [] as never[]
-  const p = encodeShare(new URLSearchParams(), { site: 'haworth', point: null, utc: '2026-11-19T00:00:00.000Z', constraints: {}, defs, mode: 'planner',
+  const p = encodeShare(new URLSearchParams(), { site: 'haworth', point: null, utc: '2026-11-19T00:00:00.000Z', constraints: {}, defs,
     pins: [{ point: 'haworth:3', hour: 7 }], ref: 'haworth:3@7' })
   expect(p.get('pins')).toBe('haworth:3@7')
   expect(decodeShare(p).ref).toBe('haworth:3@7')

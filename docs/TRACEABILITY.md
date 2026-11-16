@@ -17,11 +17,11 @@ Every requirement → where it is built → how it is tested. **32 done · 2 par
 | F6 | Constraint panel with presets | M | 4 | web/src/ConstraintPanel.tsx, presets.ts | e2e demo.spec.ts | done |
 | F7 | Constraint finder: ranked dates and nearby sites, pass/fail per constraint | M | 1, 2, 4 | web/src/engine/finder.ts, finder.worker.ts, Results.tsx | finder.test.ts, e2e demo.spec.ts | done (forward-only, D19) |
 | F8 | Plain-language difference from the original plan | M | 4, 7 | web/src/engine/finder.ts diffText | finder.test.ts, e2e demo.spec.ts | done (rows titled by difference, D47) |
-| F9 | Planner and Explorer modes | M | 7 | web/src/App.tsx, Summary.tsx, Hud.tsx, Glossary.tsx | e2e p3.spec.ts (Explorer mode) | done |
+| F9 | Planner and Explorer modes | M | 7 | web/src/App.tsx | - | removed (D77): Planner only |
 | F10 | Scenario matrix | S | 1, 2, 5 | web/src/Matrix.tsx | e2e p3.spec.ts (scenario matrix) | done |
 | F11 | Side-by-side comparison | S | 1, 5 | web/src/Tray.tsx (compare tray), App.tsx planDay/pinnedDays | e2e p4.spec.ts (F11) | done (plan + up to 3 pinned scenarios as a table, shared scrubber, adopt a pin as the plan, D27, D49, D50); snapshot pins, reorder by drag or Alt+arrows (D59) |
 | F12 | Lunar-day playback with trails | S | 6 | web/src/App.tsx (playback), Scene3D.tsx, Panorama.tsx | e2e p3.spec.ts (playback) | done |
-| F13 | Guided tour from tour.json | S | 7 | web/src/Tour.tsx, build/tour_src.json | e2e p4.spec.ts (F13) | done (outsider test of the tour still pending) |
+| F13 | Guided tour from tour.json, opened from the logo (D77) | S | 7 | web/src/Tour.tsx, App.tsx, build/tour_src.json | e2e p4.spec.ts (F13), a11y.spec.ts | done (outsider test of the tour still pending) |
 | F14 | Nudge control (100 m / 1 day) | S | 1, 2, 7 | web/src/App.tsx nudge, engine.ts nudgeNeighbour, Summary.tsx deltas | metrics.test.ts, e2e p4.spec.ts (F14) | done (500 m grid step, not 100 m: D26) |
 | F15 | Top-down illumination map | S | 5 | web/src/MoonView.tsx (Sunlight layer: filled 500 m cells at a site, tinted pins at the pole, D61), moon.ts gridStats, ramp.ts | e2e p4.spec.ts (F15) | done (sunlit % over the mission window, per 500 m cell, draped on the terrain; straight down by orbiting) |
 | F16 | Slope screening (numpy.gradient, checked vs LOLA slope map) | S | 1 | build/scripts/build_data.py slopes, finder max_slope_deg, build/scripts/validate_slopes.py | finder.test.ts (steep candidate fails), make validate (slopes section) | done (r ≥ 0.994, mean abs diff ≤ 0.33° at nine sites) |

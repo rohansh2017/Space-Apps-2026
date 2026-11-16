@@ -43,22 +43,6 @@ test('custom coordinates and map clicks snap to the grid and show the snap dista
   await page.screenshot({ ...shot('6-map-and-custom-point'), fullPage: true })
 })
 
-test('Explorer mode adds plain-English labels and glossary tooltips', async ({ page }) => {
-  await page.goto('/')
-  await expandPanels(page)
-  await expect(page.getByTestId('summary')).toContainText('Sunlit')
-  await expect(page.getByTestId('summary')).toContainText('Mean elevation while lit') // Planner only
-  await page.getByRole('button', { name: 'Explorer' }).click()
-  await expect(page.getByTestId('summary')).toContainText(/Sunny \d+% of the mission/)
-  await expect(page.getByTestId('summary')).toContainText(/Can call home \d+% of the time/)
-  await expect(page.getByTestId('summary')).not.toContainText('Mean elevation')
-  await expect(page.getByTestId('hud-words')).toContainText(/Sun/)
-  const term = page.getByTestId('term').first()
-  expect((await term.getAttribute('data-tip'))!.length).toBeGreaterThan(40)
-  await page.waitForTimeout(1200)
-  await page.screenshot(shot('7-explorer-mode'))
-})
-
 test('scenario matrix: sites by landing dates, click-through to 3D', async ({ page }) => {
   await page.goto('/')
   await expandPanels(page)
